@@ -1,0 +1,6 @@
+libdncommon-bash README
+=======================
+
+This is a suite of bash library functions.  They were written over time by the author for his personal use and later organised into a formal distribution.
+
+Some Vim-related files are provided in order to make it easier to write shellscript using these functions, including a dictionary file, some Vim functions and a filetype plugin.

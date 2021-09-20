@@ -1,0 +1,233 @@
+.\" Hey, EMACS: -*- nroff -*-
+.\" 
+.\" Filename: libdncommon-bash.1
+.\" Author:   David Nebauer
+.\" History:  2007-07-11 - created
+.\" 
+.\" For header (.TH), first parameter, NAME, should be all caps
+.\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
+.\" Other parameters are allowed: see man(7), man(1)
+.\" Please adjust the date whenever revising the manpage.
+.\" 
+.\" Some roff macros, for reference:
+.\" .nh        disable hyphenation
+.\" .hy        enable hyphenation
+.\" .ad l      left justify
+.\" .ad b      justify to both left and right margins
+.\" .nf        disable filling
+.\" .fi        enable filling
+.\" .br        insert line break
+.\" .sp <n>    insert n+1 empty lines
+.\" for manpage-specific macros, see man(7)
+.\" 
+.\" Formatting [see groff_char (7) for details]:
+.\" \(aq  : escape sequence for (')
+.\" ``    : left/open double quote
+.\" ''    : right/close double quote
+.\" `     : left/open single quote
+.\" '     : right/close single quote
+.\" \(em  : escape sequence for em dash
+.\" \(en  : escape sequence for en dash
+.\" \.    : escape sequence for period/dot
+.\" \fX   : escape sequence that changes font, where 'X' can be 'R|I|B|BI'
+.\"         (R = roman/normal | I = italic | B = bold | BI = bold-italic)
+.\" \fP   : switch to previous font
+.\"         in this case '\fR' could also have been used
+.\" .B    : following arguments are boldened
+.\" .I    : following arguments are italicised
+.\" .BI   : following arguments are bold alternating with italics
+.\" .BR   : following arguments are bold alternating with roman
+.\" .IB   : following arguments are italics alternating with bold
+.\" .IR   : following arguments are italics alternating with roman
+.\" .RB   : following arguments are roman alternating with bold
+.\" .RI   : following arguments are roman alternating with italics
+.\" .SM   : following arguments are small (scaled 9/10 of the regular size)
+.\" .SB   : following arguments are small bold (not small alternating with bold) 
+.\"         [note: if argument in alternating pattern contains whitespace,
+.\"                enclose in whitespace]
+.\" 
+.\" Bulleted list:
+.\"    A bulleted list:
+.\"    .IP \[bu] 2
+.\"    lawyers
+.\"    .IP \[bu]
+.\"    guns
+.\"    .IP \[bu]
+.\"    money
+.\" Numbered list:
+.\"    .nr step 1 1
+.\"    A numbered list:
+.\"    .IP \n[step] 3
+.\"    lawyers
+.\"    .IP \n+[step]
+.\"    guns
+.\"    .IP \n+[step]
+.\"    money
+.TH "LIBDNCOMMON-BASH" "1" "2007-07-11" "" "Libdncommon-bash Manual"
+.ds self libdncommon-bash
+.SH "NAME"
+\*[self] \- common library of bash routines 
+.SH "DESCRIPTION"
+\*[self] is a library of common bash routines used by the package author.  It also provides commonly used variables (see VARIABLES below).  These are defined in a configuration file (see FILES below).
+.PP 
+To source this library in a script packaged using autotools, use the following line:
+.RS 3
+source "@pkglib_dir@/liball"
+.RE
+.PP
+A number of supplementary tools are provided.  A perl data store containing function data is created (@pkgdata_dir@/perlfuncdata) for use by perl scripts.  One such tool,
+.BR dn-bashcom-funcdata ","
+is provided.  It enables the user to display data on a selected function (see manpage for further information).
+.PP
+A number of vim tools are also provided.  A vim script (@vim_libdncb@/funcload.vim) is provided that, when sourced, loads a dictionary variable (dnLibCommonBash) with function data.  A file (@vim_libdncb@/funcdict) containing a list of library function names is provided for use as a word dictionary.  A filetype plugin (@vim_ftplugin@/sh_libdncommon-bash.vim) for shell scripts loading a word dictionary, dictionary variable and some useful vim functions and mappings.  The plugin itself provides vim help which can be accessed via help tags \(aqft-sh-libdncommon-bash-ftplugin\(aq or \(aqlibdncommon-bash\(aq.
+.SH "VARIABLES"
+The following variables are provided by the global configuration file and read in by the \(aq@pkglib_dir@/libvariables\(aq file (array variables are indicated by \(aq[]\(aq):
+.SS convenience variables
+.IP \[bu] 2
+dn_self  (= name of calling script)
+.IP \[bu] 2
+dn_true
+.IP \[bu] 2
+dn_false
+.SS urls for internet connectivity
+.IP \[bu] 2
+dn_ping_urls
+.SS semantic fragments
+.IP \[bu] 2
+dn_query_prefix
+.IP \[bu]
+dn_prompt_prefix
+.IP \[bu]
+dn_divider
+.IP \[bu]
+dn_divider_top
+.IP \[bu]
+dn_divider_bottom
+.SS bash formatting: fonts
+.IP \[bu] 2
+dn_reset
+.IP \[bu]
+dn_fm_bold
+.IP \[bu]
+dn_fm_bold_off
+.IP \[bu]
+dn_fm_uline
+.IP \[bu]
+dn_fm_uline_off
+.IP \[bu]
+dn_fm_blink
+.IP \[bu]
+dn_fm_blink_off
+.IP \[bu]
+dn_fm_reverse
+.IP \[bu]
+dn_fm_reverse_off
+.IP \[bu]
+dn_fm_conceal
+.IP \[bu]
+dn_fm_conceal_off
+.SS bash formatting: foreground colour
+.IP \[bu] 2
+dn_fg_black
+.IP \[bu]
+dn_fg_lt_gray
+.IP \[bu]
+dn_fg_dk_gray
+.IP \[bu]
+dn_fg_red
+.IP \[bu]
+dn_fg_lt_red
+.IP \[bu]
+dn_fg_green
+.IP \[bu]
+dn_fg_lt_green
+.IP \[bu]
+dn_fg_brown
+.IP \[bu]
+dn_fg_yellow
+.IP \[bu]
+dn_fg_blue
+.IP \[bu]
+dn_fg_lt_blue
+.IP \[bu]
+dn_fg_purple
+.IP \[bu]
+dn_fg_lt_purple
+.IP \[bu]
+dn_fg_cyan
+.IP \[bu]
+dn_fg_lt_cyan
+.IP \[bu]
+dn_fg_white
+.SS ejectable optical drives
+.IP \[bu] 2
+dn_drive_names[]
+.IP \[bu]
+dn_drive_hotkeys[]
+.IP \[bu]
+dn_drive_paths[]
+.IP \[bu]
+dn_drive_dvd_maxs[]
+.SS dvd players
+.IP \[bu] 2
+dn_dvd_player_names[]
+.IP \[bu]
+dn_dvd_player_bins[]
+.IP \[bu]
+dn_dvd_player_params[]
+.IP \[bu]
+dn_dvd_player_device_prefixes[]
+.IP \[bu]
+dn_dvd_player_device_suffixes[]
+.IP \[bu]
+dn_dvd_player_hotkeys[]
+.SS dialogs
+.IP \[bu] 2
+dn_dlg_names[]
+.IP \[bu] 2
+dn_dlg_bins[]
+.IP \[bu] 2
+dn_dlg_cmds_info[]
+.IP \[bu] 2
+dn_dlg_cmds_warn[]
+.IP \[bu] 2
+dn_dlg_cmds_error[]
+.IP \[bu] 2
+dn_dlg_cmds_confirm[]
+.IP \[bu] 2
+dn_dlg_cmds_popup[]
+.IP \[bu] 2
+dn_dlg_popups_doing_newlines[]
+.IP \[bu] 2
+dn_dlg_popup_delay_multipliers[]
+.IP \[bu] 2
+dn_dlg_preferences[]
+.IP \[bu] 2
+dn_dlg_desktops[]
+.IP \[bu] 2
+dn_dvd_player_names[]
+.SH "FILES"
+.I @pkgdata_dir@/perlfuncdata
+.IP
+Perl data store of function information.
+.PP
+.I dn-bashcom-funcdata
+.IP
+Tool for querying perl data store and displaying function data.
+.PP
+.I @vim_libdncb@/funcdict
+.IP
+List of library function names for use as a vim word dictionary.
+.PP
+.I @vim_libdncb@/funcload.vim
+.IP
+Vim script loading a dictionary variable with function data.
+.PP
+.I @vim_ftplugin@/sh_libdncommon-bash.vim
+.IP
+Vim filetype plugin for shell scripts.
+.SH "AUTHOR"
+\*[self] was written by David Nebauer <david@nebauer.org>.
+.PP 
+This manual page was written by David Nebauer <david@nebauer.org>
+for the Debian project (but may be used by others).

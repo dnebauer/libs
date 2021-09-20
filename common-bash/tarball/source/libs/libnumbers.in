@@ -1,0 +1,173 @@
+#!/bin/bash
+
+# Suite: libdncommon-bash
+# File: libmaths
+# Author: David Nebauer
+# Purpose: Useful bash functions for working with numbers
+
+
+# Function: dnValidNonZeroPosInt                                     {{{1
+# Determine whether value is valid positive integer
+#   params: 1 - integer
+#   prints: nil
+#   return: 0|1 (valid|invalid)
+# fn_tag dnValidNonZeroPosInt purpose Determine whether value is a valid, non-zero, positive integer
+# fn_tag dnValidNonZeroPosInt prints NIL
+# fn_tag dnValidNonZeroPosInt returns Whether value is a valid, non-zero, positive integer (Boolean)
+# fn_tag dnValidNonZeroPosInt param integer purpose Value to be tested
+# fn_tag dnValidNonZeroPosInt param integer required yes
+# fn_tag dnValidNonZeroPosInt param integer multipart no
+# fn_tag dnValidNonZeroPosInt param integer type integer
+dnValidNonZeroPosInt () {
+	[ $( echo "${1}" | grep -c -- "^[1-9][[:digit:]]*$" ) -eq 1 ]
+	return ${?}
+}
+# Function: dnValidPosInteger                                        {{{1
+# Determine whether value is valid positive integer
+#   params: 1 - integer
+#   prints: nil
+#   return: 0|1 (valid|invalid)
+# fn_tag dnValidPosInteger purpose Determine whether value is a valid positive integer
+# fn_tag dnValidPosInteger prints NIL
+# fn_tag dnValidPosInteger returns Whether value is a valid positive integer (Boolean)
+# fn_tag dnValidPosInteger note Zero is considered a positive integer
+# fn_tag dnValidPosInteger param integer purpose Value to be tested
+# fn_tag dnValidPosInteger param integer required yes
+# fn_tag dnValidPosInteger param integer multipart no
+# fn_tag dnValidPosInteger param integer type integer
+dnValidPosInteger () {
+	[ $( echo "${1}" | grep -c -- "^0$\|^[1-9][[:digit:]]*$" ) -eq 1 ]
+	return ${?}
+}
+# Function: dnValidNumber                                            {{{1
+# Determine whether value is valid number
+#   params: 1 - number
+#   prints: nil
+#   return: 0|1 (valid|invalid)
+# fn_tag dnValidNumber purpose Determine whether value is a valid number
+# fn_tag dnValidNumber prints NIL
+# fn_tag dnValidNumber returns Whether value is a valid number (Boolean)
+# fn_tag dnValidNumber param number purpose Value to be tested
+# fn_tag dnValidNumber param number required yes
+# fn_tag dnValidNumber param number multipart no
+# fn_tag dnValidNumber param number type number
+dnValidNumber () {
+	[ $( echo "${1}" | grep -c -- "^0$\|^-\?[1-9][[:digit:]]*$\|^-\?0\.[[:digit:]]\+$\|^-\?[1-9][[:digit:]]*\.[[:digit:]]\+$" ) -eq 1 ]
+	return ${?}
+}
+# Remove leading minus sign
+#   params: 1 - integer
+#   prints: integer without any leading minus sign
+#   return: nil
+# fn_tag dnRemoveLeadingMinus purpose Remove leading minus sign from number
+# fn_tag dnRemoveLeadingMinus prints Edited number
+# fn_tag dnRemoveLeadingMinus returns NIL
+# fn_tag dnRemoveLeadingMinus param number purpose Number to be edited
+# fn_tag dnRemoveLeadingMinus param number required yes
+# fn_tag dnRemoveLeadingMinus param number multipart no
+# fn_tag dnRemoveLeadingMinus param number type number
+dnRemoveLeadingMinus () { echo "$( echo "${1}" | sed -e 's/^-//' )"; }
+# Function: dnValidGeometry                                          {{{1
+# Determine whether value is valid X11 geometry value ([+-]integer)
+#   params: 1 - value
+#   prints: nil
+#   return: 0|1 (valid|invalid)
+# fn_tag dnValidGeometry purpose Determine whether value is a valid X11 geometry value
+# fn_tag dnValidGeometry prints NIL
+# fn_tag dnValidGeometry returns Whether value is valid X11 geometry value (Boolean)
+# fn_tag dnValidGeometry note An X11 geometry value is defined in this function as: '[+-]int' where 'int' is a valid positive integer
+# fn_tag dnValidGeometry param value purpose Value to be tested
+# fn_tag dnValidGeometry param value required yes
+# fn_tag dnValidGeometry param value multipart no
+# fn_tag dnValidGeometry param value type integer
+dnValidGeometry () {
+	[ $( echo "${1}" | grep -c -- "^[+-]0$\|^[+-][1-9][[:digit:]]*$" ) -eq 1 ]
+	return ${?}
+}
+# Function: dnIncrement                                              {{{1
+# Increment number
+#   params: 1 - number to increment
+#           2 - value of increment (optional, default=1)
+#   prints: incremented value
+#   return: boolean (0=success|1=error)
+# fn_tag dnIncrement purpose Increment number
+# fn_tag dnIncrement prints Incremented number
+# fn_tag dnIncrement returns Whether value was successfully incremented (Boolean)
+# fn_tag dnIncrement param number purpose Number to be incremented
+# fn_tag dnIncrement param number required yes
+# fn_tag dnIncrement param number multipart no
+# fn_tag dnIncrement param number type number
+# fn_tag dnIncrement param increment purpose Size of increment
+# fn_tag dnIncrement param increment required yes
+# fn_tag dnIncrement param increment multipart no
+# fn_tag dnIncrement param increment type integer
+# fn_tag dnIncrement param increment default 1
+dnIncrement () {
+	local val="${1}" increment="${2:-1}"
+	dnValidNumber "${val}" &> /dev/null || return 1
+	echo "$(( val + increment ))"
+}
+# Function: dnDecrement                                              {{{1
+# Increment number
+#   params: 1 - number to decrement
+#           2 - value of decrement (optional, default=1)
+#   prints: decremented value
+#   return: boolean (0=success|1=error)
+# fn_tag dnDecrement purpose Decrement number
+# fn_tag dnDecrement prints Decremented number
+# fn_tag dnDecrement returns Whether value was successfully decremented (Boolean)
+# fn_tag dnDecrement param number purpose Number to be decremented
+# fn_tag dnDecrement param number required yes
+# fn_tag dnDecrement param number multipart no
+# fn_tag dnDecrement param number type number
+# fn_tag dnDecrement param decrement purpose Size of decrement
+# fn_tag dnDecrement param decrement required yes
+# fn_tag dnDecrement param decrement multipart no
+# fn_tag dnDecrement param decrement type integer
+# fn_tag dnDecrement param decrement default 1
+dnDecrement () {
+	local val="${1}" decrement="${2:-1}"
+	dnValidNumber "${val}" &> /dev/null || return 1
+	echo "$(( val - decrement ))"
+}
+# Function: dnFlagTrue                                               {{{1
+# Check if flag variable equal to zero
+#   params: 1 - flag variable
+#   prints: nil
+#   return: boolean (0=flag true|1=flag false)
+# fn_tag dnFlagTrue purpose Check if flag value is true (equal to zero)
+# fn_tag dnFlagTrue prints NIL
+# fn_tag dnFlagTrue returns Whether flag is true (Boolean)
+# fn_tag dnFlagTrue param flag purpose Value to be tested
+# fn_tag dnFlagTrue param flag required yes
+# fn_tag dnFlagTrue param flag multipart no
+# fn_tag dnFlagTrue param flag type integer
+dnFlagTrue () {
+	[ ${#} -gt 0 ] || return 1  # empty flag variable is false
+	return ${1}
+}
+
+# }}}1
+# Function: dnToggleFlag                                             {{{1
+# Toggle flag value
+#   params: 1 - flag variable
+#   prints: inverted flag value
+#   return: inverted flag value -- boolean (0|1)
+# fn_tag dnToggleFlag purpose Invert value of flag
+# fn_tag dnToggleFlag prints Inverted flag value (Boolean)
+# fn_tag dnToggleFlag returns Inverted flag value (Boolean)
+# fn_tag dnToggleFlag note A flag value of zero (true) is converted to '1' (false).  *All* other values, whether numeric or string, are converted to '0' (true).
+# fn_tag dnToggleFlag param flag purpose Value to be inverted
+# fn_tag dnToggleFlag param flag required yes
+# fn_tag dnToggleFlag param flag multipart no
+# fn_tag dnToggleFlag param flag type string
+dnToggleFlag () { 
+	case ${1} in
+		0 ) echo '1' ; return 1;;
+		* ) echo '0' ; return 0;;
+	esac
+}
+
+# }}}1
+
+# vim: set foldmethod=marker :

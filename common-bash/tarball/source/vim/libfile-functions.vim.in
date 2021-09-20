@@ -1,0 +1,566 @@
+" Function:    Vim filetype plugin for shellscript (auxillary)
+" Last Change: 2013-06-30
+" Maintainer:  David Nebauer <david@nebauer.org>
+" License:     Public domain
+
+" ========================================================================
+
+" 1. FUNCTIONS                                                        {{{1
+
+" Function:   abort                                                   {{{2
+" Purpose:    common tasks on exit from Dn_AddFnTags
+" Parameters: 1 - Warning message
+"             2 - 'More' attribute's initial status
+" Prints:     supplied messages
+" Returns:    nil
+function! s:abort( msg, more )
+    " print message
+    call dn#util#warn( a:msg )
+    " restore 'more' setting
+    let &more = a:more
+endfunction
+" ------------------------------------------------------------------------
+" Function:   addFnTags                                               {{{2
+" Purpose:    adding function tags to libdncommon-bash library files
+" Parameters: nil
+" Prints:     tags (string, multi-line)
+" Returns:    nil
+function! s:addFnTags()
+    " settings
+    let l:more = &more
+    set nomore
+    " variables
+    let l:yn = { 'Yes': 1, 'No': 0 }
+    " - option and parameter value types
+    "   . 'none' is used for options only
+    "   . it means there is no value for option flag
+    let l:types = { 'None'   : 'none'   , 'String': 'string',
+                \   'Integer': 'integer', 'Number': 'number',
+                \   'Boolean': 'boolean', 'Path'  : 'path'  ,
+                \   'Date'   : 'date'   , 'Time ' : 'time'  ,
+                \ }
+    " - ways to deal with required option that has default value
+    let l:fixes = { "Keep 'required' and remove default"  : 'required',
+                \   "Keep default value and make optional": 'default' ,
+                \   "Keep as is and ignore inconsistency" : 'none'    ,
+                \ }
+    " get function attributes
+    let l:fn = {}  " function object
+    " - note: below get input on new lines, rather than on same line as input
+    "         prompt
+    " - note: this is because if you get input on same line as the
+    "         prompt the next input prompt can overwrite the previous input
+    " - note: so, getting input on a separate line is just cleaner
+    " get function name
+    echo            "Adding function tags.\n"
+                \ . "You will be asked for various function attributes.\n"
+                \ . "Each answer is either required or optional.\n"
+                \ . "Some attributes can have multiple values.\n"
+                \ . "Giving a null/blank answer to a required attribute will abort.\n"
+    " get function name
+    let l:msg = "Function name [required]: "
+    let l:fn.name = input( l:msg, expand( '<cword>' ) )
+    if l:fn.name == '' | call s:abort( "\nAborting", l:more ) | return
+    endif
+    echo 'Function = ' . l:fn.name
+    " get function purpose
+    echo 'Purpose [required]: '
+    let l:fn.purpose = input( '' )
+    if l:fn.purpose == '' | call s:abort( "Aborting", l:more ) | return
+    endif
+    " get function print output
+    echo "\nPrints [required]: "
+    let l:fn.prints = input( '', 'NIL' )
+    if l:fn.prints == '' | call s:abort( "Aborting", l:more ) | return
+    endif
+    " get function return values
+    echo "\nReturns [required]: "
+    echo "Example value: 'Whether dialog type selected (Boolean)'"
+    let l:fn.returns = input( '', 'NIL' )
+    if l:fn.returns == '' | call s:abort( "Aborting", l:more ) | return
+    endif
+    " get function usage
+    echo "\nUsage [optional, multi-value]: "
+    let l:fn.usages = []
+    while 1
+        let l:input = input( '' )
+        if l:input == '' | break | endif
+        if count( l:fn.usages, l:input )
+            echo "\n" | call dn#util#error( "Value already entered" )
+        else
+            call add( l:fn.usages, l:input )
+        endif
+    endwhile
+    " - provide feedback
+    if len( l:fn.usages ) > 0
+        for l:usage in l:fn.usages | echo l:usage | endfor
+    else
+        let l:msg = "No usage examples added"
+        unlet l:fn.usages | call dn#util#warn( l:msg )
+    endif
+    " get function notes
+    echo "Note [optional, multi-value]: "
+    let l:fn.notes = []
+    while 1
+        let l:input = input( '' )
+        if l:input == '' | break | endif
+        if count( l:fn.notes, l:input )
+            echo "\n" | call dn#util#error( "Value already entered" )
+        else
+            call add( l:fn.notes, l:input )
+        endif
+    endwhile
+    " - provide feedback
+    if len( l:fn.notes ) > 0
+        for l:note in l:fn.notes | echo l:note | endfor
+    else
+        let l:msg = "No notes added"
+        unlet l:fn.notes | call dn#util#warn( l:msg )
+    endif
+    " add options
+    let l:fn.opts = []
+    let l:msg = "Does this function have option(s)?"
+    let l:enter_opts = dn#util#menuSelect( l:yn, l:msg )
+    if len( l:enter_opts ) == 0
+        call s:abort( "Aborting", l:more )
+        return
+    endif
+    while l:enter_opts
+        " inside loop to add a single option
+        let l:opt = {}
+        echo "Now entering a new option"
+        echo "Entering a blank/empty required value aborts option creation"
+        " get option flag
+        echo "Options have the form '-x [value]'"
+        while 1
+            let l:opt.flag = input( 'Enter option flag [required]: ' )
+            echo "\n"
+            " break if no input (abort)
+            if len( l:opt.flag ) == 0
+                call dn#util#warn( "Option entry aborted" )
+                break
+            endif
+            " break if single character (success)
+            if len( l:opt.flag ) == 1
+                " check that flag not already used
+                let l:unused = 1
+                for l:prev_opt in l:fn.opts
+                    if l:prev_opt.flag == l:opt.flag | let l:unused = 0 | endif
+                endfor
+                if l:unused | break
+                else        | call dn#util#error( "Flag is already defined" )
+                endif
+            endif
+            if len( l:opt.flag ) > 1
+                call dn#util#error( "Flag must be a single character" )
+            endif
+        endwhile  " option flag input loop
+        if l:opt.flag == '' | break | endif
+        echo "Function = " . l:fn.name . " ; option = '-" . l:opt.flag . "'"
+        " get option purpose
+        echo 'Option purpose [required]: '
+        let l:opt.purpose = input( '' )
+        if l:opt.purpose == ''
+            call dn#util#warn( "Aborting option creation" )
+            break
+        endif
+        " is option required?
+        echo "\n" | " \n not honoured if passed to menu as part of prompt
+        let l:msg = "Option is required? [required]"
+        let l:opt.required = dn#util#menuSelect( l:yn, l:msg )
+        if len( l:opt.required ) == 0
+            call dn#util#warn( "Aborting option creation" )
+            break
+        endif
+        let l:msg = l:opt.required ? 'required' : 'optional'
+        echo "Option is " . l:msg
+        " is option multiple?
+        let l:msg = "Option can be used multiple times? [required]"
+        let l:opt.multiple = dn#util#menuSelect( l:yn, l:msg )
+        if len( l:opt.multiple ) == 0
+            call dn#util#warn( "Aborting option creation" )
+            break
+        endif
+        let l:msg = l:opt.multiple ? 'multiple times' : 'once'
+        echo "Option can be used only " . l:msg
+        " get option type
+        let l:msg = "Option type? [required]"
+        let l:opt.type = dn#util#menuSelect( l:types, l:msg )
+        if len( l:opt.type ) == 0
+            call dn#util#warn( "Aborting option creation" )
+            break
+        endif
+        echo "Option type is '" . l:opt.type . "'"
+        " not all options have values
+        if l:opt.type !=? 'none'
+            " get option values
+            let l:opt.values = []
+            echo "Option values [optional, multi-value]: "
+            while 1
+                let l:input = input( '' )
+                if l:input == '' | break | endif
+                if count( l:opt.values, l:input )
+                    echo "\n" | call dn#util#error( "Value already entered" )
+                else
+                    call add( l:opt.values, l:input )
+                endif
+            endwhile
+            " - provide feedback
+            if len( l:opt.values ) > 0
+                for l:value in l:opt.values | echo l:value | endfor
+            else
+                let l:msg = "No option values added"
+                unlet l:opt.values | call dn#util#warn( l:msg )
+            endif
+            " get option default
+            let l:opt.default = ''
+            " - can select existing value
+            if has_key( l:opt, 'values' )
+                if len( l:opt.values ) == 1  " check if this is default
+                    let l:msg = "Set '" . l:opt.values[0]
+                                \ . "' as default? [optional]"
+                    if dn#util#menuSelect( l:yn, l:msg )
+                        let l:opt.default = l:opt.values[0]
+                        echo "Option default value set to '" . l:opt.default . "'"
+                    else
+                        call dn#util#warn( "Singleton value not set to default" )
+                    endif
+                endif
+                if len( l:opt.values ) > 1  " select default
+                    let l:msg = 'Select value as option default [optional]:'
+                    let l:opt.default = dn#util#menuSelect( l:opt.values, l:msg )
+                    if l:opt.default != ''
+                        echo "Option default value set to '" . l:opt.default . "'"
+                    else
+                        call dn#util#warn( "No value set to default" )
+                    endif
+                endif
+            endif
+            " - or enter new default
+            if l:opt.default == ''
+                echo "Option default [optional]: "
+                let l:opt.default = input('')
+                if l:opt.default != '' | echo "\n" | endif
+            endif
+            if l:opt.default == ''
+                unlet l:opt.default
+                call dn#util#warn( 'No option default added' )
+            endif
+            " - deal with possible logical inconsistency
+            if l:opt.required && has_key( l:opt, 'default' )
+                call dn#util#warn( "Warning: Logical inconsistency" )
+                let l:msg = "Option has a default value but is still required"
+                call dn#util#warn( l:msg )
+                let l:msg = 'What do you want to do?'
+                let l:fix = dn#util#menuSelect( l:fixes, l:msg )
+                if     l:fix == 'required'  " remove default value
+                    unlet l:opt.default
+                    call dn#util#warn( "Removed option's default value" )
+                elseif l:fix == 'default'  " make optional
+                    let l:opt.required = 0
+                    call dn#util#warn( "Changed from required to optional" )
+                elseif l:fix == 'none'
+                    call dn#util#warn( "Inconsistency remains unresolved" )
+                endif
+            endif
+        endif  " if l:opt.type ==? 'none'
+        " get option notes
+        let l:opt.notes = []
+        echo "Option note [optional, multi-value]: "
+        while 1
+            let l:input = input( '' )
+            if l:input == '' | break | endif
+            if count( l:opt.notes, l:input )
+                echo "\n" | call dn#util#error( "Value already entered" )
+            else
+                call add( l:opt.notes, l:input )
+            endif
+        endwhile
+        " - provide feedback
+        if len( l:opt.notes ) > 0
+            for l:note in l:opt.notes | echo l:note | endfor
+        else
+            let l:msg = "No option notes added"
+            unlet l:opt.notes | call dn#util#warn( l:msg )
+        endif
+        " option is complete
+        echo "Option '-" . l:opt.flag . "' completed"
+        call add( l:fn.opts, deepcopy( l:opt ) )
+        unlet l:opt
+    endwhile
+    if len( l:fn.opts ) == 0
+        unlet l:fn.opts | call dn#util#warn( "No options added" )
+    endif
+    " add parameters
+    unlet l:types.None  " parameter cannot be of type 'None'
+    let l:fn.params = []
+    let l:msg = "Does this function have parameter(s)?"
+    let l:enter_param = dn#util#menuSelect( l:yn, l:msg )
+    if len( l:enter_param ) == 0
+        call s:abort( "Aborting", l:more )
+        return
+    endif
+    while l:enter_param
+        let l:par = {}
+        echo "Now entering a new parameter"
+        echo "Entering a blank/empty required value aborts parameter creation"
+        " get parameter name
+        while 1
+            let l:par.name = input( 'Enter parameter name [required]: ' ) | echo "\n"
+            " break if no input (abort)
+            if len( l:par.name ) == 0
+                call dn#util#warn( "Parameter entry aborted" )
+                break
+            endif
+            " break if entered name (success)
+            " - but only if name not already used
+            let l:unused = 1
+            for l:prev_par in l:fn.params
+                if l:prev_par.name == l:par.name | let l:unused = 0 | endif
+            endfor
+            if l:unused | break
+            else        | call dn#util#error( "Name is already defined" )
+            endif
+        endwhile  " parameter name input loop
+        if l:par.name == '' | break | endif
+        echo "Function = " . l:fn.name . " ; param = '" . l:par.name . "'"
+        " get parameter purpose
+        echo 'Parameter purpose [required]: '
+        let l:par.purpose = input( '' )
+        if l:par.purpose == ''
+            call dn#util#warn( "Aborting parameter creation" )
+            break
+        endif
+        " is parameter required
+        echo "\n" | " \n not honoured if passed to menu as part of prompt
+        let l:msg = "Parameter is required? [required]"
+        let l:par.required = dn#util#menuSelect( l:yn, l:msg )
+        if len( l:par.required ) == 0
+            call dn#util#warn( "Aborting parameter creation" )
+            break
+        endif
+        let l:msg = l:par.required ? 'required' : 'optional'
+        echo "Parameter is " . l:msg
+        " is parameter multipart
+        let l:msg = "Parameter is multi-part? [required]"
+        let l:par.multipart = dn#util#menuSelect( l:yn, l:msg )
+        if len( l:par.multipart ) == 0
+            call dn#util#warn( "Aborting parameter creation" )
+            break
+        endif
+        let l:msg = l:par.multipart ? 'multi-part' : 'singular'
+        echo "Parameter is " . l:msg
+        " parameter type
+        let l:msg = "Parameter type? [required]"
+        let l:par.type = dn#util#menuSelect( l:types, l:msg )
+        if len( l:par.type ) == 0
+            call dn#util#warn( "Aborting parameter creation" )
+            break
+        endif
+        echo "Parameter type is '" . l:par.type . "'"
+        " get parameter values
+        let l:par.values = []
+        echo "Parameter values [optional, multi-value]: "
+        while 1
+            let l:input = input( '' )
+            if l:input == '' | break | endif
+            if count( l:par.values, l:input )
+                echo "\n" | call dn#util#error( "Value already entered" )
+            else
+                call add( l:par.values, l:input )
+            endif
+        endwhile
+        " - provide feedback
+        if len( l:par.values ) > 0
+            for l:value in l:par.values | echo l:value | endfor
+        else
+            let l:msg = "No parameter values added"
+            unlet l:par.values | call dn#util#warn( l:msg )
+        endif
+        " get parameter default
+        let l:par.default = ''
+        " - can select existing value
+        if has_key( l:par, 'values' )
+            if len( l:par.values ) == 1  " check if this is default
+                let l:msg = "Set '" . l:par.values[0]
+                            \ . "' as default? [optional]"
+                if dn#util#menuSelect( l:yn, l:msg )
+                    let l:par.default = l:par.values[0]
+                    echo "Parameter default value set to '"
+                                \ . l:par.default . "'"
+                else
+                    call dn#util#warn( "Singleton value not set to default" )
+                endif
+            endif
+            if len( l:par.values ) > 1  " select default
+                let l:msg = 'Parameter default [optional]:'
+                let l:par.default = dn#util#menuSelect( l:par.values, l:msg )
+                if l:par.default != ''
+                    echo "Parameter default value set to '"
+                                \ . l:par.default . "'"
+                else
+                    call dn#util#warn( "No value set to default" )
+                endif
+            endif
+        endif
+        " - or enter new default
+        if l:par.default == ''
+            echo "Parameter default [optional]: "
+            let l:par.default = input('')
+            if l:par.default != '' | echo "\n" | endif
+        endif
+        if l:par.default == ''
+            unlet l:par.default
+            call dn#util#warn( 'No parameter default added' )
+        endif
+        " - deal with possible logical inconsistency
+        if l:par.required && has_key( l:par, 'default' )
+            call dn#util#warn( "Warning: Logical inconsistency" )
+            let l:msg = "Parameter has a default value but is still required"
+            call dn#util#warn( l:msg )
+            let l:msg = 'What do you want to do?'
+            let l:fix = dn#util#menuSelect( l:fixes, l:msg )
+            if     l:fix == 'required'  " remove default value
+                unlet l:par.default
+                call dn#util#warn( "Removed parameter's default value" )
+            elseif l:fix == 'default'  " make optional
+                let l:par.required = 0
+                call dn#util#warn( "Changed from required to optional" )
+            elseif l:fix == 'none'
+                call dn#util#warn( "Inconsistency remains unresolved" )
+            endif
+        endif
+        " get parameter notes
+        let l:par.notes = []
+        echo "Parameter note [optional, multi-value]: "
+        while 1
+            let l:input = input( '' )
+            if l:input == '' | break | endif
+            if count( l:par.notes, l:input )
+                echo "\n" | call dn#util#error( "Value already entered" )
+            else
+                call add( l:par.notes, l:input )
+            endif
+        endwhile
+        " - provide feedback
+        if len( l:par.notes ) > 0
+            for l:note in l:par.notes | echo l:note | endfor
+        else
+            let l:msg = "No parameter notes added"
+            unlet l:par.notes | call dn#util#warn( l:msg )
+        endif
+        " parameter is complete
+        echo "Parameter '" . l:par.name . "' completed"
+        call add( l:fn.params, deepcopy( l:par ) )
+        unlet l:par
+    endwhile
+    if len( l:fn.params ) == 0
+        unlet l:fn.params | call dn#util#warn( "No parameters added" )
+    endif
+    " generate function tag output
+    let l:ft = []  " list of function tag lines
+    " - purpose [required]
+    call add( l:ft, '# fn_tag ' . l:fn.name . ' purpose ' . l:fn.purpose )
+    " - prints [required]
+    call add( l:ft, "# fn_tag " . l:fn.name . ' prints ' . l:fn.prints )
+    " - returns [required]
+    call add( l:ft, "# fn_tag " . l:fn.name . ' returns ' . l:fn.returns )
+    " - usages [optional, multi-value]
+    if has_key( l:fn, 'usages' )
+        for l:usage in l:fn.usages
+            call add( l:ft, "# fn_tag " . l:fn.name . ' usage ' . l:usage )
+        endfor
+    endif
+    " - notes [optional, multi-value]
+    if has_key( l:fn, 'notes' )
+        for l:note in l:fn.notes
+            call add( l:ft, "# fn_tag " . l:fn.name . ' note ' . l:note )
+        endfor
+    endif
+    " - options [optional, multi-value]
+    if has_key( l:fn, 'opts' )
+        for l:opt in l:fn.opts
+            let l:stem = "# fn_tag " . l:fn.name . ' option ' . l:opt.flag
+            " - option purpose [required]
+            call add( l:ft, l:stem . ' purpose ' . l:opt.purpose )
+            " - option required [required]
+            let l:msg = l:opt.required ? 'yes' : 'no'
+            call add( l:ft, l:stem . ' required ' . l:msg )
+            " - option multiple [required]
+            let l:msg = l:opt.multiple ? 'yes' : 'no'
+            call add( l:ft, l:stem . ' multiple ' . l:msg )
+            " - option type [required]
+            call add( l:ft, l:stem . ' type ' . l:opt.type )
+            " - option values [optional, multi-value]
+            if has_key( l:opt, 'values' )
+                for l:val in l:opt.values
+                    call add( l:ft, l:stem . ' value ' . l:val )
+                endfor
+            endif
+            " - option default [optional]
+            if has_key( l:opt, 'default' )
+                call add( l:ft, l:stem . ' default ' . l:opt.default )
+            endif
+            " - option notes [optional, multi-value]
+            if has_key( l:opt, 'notes' )
+                for l:note in l:opt.notes
+                    call add( l:ft, l:stem . ' note ' . l:note )
+                endfor
+            endif
+        endfor
+    endif
+    " - parameters [optional, multi-value]
+    if has_key( l:fn, 'params' )
+        for l:par in l:fn.params
+            let l:stem = "# fn_tag " . l:fn.name . ' param ' . l:par.name
+            " - parameter purpose [required]
+            call add( l:ft, l:stem . ' purpose ' . l:par.purpose )
+            " - parameter required [required]
+            let l:msg = l:par.required ? 'yes' : 'no'
+            call add( l:ft, l:stem . ' required ' . l:msg )
+            " - parameter multipart [required]
+            let l:msg = l:par.multipart ? 'yes' : 'no'
+            call add( l:ft, l:stem . ' multipart ' . l:msg )
+            " - parameter type [required]
+            call add( l:ft, l:stem . ' type ' . l:par.type )
+            " - parameter values [optional, multi-value]
+            if has_key( l:par, 'values' )
+                for l:val in l:par.values
+                    call add( l:ft, l:stem . ' value ' . l:val )
+                endfor
+            endif
+            " - parameter default [optional]
+            if has_key( l:par, 'default' )
+                call add( l:ft, l:stem . ' default ' . l:par.default )
+            endif
+            " - parameter notes [optional, multi-value]
+            if has_key( l:par, 'notes' )
+                for l:note in l:par.notes
+                    call add( l:ft, l:stem . ' note ' . l:note )
+                endfor
+            endif
+        endfor
+    endif
+    " print function tag lines
+    call append( line( "." ) - 1, l:ft )
+    " restore settings
+    let &more = l:more
+endfunction
+
+" ------------------------------------------------------------------------
+
+" 2. MAPPINGS                                                         {{{1
+
+" - add function tags                                                 {{{2
+if !hasmapto( '<Plug>DbnAFI' )
+    imap <buffer> <unique> <LocalLeader>a <Plug>DbnAFI
+endif
+imap <buffer> <unique> <Plug>DbnAFI <Esc>:call <SID>addFnTags()<CR>
+if !hasmapto( '<Plug>DbnAFN' )
+    nmap <buffer> <unique> <LocalLeader>a <Plug>DbnAFN
+endif
+nmap <buffer> <unique> <Plug>DbnAFN :call <SID>addFnTags()<CR>
+
+" }}}1
+
+" vim: set foldmethod=marker :

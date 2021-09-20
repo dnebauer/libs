@@ -1,0 +1,34 @@
+Format: 1.8
+Date: Wed, 22 Apr 2015 18:15:13 +0930
+Source: libmoosex-makeimmutable-perl
+Binary: libmoosex-makeimmutable-perl
+Architecture: source all
+Version: 0.02-1
+Distribution: unstable
+Urgency: low
+Maintainer: David Nebauer <david@hezmana.cogito.loc>
+Changed-By: David Nebauer <david@hezmana.cogito.loc>
+Description:
+ libmoosex-makeimmutable-perl - Make many Moosen immutable (or mutable) in one shot
+Closes: 101
+Changes:
+ libmoosex-makeimmutable-perl (0.02-1) unstable; urgency=low
+ .
+   * Local package
+   * Initial release
+   * Closes: #101
+Checksums-Sha1:
+ 7dfe01edf6b8f66b22012a2ebfe50fd1ff855ec9 1143 libmoosex-makeimmutable-perl_0.02-1.dsc
+ 70e049441000255533757d31696592e25b072294 24320 libmoosex-makeimmutable-perl_0.02.orig.tar.gz
+ 420d11b8129f158c6230546e21a62f682baa3e6a 1676 libmoosex-makeimmutable-perl_0.02-1.debian.tar.xz
+ 41c431416702bd4e64bba520e79c4d6bb806954d 10052 libmoosex-makeimmutable-perl_0.02-1_all.deb
+Checksums-Sha256:
+ cb4bdd62238e8d9d4d829f156b75853b3a5f5ad5ef0753b5c9a9cabd0abcfa71 1143 libmoosex-makeimmutable-perl_0.02-1.dsc
+ 4bfd6cbd6cc00174480bb2bc6f79a13a9ea7c67ddb8381e804f6df6db098fbf9 24320 libmoosex-makeimmutable-perl_0.02.orig.tar.gz
+ eadb53e1537dc1e2c81865d02e4d13e5055d2ac3be73620625335696db5bd9f8 1676 libmoosex-makeimmutable-perl_0.02-1.debian.tar.xz
+ 91ca2bffc0b83216c0f28c78e0efd48ab00cd6eee0770bd3d2226a9331c2f9d8 10052 libmoosex-makeimmutable-perl_0.02-1_all.deb
+Files:
+ 2335b9ff3bd8b208e6d1bacb59d4cec4 1143 perl optional libmoosex-makeimmutable-perl_0.02-1.dsc
+ 0f601336d83b84e863d2e2a362428d3b 24320 perl optional libmoosex-makeimmutable-perl_0.02.orig.tar.gz
+ 6687f2cc35543c5de64c500777242d1a 1676 perl optional libmoosex-makeimmutable-perl_0.02-1.debian.tar.xz
+ 89ecc8ff685d3c72ebd9611e96c30fa8 10052 perl optional libmoosex-makeimmutable-perl_0.02-1_all.deb

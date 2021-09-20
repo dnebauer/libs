@@ -1,0 +1,1031 @@
+#!/bin/bash
+
+# Suite: libdncommon-bash
+# File: libprogram-interaction
+# Author: David Nebauer
+# Purpose: Useful bash functions for interacting with other programs
+
+
+# Function: dnToolAvailable                                          {{{1
+# Checks that tool (executable) is available (using 'which')
+#   params: 1 - executable name
+#   prints: nil
+#   return: 0|1 (exists|not exists)
+# fn_tag dnToolAvailable purpose Checks whether a tool is available
+# fn_tag dnToolAvailable prints NIL
+# fn_tag dnToolAvailable returns Whether tool exists (Boolean)
+# fn_tag dnToolAvailable note Uses 'which' to check for executable
+# fn_tag dnToolAvailable param executable purpose Name of executable to check for
+# fn_tag dnToolAvailable param executable required yes
+# fn_tag dnToolAvailable param executable multipart no
+# fn_tag dnToolAvailable param executable type string
+dnToolAvailable () {
+	which "${1}" 2>&1 /dev/null
+	return ${?}
+}
+# Function: dnToolsAvailable                                         {{{1
+# Checks for all needed tools
+#   params: list of tools
+#   prints: message listing missing tools
+#   return: 0|1 (tools all present|tools NOT all present)
+#   invoke: dnToolsAvailable "${tools_list}" || dnEndScript
+#   needs:  functions [dnToolAvailable]
+# fn_tag dnToolsAvailable purpose Checks list of tools to determine whether all are available
+# fn_tag dnToolsAvailable prints Message listing missing tools
+# fn_tag dnToolsAvailable returns Whether all tools are available (Boolean)
+# fn_tag dnToolsAvailable usage dnToolsAvailable "${tools_list}" || dnEndScript
+# fn_tag dnToolsAvailable note Uses function 'dnToolAvailable' for each tool
+# fn_tag dnToolsAvailable param executable purpose Name of executable to check
+# fn_tag dnToolsAvailable param executable required yes
+# fn_tag dnToolsAvailable param executable multipart yes
+# fn_tag dnToolsAvailable param executable type string
+dnToolsAvailable () {
+	local tool="" retval=0
+	# check for tools
+	for tool in ${1} ; do
+		if ! dnToolAvailable "${tool}" ; then
+			retval=1
+			echo "Warning: missing executable '${tool}'"
+		fi
+	done
+	# return exit status
+	return ${retval}
+}
+# Function: dnFunctionsAvailable                                     {{{1
+# Checks for all needed functions
+#   params: list of functions
+#   prints: message listing missing functions
+#   return: 0|1 (functions all present|functions NOT all present)
+#   invoke: dnFunctionsAvailable "${function_list}" || dnEndScript
+# fn_tag dnFunctionsAvailable purpose Checks list of functions to determine whether all are available
+# fn_tag dnFunctionsAvailable prints Message listing missing function(s)
+# fn_tag dnFunctionsAvailable returns Whether all functions are available (Boolean)
+# fn_tag dnFunctionsAvailable usage dnFunctionsAvailable "${functions_list}" || dnEndScript
+# fn_tag dnFunctionsAvailable param function purpose Name of function to check
+# fn_tag dnFunctionsAvailable param function required yes
+# fn_tag dnFunctionsAvailable param function multipart yes
+# fn_tag dnFunctionsAvailable param function type string
+dnFunctionsAvailable () {
+	# sanity checks
+    # shellcheck disable=SC2154
+    # - 'dn_commonbash_fns is referenced but not assigned'
+    # - variable is provided by libvariables
+	if [ -z "${dn_commonbash_fns}" ] ; then
+		echo "Error: cannot find variable 'dn_commonbash_fns'"
+		echo "Warning: is libdncommon-bash fully installed and loaded?"
+		return 1
+	fi
+	# set variables
+	local func="" count="" retval=0
+	# check for functions
+    dnPushIFS
+    dnResetIFS
+	for func in ${1} ; do
+		count=$( echo "${dn_commonbash_fns}" | grep -c -- "\b${func}\b" )
+		if [ "${count}" -ne 1 ] ; then
+			retval=1
+			echo "Warning: missing function '${func}'"
+		fi
+	done
+    dnPopIFS
+	# return exit status
+	return ${retval}
+}
+# Function: dnVariablesAvailable                                     {{{1
+# Checks for all needed variables
+#   params: list of variables
+#   prints: message listing missing variables
+#   return: 0|1 (variables all present|variables NOT all present)
+#   invoke: dnVariablesAvailable "${variable_list}" || dnEndScript
+# fn_tag dnVariablesAvailable purpose Checks list of variables to determine whether all are available
+# fn_tag dnVariablesAvailable prints Message listing missing variable(s)
+# fn_tag dnVariablesAvailable returns Whether all variables are available (Boolean)
+# fn_tag dnVariablesAvailable usage dnVariablesAvailable "${variables_list}" || dnEndScript
+# fn_tag dnVariablesAvailable param variable purpose Name of variable to check
+# fn_tag dnVariablesAvailable param variable required yes
+# fn_tag dnVariablesAvailable param variable multipart yes
+# fn_tag dnVariablesAvailable param variable type string
+dnVariablesAvailable () {
+	# sanity checks
+    # shellcheck disable=SC2154
+    # - 'dn_commonbash_fns is referenced but not assigned'
+    # - variable is provided by libvariables
+	if [ -z "${dn_commonbash_vars}" ] ; then
+		echo "Error: cannot find variable 'dn_commonbash_fns'"
+		echo "Warning: is libdncommon-bash fully installed and loaded?"
+		return 1
+	fi
+	# set variables
+	local var="" count="" retval=0
+	# check for variables
+	for var in ${1} ; do
+		count=$( echo "${dn_commonbash_vars}" | grep -c -- "\b${var}\b" )
+		if [ "${count}" -ne 1 ] ; then
+			retval=1
+			echo "Warning: missing variable '${var}'"
+		fi
+	done
+	# return exit status
+	return ${retval}
+}
+# Function: dnFilesAvailable                                     {{{1
+# Checks for all needed files
+#   params: list of files
+#   prints: message listing missing files
+#   return: 0|1 (files all present|files NOT all present)
+#   invoke: dnFilesAvailable "${file_list}" || dnEndScript
+# fn_tag dnFilesAvailable purpose Checks list of files to determine whether all are available
+# fn_tag dnFilesAvailable prints Message listing missing file(s)
+# fn_tag dnFilesAvailable returns Whether all files are available (Boolean)
+# fn_tag dnFilesAvailable usage dnFilesAvailable "${files_list}" || dnEndScript
+# fn_tag dnFilesAvailable param file purpose Name of file to check
+# fn_tag dnFilesAvailable param file required yes
+# fn_tag dnFilesAvailable param file multipart yes
+# fn_tag dnFilesAvailable param file type string
+dnFilesAvailable () {
+	# set variables
+	local file="" retval=0
+	# check for files
+	for file in ${1} ; do
+		if [ -f "${file}" ] ; then
+			retval=1
+			echo "Warning: missing file '${file}'"
+		fi
+	done
+	# return exit status
+	return ${retval}
+}
+# Function: dnAnalyseSvnRepository                                   {{{1
+# Get url|revision|module|type|name of svn repository, where
+# 'type' is trunk/branch/tag and 'name' is name of branch or tag
+#   params: 1 - directory|url of repository
+#   prints: list = url, revision, module, type, name
+#   return: nil
+#   assume: refdb's svn repository follows standard practice of having
+#             top level dirs 'trunk', 'branches' and 'tags'
+#   assume: internet connection
+#   use:    rep_details=( $( analyseRepository $( pwd ) ) )
+#           rep_details=( $( analyseRepository ~/sources/refdb ) )
+#           rep_details=( $( analyseRepository \
+#               https://svn.sourceforge.net/svnroot/refdb/refdb/trunk ) )
+# fn_tag dnAnalyseSvnRepository purpose Get information about svn repository
+# fn_tag dnAnalyseSvnRepository prints Bash array/space-delimited list of repository url, revision, module, type, name
+# fn_tag dnAnalyseSvnRepository returns NIL
+# fn_tag dnAnalyseSvnRepository note Assumes svn repository has standard top level dirs: 'trunk', 'branches' and 'tags'
+# fn_tag dnAnalyseSvnRepository note Assumes working internet connection
+# fn_tag dnAnalyseSvnRepository usage rep_details=( $( analyseRepository $( pwd ) ) )
+# fn_tag dnAnalyseSvnRepository usage rep_details=( $( analyseRepository ~/sources/refdb ) )
+# fn_tag dnAnalyseSvnRepository usage rep_details=( $( analyseRepository \
+# fn_tag dnAnalyseSvnRepository usage \thttps://svn.sourceforge.net/svnroot/refdb/refdb/trunk ) )
+# fn_tag dnAnalyseSvnRepository param repository purpose Directory or url of svn repository
+# fn_tag dnAnalyseSvnRepository param repository required yes
+# fn_tag dnAnalyseSvnRepository param repository multipart no
+# fn_tag dnAnalyseSvnRepository param repository type string
+dnAnalyseSvnRepository () {
+	local repository="${1}" url="" rev="" module="" type="" name="" dir=""
+	# Determine type of repository
+	# step 1: if no dir|url given, assume cwd
+	test -z "${repository}" && repository="$( pwd )"
+	# step 2: strip off file protocol notifier is present
+    repository="${repository#file:\/\/}"
+	# step 3: check to see if is directory
+	dir="$( dnNormalisePath "${repository}" )"
+	if dnDirValid "${dir}" ; then
+		repository="${dir}"
+	else  # must be url
+		test "$( echo "${repository}" | grep -c -- '^http' )" -eq 1 || echo ""
+	fi
+	# Extract info to file
+	local tmp_info=""
+	tmp_info="$( mktemp )" || dnEndScript 1 "Unable to make temp file"
+	dnTempTrap "${tmp_info}"
+	svn info "${repository}" 1> "${tmp_info}" \
+			|| dnEndScript 1 "Unable to access repository '${repository}'"
+	# extract URL line
+	local url=""
+	url="$( grep "^URL:" "${tmp_info}" )"
+	# extract revision line
+	local rev=""
+	rev="$( grep "^Revision:" "${tmp_info}" )"
+	dnTempKill "${tmp_info}"
+	# process revision line to get revision
+	rev="$( echo "${rev}" | sed -e 's,^Revision: \([[:digit:]]*\)$,\1,' )"
+	# process URL line to get url, module, type and name
+	url="$( echo "${url}" | sed -e 's,^URL: ,,' )"
+	local term_dir="$( dnTerminalSubdir "${url}" )" parent_dir=""
+	local errmsg="Fatal error 10 in function '${FUNCNAME}', script '${0}'"
+	case "${term_dir}" in
+		'trunk' )
+			type="trunk"
+			parent_dir="$( dnParentDir "${url}" )"  # prune off 'trunk'
+			module="$( dnTerminalSubdir "${parent_dir}" )"
+			name=""
+			;;
+		* )
+			name="$( dnTerminalSubdir "${url}" )"
+			parent_dir="$( dnParentDir "${url}" )"
+			type="$( dnTerminalSubdir "${parent_dir}" )"
+			case "${type}" in
+				'branches' ) type="branch";;
+				'tags'     ) type="tag";;
+				*          ) dnEndScript 1 "${errmsg}";;
+			esac
+			parent_dir="$( dnParentDir "${parent_dir}" )"
+			module="$( dnTerminalSubdir "${parent_dir}" )"
+			;;
+	esac
+	# return result
+	local rep_details=( ${url} ${rev} ${module} ${type} ${name} )
+	echo "${rep_details[@]}"
+}
+# Function: dnFormatSvnRepDetails                                    {{{1
+# Format svn repository details, e.g., to give
+# "module-x: trunk (revision 99)" or
+# "module-x: branch 'refdb-0.9.7-pre6' (revision 66)"
+#   params: 1 - url
+#           2 - revision
+#           3 - module
+#           4 - type ('trunk'|'branches'|'tag')
+#           5 - name (for branch and tag types only)
+#   prints: formatted details
+#   return: nil
+#   note:   accepts params in same order as output by 'dnAnalyseRepository'
+#   use:    rep_detail=( $( dnAnalyseRepository "$( pwd )" ) )
+#           display_details="$( dnFormatSvnRepDetails "${rep_details[@]}" )"
+# fn_tag dnFormatSvnRepDetails purpose Format svn repository details
+# fn_tag dnFormatSvnRepDetails prints Formatted svn repository details (String)
+# fn_tag dnFormatSvnRepDetails returns NIL
+# fn_tag dnFormatSvnRepDetails example output = "module-x: trunk (revision 99)"
+# fn_tag dnFormatSvnRepDetails example output = "module-x: branch 'refdb-0.9.7-pre6' (revision 66)"
+# fn_tag dnFormatSvnRepDetails note Input parameters are same as output paramters from function 'dnAnalyseSvnRepository'
+# fn_tag dnFormatSvnRepDetails param url purpose Repository url
+# fn_tag dnFormatSvnRepDetails param url required yes
+# fn_tag dnFormatSvnRepDetails param url multipart no
+# fn_tag dnFormatSvnRepDetails param url type string
+# fn_tag dnFormatSvnRepDetails param url note Not actually used but used as parameter to ensure compatibility with output of function 'dnAnalyseSvnRepository'
+# fn_tag dnFormatSvnRepDetails param revision purpose Repository revision
+# fn_tag dnFormatSvnRepDetails param revision required yes
+# fn_tag dnFormatSvnRepDetails param revision multipart no
+# fn_tag dnFormatSvnRepDetails param revision type integer
+# fn_tag dnFormatSvnRepDetails param module purpose Revision module
+# fn_tag dnFormatSvnRepDetails param module required yes
+# fn_tag dnFormatSvnRepDetails param module multipart no
+# fn_tag dnFormatSvnRepDetails param module type string
+# fn_tag dnFormatSvnRepDetails param type purpose Revision type
+# fn_tag dnFormatSvnRepDetails param type required yes
+# fn_tag dnFormatSvnRepDetails param type multipart no
+# fn_tag dnFormatSvnRepDetails param type type string
+# fn_tag dnFormatSvnRepDetails param type value trunk
+# fn_tag dnFormatSvnRepDetails param type value branches
+# fn_tag dnFormatSvnRepDetails param type value tag
+# fn_tag dnFormatSvnRepDetails param type note While not mandatory, these are the customary top-level directories in an svn repository
+# fn_tag dnFormatSvnRepDetails param name purpose Revision name (for branch and tag types only)
+# fn_tag dnFormatSvnRepDetails param name required no
+# fn_tag dnFormatSvnRepDetails param name multipart no
+# fn_tag dnFormatSvnRepDetails param name type string
+dnFormatSvnRepDetails () {
+	local url="${1}" rev="${2}" module="${3}" type="${4}" name="${5:-""}"
+    loval msg=""
+	local errmsg="Fatal error 10 in function '${FUNCNAME}', script '${0}'"
+	case "${type}" in
+		'trunk'          ) msg="${msg} ${module}: trunk";;
+		'branch' | 'tag' ) msg="${msg} ${module}: ${type} '${name}'";;
+		*                ) dnEndScript 1 "${errmsg}";;
+	esac
+	msg="${msg} (revision ${rev})"
+	echo "${msg}"
+}
+# Function: dnLocalGitRepoUptodate                                   {{{1
+# Determine whether local git repo is up to date
+#   params: nil
+#   prints: nil
+#   return: boolean (0=not up to date|1=up to date)
+#   note:   intended for repo consisting only of current directory
+#   note:   if repo covers more than current directory may get unexpected results
+# fn_tag dnLocalGitRepoUptodate purpose Determine whether local git repo is up to date
+# fn_tag dnLocalGitRepoUptodate prints NIL
+# fn_tag dnLocalGitRepoUptodate returns Whether local git repo is up to date (Boolean)
+# fn_tag dnLocalGitRepoUptodate usage See dnUpdateRemoteGitRepo for example using this function
+# fn_tag dnLocalGitRepoUptodate note Intended for repo consisting only of current directory
+# fn_tag dnLocalGitRepoUptodate note If repo covers more than current directory may get unexpected results
+dnLocalGitRepoUptodate () {
+    # variables
+    local uptodate=${dn_true} file_status= temp_file=
+    ######## make alterations to status flags here ########
+    local modified="MM|M" added="A" renamed="R" deleted="D"
+    #######################################################
+    local tokens="^[${modified}|${added}|${renamed}|${deleted}]$"
+    # capture git status report in temporary file
+    temp_file="$( dnTempFile )" || dnEndScript 1 "Can't make temp file"
+    dnTempTrap "${temp_file}"
+    git status --porcelain > "${temp_file}"
+    # loop through git status report recording file status
+    while read line ; do
+        file_status="$( echo "${line}" | cut -c 1,2 )"
+        file_status="$( dnStripEnclosingSpaces "${file_status}" )"
+        # note that empty $file_status will make following statement true
+        # this may be important since file status can actually be two spaces,
+        #   which would be stripped to give an empty value
+        if [ $( echo "${tokens}" | grep -c "${file_status}" ) -eq 1 ] ; then
+            uptodate=${dn_false}
+        fi
+    done < "${temp_file}"
+    dnTempKill "${temp_file}"
+    return ${uptodate}
+}
+# Function: dnDisplayFilesGitRepoStatus                              {{{1
+# Display status of directory files with regard to local git repo
+#   params: nil
+#   prints: file status
+#   return: nil
+#   note:   intended for repo consisting only of current directory
+#   note:   if repo covers more than current directory may get unexpected results
+# fn_tag dnDisplayFilesGitRepoStatus purpose Display status of directory files with regard to local git repo
+# fn_tag dnDisplayFilesGitRepoStatus prints Status of files in directory
+# fn_tag dnDisplayFilesGitRepoStatus returns NIL
+# fn_tag dnDisplayFilesGitRepoStatus usage See dnUpdateRemoteGitRepo for example using this function
+# fn_tag dnDisplayFilesGitRepoStatus note Intended for local repo consisting only of current directory
+# fn_tag dnDisplayFilesGitRepoStatus note If local repo covers more than current dir may get unexpected results
+dnDisplayFilesGitRepoStatus () {
+    # variables
+    local -a modified=() added=() renamed=() deleted=() untracked=() unknown=()
+    local uptodate=${dn_true} file_status= file_name= temp_file=
+    ### make alterations to status flags here ###
+    local mod_flags="^[MM|M]$" add_flags="^A$"
+    local rename_flags="^R$"   delete_flags="^D$"
+    local untrack_flags="^??$"
+    #############################################
+    # capture git status report in temporary file
+    temp_file="$( dnTempFile )" || dnEndScript 1 "Can't make temp file"
+    dnTempTrap "${temp_file}"
+    git status --porcelain > "${temp_file}"
+    # loop through git status report recording file status
+    while read line ; do
+        file_status="$( echo "${line}" | cut -c 1,2 )"
+        file_status="$( dnStripEnclosingSpaces "${file_status}" )"
+        file_name="$( echo "${line}" | sed -e "s/^ *[^ ]\+ \+\(.*\)$/\1/" )"
+        if [ $( echo "${mod_flags}" | \
+                    grep -c "${file_status}" ) -eq 1 ] ; then
+            modified[${#modified[@]}]="${file_name}"
+            uptodate=${dn_false}
+        elif [ $( echo "${add_flags}" | \
+                    grep -c "${file_status}" ) -eq 1 ] ; then
+            added[${#added[@]}]="${file_name}"
+            uptodate=${dn_false}
+        elif [ $( echo "${rename_flags}" | \
+                    grep -c "${file_status}" ) -eq 1 ] ; then
+            renamed[${#renamed[@]}]="${file_name}"
+            uptodate=${dn_false}
+        elif [ $( echo "${delete_flags}" | \
+                    grep -c "${file_status}" ) -eq 1 ] ; then
+            deleted[${#deleted[@]}]="${file_name}"
+            uptodate=${dn_false}
+        elif [ $( echo "${untrack_flags}" | \
+                    grep -c "${file_status}" ) -eq 1 ] ; then
+            untracked[${#untracked[@]}]="${file_name}"
+        else
+            unknown[${#unknown[@]}]="${file_name}"
+            uptodate=${dn_false}
+        fi
+    done < "${temp_file}"
+    dnTempKill "${temp_file}"
+    # display files status
+    dnInfo "Local git repo status of directory files:"
+    echo "${dn_divider}"
+    if [ ${#modified[@]} -gt 0 ] ; then
+        echo "Modified since last git commit:"
+        for file in "${modified[@]}" ; do
+            echo "  ${file}"
+        done
+    fi
+    if [ ${#added[@]} -gt 0 ] ; then
+        echo "Added since last git commit:"
+        for file in "${added[@]}" ; do
+            echo "  ${file}"
+        done
+    fi
+    if [ ${#renamed[@]} -gt 0 ] ; then
+        echo "Renamed since last git commit:"
+        for file in "${renamed[@]}" ; do
+            echo "  ${file}"
+        done
+    fi
+    if [ ${#deleted[@]} -gt 0 ] ; then
+        echo "Deleted since last git commit:"
+        for file in "${deleted[@]}" ; do
+            echo "  ${file}"
+        done
+    fi
+    if [ ${#untracked[@]} -gt 0 ] ; then
+        echo "Not tracked by git repo:"
+        for file in "${untracked[@]}" ; do
+            echo "  ${file}"
+        done
+    fi
+    if [ ${#unknown[@]} -gt 0 ] ; then
+        echo "Status unknown:"
+        for file in "${unknown[@]}" ; do
+            echo "  ${file}"
+        done
+        echo "*******************************************************"
+        echo "* Investigate using 'git status --porcelain' output   *"
+        echo "*                                                     *"
+        echo "* In libdncommon-bash file 'libprogram-interaction'   *"
+        echo "* examine functions 'dnDisplayFilesGitRepoStatus' and *"
+        echo "* dnLocalGitRepoUptodate, and amend them accordingly  *"
+        echo "*                                                     *"
+        echo "* When there are files with unknown status you cannot *"
+        echo "* trust any report that the local repo is up to date  *"
+        echo "*******************************************************"
+    fi
+    echo "${dn_divider}"
+}
+# Function: dnUpdateLocalGitRepo                                     {{{1
+# Update local git repo
+#   params: nil
+#   prints: confirmation dialog and feedback from git commit
+#   return: nil
+#   note:   uses git commit command with '-a' flag
+#   note:   intended for repo consisting only of current directory
+#   note:   if repo covers more than current directory may get unexpected results
+# fn_tag dnUpdateLocalGitRepo purpose Update local git repo
+# fn_tag dnUpdateLocalGitRepo prints Confirmation dialog and feedback from git commit
+# fn_tag dnUpdateLocalGitRepo returns NIL
+# fn_tag dnUpdateLocalGitRepo usage Uses git commit command with '-a' flag
+# fn_tag dnUpdateLocalGitRepo usage See dnUpdateRemoteGitRepo for example using this function
+# fn_tag dnUpdateLocalGitRepo note Intended for local repo consisting only of current directory
+# fn_tag dnUpdateLocalGitRepo note If local repo covers more than current dir may get unexpected results
+dnUpdateLocalGitRepo () {
+    # variables
+    local message=
+    local prompt="Enter commit message [leave blank to abort commit]: "
+    # get commit message
+    message="$( dnGetInput "${prompt}" )"
+    # commit
+    if test -n "${message}" ; then
+        dnInfo "Updating local git repo..."
+        echo "${dn_divider}"
+        git commit -a -m "${message}"
+        echo "${dn_divider}"
+    else
+        dnWarn "Commit aborted"
+    fi
+}
+# Function: dnUpdateRemoteGitRepo                                    {{{1
+# Update remote git repo
+#   params: nil
+#   prints: feedback from git push
+#   return: nil
+#   note:   assumes remote repo has been created
+#   note:   intended for local repo consisting only of current directory
+#   note:   if local repo covers more than current dir may get unexpected results
+# fn_tag dnUpdateRemoteGitRepo purpose Update remote git repo
+# fn_tag dnUpdateRemoteGitRepo prints Feedback from git push
+# fn_tag dnUpdateRemoteGitRepo returns NIL
+# fn_tag dnUpdateRemoteGitRepo usage if ! dnLocalGitRepoUptodate ; then
+# fn_tag dnUpdateRemoteGitRepo usage     dnDisplayFilesGitRepoStatus
+# fn_tag dnUpdateRemoteGitRepo usage     if dnConfirm "Commit changes to local git repo?" ; then
+# fn_tag dnUpdateRemoteGitRepo usage         dnUpdateLocalGitRepo
+# fn_tag dnUpdateRemoteGitRepo usage     fi
+# fn_tag dnUpdateRemoteGitRepo usage fi
+# fn_tag dnUpdateRemoteGitRepo usage if dnLocalGitRepoUptodate ; then
+# fn_tag dnUpdateRemoteGitRepo usage     dnInfo "Local git repo is up to date"
+# fn_tag dnUpdateRemoteGitRepo usage     if dnConfirm "Update remote github repo?" ; then
+# fn_tag dnUpdateRemoteGitRepo usage         dnUpdateRemoteGitRepo
+# fn_tag dnUpdateRemoteGitRepo usage     else
+# fn_tag dnUpdateRemoteGitRepo usage         dnWarn "Remote git repo was not updated"
+# fn_tag dnUpdateRemoteGitRepo usage     fi
+# fn_tag dnUpdateRemoteGitRepo usage else
+# fn_tag dnUpdateRemoteGitRepo usage     dnWarn "Local git repo is not up to date"
+# fn_tag dnUpdateRemoteGitRepo usage     dnWarn "Remote git repo is not synchronised"
+# fn_tag dnUpdateRemoteGitRepo usage fi
+# fn_tag dnUpdateRemoteGitRepo note Assumes remote repo has been created
+# fn_tag dnUpdateRemoteGitRepo note Intended for local repo consisting only of current directory
+# fn_tag dnUpdateRemoteGitRepo note If local repo covers more than current dir may get unexpected results
+dnUpdateRemoteGitRepo () {
+    # variables
+    local retval=
+    # attempt update
+    dnInfo "Updating remote git repo..."
+    echo "${dn_divider}"
+    git push -u origin master
+    retval=${?}
+    echo "${dn_divider}"
+    # provide feedback
+    if dnFlagTrue "${retval}" ; then
+        dnInfo "Remote repo update successful"
+    else
+        dnError "Remote repo update failed"
+    fi
+}
+# Function: dnProgressBarFilter                                      {{{1
+# Prepare STDIN stream for output on STDOUT to 'progressbar'
+#   params: 1 - source of STDIN stream
+#   prints: incrementing values (usually percentages)
+#   return: nil
+#   note:   existing sources = [genisoimage growisofs transcode mencoder]
+#   note:   consider converting 'CR' (octal 015) to 'LF' (octal 012) in
+#             stream before passing to this function, i.e., add this line:
+#             << | sed -e 's/\o015/\o012/g' >>
+#             -- this is certainly necessary for mencoder streams
+#   usage:  dnTempTrap "${errlog}"
+#	        dnInfo "Burning DVD... "
+#	        growisofs \
+#	        		-dvd-compat \
+#	        		-Z \
+#	        		${target_dev}=${iso} \
+#	        		-speed=${speed} \
+#	        		2>>"${errlog}" \
+#	        	| dnProgressBarFilter growisofs \
+#	        	| progressbar
+#	        exit_status=${PIPESTATUS[0]}  # bash-only technique
+#	        echo  # progress bar may end with cursor on bar line
+#	        if [ ${exit_status} -ne 0 ] ; then
+#	        	dnError "Burn failed"
+#	        	if ! dnFileEmpty "${errlog}" && dnConfirm "View error log?" ; then
+#	        		less "${errlog}"
+#	        	fi
+#	        	rm -f "${errlog}"
+#	        	dnEndScript 1
+#	        fi
+#	        dnTempKill "${errlog}"
+#	        unset errlog exit_status
+# fn_tag dnProgressBarFilter purpose Takes output stream from certain tools and prepares it for the 'progressbar' tool
+# fn_tag dnProgressBarFilter prints Incrementing values (usually precentages) as output stream
+# fn_tag dnProgressBarFilter returns NIL
+# fn_tag dnProgressBarFilter note existing sources = [genisoimage growisofs transcode mencoder]
+# fn_tag dnProgressBarFilter note Consider converting stream 'CR' (octal 015) to 'LF' (octal 012)
+# fn_tag dnProgressBarFilter note Conversion to be done before passing to this function, i.e., add this line:
+# fn_tag dnProgressBarFilter note Can convert with <<| sed -e 's/\o015/\o012/g'>>
+# fn_tag dnProgressBarFilter note Such convrsion is required for mencoder streams
+# fn_tag dnProgressBarFilter usage # dnTempTrap "${errlog}"
+# fn_tag dnProgressBarFilter usage # \tdnInfo "Burning DVD... "
+# fn_tag dnProgressBarFilter usage # \tgrowisofs \
+# fn_tag dnProgressBarFilter usage # \t\t\t-dvd-compat \
+# fn_tag dnProgressBarFilter usage # \t\t\t-Z \
+# fn_tag dnProgressBarFilter usage # \t\t\t${target_dev}=${iso} \
+# fn_tag dnProgressBarFilter usage # \t\t\t-speed=${speed} \
+# fn_tag dnProgressBarFilter usage # \t\t\t2>>"${errlog}" \
+# fn_tag dnProgressBarFilter usage # \t\t| dnProgressBarFilter growisofs \
+# fn_tag dnProgressBarFilter usage # \t\t| progressbar
+# fn_tag dnProgressBarFilter usage # \texit_status=${PIPESTATUS[0]}  # bash-only technique
+# fn_tag dnProgressBarFilter usage # \techo  # progress bar may end with cursor on bar line
+# fn_tag dnProgressBarFilter usage # \tif [ ${exit_status} -ne 0 ] ; then
+# fn_tag dnProgressBarFilter usage # \t\tdnError "Burn failed"
+# fn_tag dnProgressBarFilter usage # \t\tif ! dnFileEmpty "${errlog}" && dnConfirm "View error log?" ; then
+# fn_tag dnProgressBarFilter usage # \t\t\t\tless "${errlog}"
+# fn_tag dnProgressBarFilter usage # \t\t\tfi
+# fn_tag dnProgressBarFilter usage # \t\trm -f "${errlog}"
+# fn_tag dnProgressBarFilter usage # \t\tdnEndScript 1
+# fn_tag dnProgressBarFilter usage # \tfi
+# fn_tag dnProgressBarFilter usage # \tdnTempKill "${errlog}"
+# fn_tag dnProgressBarFilter usage # \tunset errlog exit_status
+# fn_tag dnProgressBarFilter param source purpose Source of input stream
+# fn_tag dnProgressBarFilter param source required yes
+# fn_tag dnProgressBarFilter param source multipart no
+# fn_tag dnProgressBarFilter param source type string
+# fn_tag dnProgressBarFilter param source value genisoimage
+# fn_tag dnProgressBarFilter param source value growisofs
+# fn_tag dnProgressBarFilter param source value transcode
+# fn_tag dnProgressBarFilter param source value mencoder
+# fn_tag dnProgressBarFilter param source value ffmpeg
+dnProgressBarFilter () {
+	# set and check variables
+	local source="${1}" sources="genisoimage growisofs transcode mencoder ffmpeg"
+	[ -z "${source}" ] && dnFatal "No source supplied" && exit 1
+	if ! dnElementInList "${source}" "${sources}" ; then
+		dnError "Invalid source value '${source}'"
+		exit 1
+	fi
+	# set filter based on source
+	# number for extraction in parentheses
+	# in filters protect following characters with backslashes: =.[]
+	# regular expression quantifiers in filters: *, \+, \?, \{x,y\}
+	case "${source}" in
+	'genisoimage' ) 
+		# representative output from genisoimage:
+		# 12.39% done, estimate finish Fri Aug 26 21:56:24 2005
+		filter="^\([[:digit:]]\{1,2\}\.[[:digit:]]\{1,2\}\)%[[:print:]]*$"
+		;;
+	'growisofs' )
+		# representative output from growisofs:
+		# 2532409344/4681418752 (54.1%) @7.8x, remaining 3:46 RBU 100.0%
+		filter="^[[:digit:]]\+/[[:digit:]]\+ ( \?\([[:digit:]]\{1,2\}\.[[:digit:]]\{1,2\}\)%)[[:print:]]*$"
+		;;
+	'transcode' )
+		# representative output from transcode:
+		# encoding frames [000000-000266],   6.90 fps, EMT: 0:00:11, ( 0| 0| 0) 
+		filter="^encoding frames \[[[:digit:]]\+-0*\([1-9][[:digit:]]*\)\],[[:print:]]\+$"
+		;;
+	'mencoder' )
+		# representative output from mencoder:
+		# Pos:  31.5s    872f (96%) 36.42fps Trem:   0min  22mb  A-V:0.084 [4146:1536]
+		filter="^Pos:[[:space:]]*[[:digit:]\.]\+s[[:space:]]\+[[:digit:]]\+f[[:space:]]\+([[:space:]]*\([[:digit:]]\+\)%)[[:print:]]\+$"
+		;;
+	'ffmpeg' )
+		# representative output from ffmpeg:
+		# frame=  158 q=2.0 size=    2698kB time=6.1 bitrate=3616.2kbits/s    
+		filter="^frame\=[[:space:]]*\([[:digit:]]\+\)[[:space:]]\+[[:print:]]\+$"
+		;;
+	* ) dnFatal "Case mismatch in function '${FUNCNAME}'" && exit 1;;
+	esac
+	# process each line of STDIN in turn and send output to STDOUT
+	local output="" sep="=" line=""
+	while read input ; do
+		# extract numeric value
+		output=""
+		line="$( echo "${input}" | tr -d "${sed}" )"
+		output="$( echo "${line}" | sed -e "s${sep}${filter}${sep}\1${sep}" )"
+		# output only numeric values
+		if dnValidNumber "${output}" ; then echo "${output}" ; fi
+	done
+}
+# Function: dnProgressWheel                                          {{{1
+# Provide visual feedback ("spinning wheel") while pid running
+#   params: 1 - pid
+#           2 - text stub
+#   prints: progress indicator (not for capture)
+#   return: nil
+#   needs:  functions [dnInfon ; dnPidRunning]
+# fn_tag dnProgressWheel purpose Provide visual feedback while a PID is running
+# fn_tag dnProgressWheel prints Progress indicator (not suitable for capture to a variable)
+# fn_tag dnProgressWheel returns NIL
+# fn_tag dnProgressWheel note Feedback is "spinning wheel" in front of slowly growing line of dots
+# fn_tag dnProgressWheel param pid purpose PID whose cessation will stop spinning wheel
+# fn_tag dnProgressWheel param pid required yes
+# fn_tag dnProgressWheel param pid multipart no
+# fn_tag dnProgressWheel param pid type integer
+# fn_tag dnProgressWheel param text-stub purpose Text stub to print before dots and spinning wheel
+# fn_tag dnProgressWheel param text-stub required yes
+# fn_tag dnProgressWheel param text-stub multipart no
+# fn_tag dnProgressWheel param text-stub type string
+dnProgressWheel () {
+	dnInfon "${2} . "
+	count=0
+	rotation=0
+	rotations=9
+	pause=0.1
+	while [ 1 ] ; do
+		if ! dnPidRunning ${1} ; then break ; fi
+		sleep ${pause}s
+		case ${count} in
+			0 ) echo -ne "\b\\";;
+			1 ) echo -ne "\b|";;
+			2 ) echo -ne "\b/";;
+			3 ) echo -ne "\b-";;
+			* ) if [ ${rotation} -gt ${rotations} ] ; then
+					echo -ne "\b. "
+					rotation=-1
+				fi
+				rotation=$(( rotation + 1 ))
+				count=-1;;
+		esac
+		count=$((count + 1 ))
+	done
+	echo -e "\b. Done."
+}
+# Function: dnPidRunning                                             {{{1
+# Check whether app is running (by pid)
+#   params: 1 - pid of process
+#   prints: nil
+#   return: boolean (0=running|1=not running)
+# fn_tag dnPidRunning purpose Determine whether given PID is running
+# fn_tag dnPidRunning prints NIL
+# fn_tag dnPidRunning returns Whether PID is running (Boolean)
+# fn_tag dnPidRunning param pid purpose Process ID to check
+# fn_tag dnPidRunning param pid required yes
+# fn_tag dnPidRunning param pid multipart no
+# fn_tag dnPidRunning param pid type integer
+dnPidRunning () {
+	ps -p ${1} &> /dev/null
+	return ${?}
+}
+# Function: dnProcessName                                             {{{1
+# Check whether app is running (by pid)
+#   params: 1 - pid of process
+#   prints: Process name
+#   return: nil
+# fn_tag dnProcessName purpose Get name of process ID
+# fn_tag dnProcessName prints Process name
+# fn_tag dnProcessName returns NIL
+# fn_tag dnProcessName note Assumes valid pid of running process
+# fn_tag dnProcessName note This can be checked with dnPidRunning
+# fn_tag dnProcessName param pid purpose Process ID to retrieve name on
+# fn_tag dnProcessName param pid required yes
+# fn_tag dnProcessName param pid multipart no
+# fn_tag dnProcessName param pid type integer
+dnProcessName () {
+	echo "$( ps ax | \
+			 grep "^[[:space:]]*\b${1}\b" | \
+			 sed -e 's/^[[:space:]]*//' | \
+			 sed -e 's/[[:space:]]\+/ /g' | \
+			 cut -d ' ' -f 5-20 \
+		   )"
+}
+# Function: dnKillPid                                                {{{1
+# Kill process by pid
+#   params: 1 - pid of process
+#   prints: nil
+#   return: boolean (0=success|1=failed)
+# fn_tag dnKillPid purpose Kill process
+# fn_tag dnKillPid prints NIL
+# fn_tag dnKillPid returns Whether process killed successfully (Boolean)
+# fn_tag dnKillPid note This is a hard kill using signal 9 and this can sometimes mean the process does not shut down cleanly
+# fn_tag dnKillPid param pid purpose ID of process to kill
+# fn_tag dnKillPid param pid required yes
+# fn_tag dnKillPid param pid multipart no
+# fn_tag dnKillPid param pid type integer
+dnKillPid () {
+	kill -9 ${1} &> /dev/null
+	return ${?}
+}
+# Function: dnPipeSucceeded                                          {{{1
+# Check whether all commands in a command pipeline succeeded
+#   params: 1 - pipeline array as single string
+#   prints: nil
+#   return: 0|1 (true|false)
+#   usage:  cmd_1 | cmd_2 | ...
+#           if dnPipeSucceeded "${PIPESTATUS[*]}" ; then ...
+# fn_tag dnPipeSucceeded purpose Determine whether all commands in the most recently executed pipe succeeded
+# fn_tag dnPipeSucceeded prints NIL
+# fn_tag dnPipeSucceeded returns Whether all pipe commands succeeded (Boolean)
+# fn_tag dnPipeSucceeded usage cmd_1 | cmd_2 | ...
+# fn_tag dnPipeSucceeded usage if dnPipeSucceeded "${PIPESTATUS[*]}" ; then ...
+# fn_tag dnPipeSucceeded param result-array purpose Array of pipline exit statuses
+# fn_tag dnPipeSucceeded param result-array required yes
+# fn_tag dnPipeSucceeded param result-array multipart no
+# fn_tag dnPipeSucceeded param result-array type integer
+# fn_tag dnPipeSucceeded param result-array note Array of exit statuses provided by '"${PIPESTATUS[*]"'
+dnPipeSucceeded () {
+	[ $( echo "${1}" | grep -c -- "^0\( 0\)*$" ) -eq 1 ]
+	return ${?}
+}
+# Function: dnListUsers                                              {{{1
+# Lists all users with accounts and directory under /home/
+#   params: nil
+#   prints: space-delimited list of users
+#   return: nil
+#   usage:  for user in $( dnListUsers ) ; do ...
+# fn_tag dnListUsers purpose List all users
+# fn_tag dnListUsers prints Space-delimited list of users
+# fn_tag dnListUsers returns NIL
+# fn_tag dnListUsers usage for user in $( dnListUsers ) ; do ...
+# fn_tag dnListUsers note Lists only users with accounts and directories under /home/
+dnListUsers () {
+    for user in $( while read line ; do echo "${line}" | \
+            cut -d: -f1 ; done < /etc/passwd ) ; do \
+        dir -1 /home/ | grep "\b${user}\b" | \
+        grep -v "lost+found" | tr -s '\n' ; \
+    done
+}
+# Function: dnValidUser                                              {{{1
+# Determine whether user has user account and directory under /home/
+#   params: 1 - user
+#   prints: nil
+#   return: 0|1 (true|false)
+#   usage:  if dnValidUser "${user}" ; then ...
+# fn_tag dnValidUser purpose Determine whether user has user account and directory under /home/
+# fn_tag dnValidUser prints NIL
+# fn_tag dnValidUser returns Boolean
+# fn_tag dnValidUser usage if dnValidUser "${user}" ; then ...
+# fn_tag dnValidUser param user purpose User to check
+# fn_tag dnValidUser param user required yes
+# fn_tag dnValidUser param user multipart no
+# fn_tag dnValidUser param user type string
+dnValidUser () {
+    return "$( \
+        dnToggleFlag "$( echo "$( dnListUsers )" | grep -c "\b${1}\b" )" \
+    )"
+}
+# Function: dnShowIFS                                                {{{1
+# Display current value of internal field separator variable IFS
+#   params: 1+ - messages to display before IFS output
+#   prints: value of IFS
+#   return: nil
+#   note:   use utility 'od' ("octal dump")
+#   note:   default value of IFS is space + (horizontal) tab + newline
+#   note:   option combination causes value to display in three formats
+#   note:   uses format 'a' to display named characters
+#           default output: ' sp  ht  nl'
+#   note:   uses format 'o1' to display octal values
+#           the '1' forces interpretation of each input byte as a number
+#           default output: '040 011 012'
+#   note:   uses format 'c' to display ascii character (or backslash escape)
+#           default output: '     \t  \n
+# fn_tag dnShowIFS purpose Display current value of internal field separator variable IFS
+# fn_tag dnShowIFS prints Value of IFS variable in three display formats (see Notes)
+# fn_tag dnShowIFS returns NIL
+# fn_tag dnShowIFS usage dnShowIFS "Current value of IFS:"
+# fn_tag dnShowIFS note Uses utility 'od' ("octal dump")
+# fn_tag dnShowIFS note Default value of IFS is: space + (horizontal) tab + newline
+# fn_tag dnShowIFS note Option combination causes value to display in three formats
+# fn_tag dnShowIFS note Uses format 'a' to display named characters; default is ' sp  ht  nl'
+# fn_tag dnShowIFS note Uses format 'o1' to display octal values; default is '040 011 012'
+# fn_tag dnShowIFS note Uses format 'c' to display ascii character (or backslash escape); default is '     \t  \n'
+# fn_tag dnShowIFS param message purpose Message(s) to show before displaying IFS value
+# fn_tag dnShowIFS param message required no
+# fn_tag dnShowIFS param message multipart yes
+# fn_tag dnShowIFS param message type string
+dnShowIFS () {
+    # display any messages
+    while test ${#} -gt 0 ; do echo "${1}" ; shift ; done
+    # display value of variable IFS
+    echo -n "${IFS}" | od --format=a --format=o1 --format=c
+}
+# Function: dnResetIFS                                               {{{1
+# Reset IFS variable to default value
+#   params: nil
+#   prints: nil
+#   return: nil
+#   note:   default IFS value is space+tab+newline
+#   note:   in many cases can avoid need to reset variable
+#           by changing it in a subshell
+#   note:   have to work around shell behaviour of discarding
+#           trailing newlines when returning output from
+#           command substitution
+#   usage:  # do in current shell
+#           IFS=$'\n'
+#           ## do operations relying on changed IFS value
+#           dnResetIFS
+#           # do in subshell
+#           (
+#           IFS=$'\n'
+#           ## do operations relying on changed IFS value
+#           )
+# fn_tag dnResetIFS purpose Reset IFS variable to default value
+# fn_tag dnResetIFS prints NIL
+# fn_tag dnResetIFS returns NIL
+# fn_tag dnResetIFS usage # do in current shell
+# fn_tag dnResetIFS usage IFS=$'\n'
+# fn_tag dnResetIFS usage ## do operations relying on changed IFS value
+# fn_tag dnResetIFS usage dnResetIFS
+# fn_tag dnResetIFS usage # ------------------------------
+# fn_tag dnResetIFS usage # do in subshell instead
+# fn_tag dnResetIFS usage ( IFS=$'\n' ; ## do operations relying on changed IFS value ; )
+# fn_tag dnResetIFS note Default IFS value is space+tab+newline
+# fn_tag dnResetIFS note In many cases can avoid need to reset IFS by changing it in a subshell
+# fn_tag dnResetIFS note By default trailing newlines are stripped from command substitutions
+# fn_tag dnResetIFS note In this function have to work around newline stripping behaviour
+dnResetIFS () {
+    IFS="$( printf ' \t\n' ; echo a )"
+    IFS="${IFS%a}"
+}
+# Function: dnPushIFS                                                {{{1
+# Push IFS value onto IFS stack
+#   params: 1+ - IFS value(s) [string]
+#   prints: nil
+#   return: nil
+#   note:   manipulates IFS stack variable 'dn_IFS_stack'
+#   usage:  # protect operations relying on IFS variable
+#           dnPushIFS
+#           dnResetIFS
+#           ## do operations relying on IFS variable
+#           dnPopIFS
+# fn_tag dnPushIFS purpose Push current IFS value onto IFS stack
+# fn_tag dnPushIFS prints NIL
+# fn_tag dnPushIFS returns NIL
+# fn_tag dnPushIFS usage # protect operations relying on IFS variable
+# fn_tag dnPushIFS usage dnPushIFS
+# fn_tag dnPushIFS usage dnResetIFS
+# fn_tag dnPushIFS usage ## do operations relying on IFS variable
+# fn_tag dnPushIFS usage dnPopIFS
+# fn_tag dnPushIFS note Manipulates IFS stack variable 'dn_IFS_stack'
+dnPushIFS () {
+    dn_IFS_stack=( "${dn_IFS_stack[@]}" "${IFS}" )
+}
+# Function: dnPopIFS                                                 {{{1
+# Pop top IFS stack value into IFS variable
+#   params: nil
+#   prints: nil
+#   return: 0|1 (success|failure)
+#   note:   deletes top element of IFS stack variable 'dn_IFS_stack'
+#   note:   IFS variable is left unchanged if IFS stack is empty
+#   usage:  see dnPushIFS function
+# fn_tag dnPopIFS purpose Pop top IFS stack value into IFS variable
+# fn_tag dnPopIFS prints NIL
+# fn_tag dnPopIFS returns Whether operation succeeds (Boolean)
+# fn_tag dnPopIFS usage See dnPushIFS function
+# fn_tag dnPopIFS note Deletes top element of IFS stack variable 'dn_IFS_stack'
+# fn_tag dnPopIFS note IFS variable is left unchanged if IFS stack is empty
+dnPopIFS () {
+    # variables
+    local last_index=$(( ${#dn_IFS_stack[@]} - 1 ))
+    # must be at least one element in the array
+    [ ${last_index} -lt 0 ] && return 1
+    # put last element of stack array into IFS variable
+    eval "IFS=\${dn_IFS_stack[\${last_index}]}"
+    # remove last element
+    unset dn_IFS_stack[${last_index}]
+}
+# }}}1
+# Function: dnUnderRcsControl                                        {{{1
+# Determines whether directory is under local RCS version control
+#   params: 1 - directory [string]
+#   prints: nil
+#   return: 0|1 (is under RCS control|not under RCS version control)
+#   note:   test is presence of non-empty subdirectory 'RCS'
+# fn_tag dnUnderRcsControl purpose Whether directory is under local RCS version control
+# fn_tag dnUnderRcsControl prints NIL
+# fn_tag dnUnderRcsControl returns Whether directory is under local RCS version control (Boolean)
+# fn_tag dnUnderRcsControl note Test is presence of non-empty subdirectory 'RCS'
+# fn_tag dnUnderRcsControl param directory purpose Directory to test for local RCS version control
+# fn_tag dnUnderRcsControl param directory required yes
+# fn_tag dnUnderRcsControl param directory multipart no
+# fn_tag dnUnderRcsControl param directory type path
+dnUnderRcsControl () {
+    # check parameter
+    [ -z "${1}" ] && return ${dn_false}
+    # RCS subdirectory must be present
+    local rcs_dir="${1}/RCS"
+    dnDirValid "${rcs_dir}" || return ${dn_false}
+    # RCS subdirectory must be non-empty
+    dnDirEmpty "${rcs_dir}" && return ${dn_false}
+    # passed all tests!
+    return ${dn_true}
+}
+# Function: dnUnderGitControl                                        {{{1
+# Determines whether directory is under local git version control
+#   params: 1 - directory [string]
+#   prints: nil
+#   return: 0|1 (is under git control|not under git control)
+#   note:   test is presence of file '.git/HEAD'
+# fn_tag dnUnderGitControl purpose Determine whether directory is under local git version control
+# fn_tag dnUnderGitControl prints NIL
+# fn_tag dnUnderGitControl returns Whether directory is under local git version control (Boolean)
+# fn_tag dnUnderGitControl note Test is presence of file '.git/HEAD'
+# fn_tag dnUnderGitControl param directory purpose Directory to test for local git version control
+# fn_tag dnUnderGitControl param directory required yes
+# fn_tag dnUnderGitControl param directory multipart no
+# fn_tag dnUnderGitControl param directory type path
+dnUnderGitControl () {
+    # check parameter
+    [ -z "${1}" ] && return ${dn_false}
+    # HEAD file must be present
+    local head="${1}/.git/HEAD"
+    dnFileValid "${head}" &>/dev/null
+    return ${?}
+}
+
+# Function: dnKeepProgAlive                                        {{{1
+# Restarts program if it stops
+#   params: 1 - grep string [string]
+#           2 - program filepath [string]
+#   prints: nil
+#   return: 0|1 (no errors detected|failed to execute correctly)
+#   note:   never returns '0' because routine never exits normally
+#           writes error message to log if routine fails
+#           checks whether program is running every ten minutes
+#           works best with programs that only run a single instance
+#           if program runs multiple instances you may have difficulty
+#             specifying a particular instance 
+# fn_tag dnKeepProgAlive purpose Endlessly restarts nominated program if it stops
+# fn_tag dnKeepProgAlive prints NIL
+# fn_tag dnKeepProgAlive returns Error if fails to run correctly (Boolean)
+# fn_tag dnKeepProgAlive note This function is an endless loop and never exits normally
+# fn_tag dnKeepProgAlive note Checks whether program is running every ten minutes
+# fn_tag dnKeepProgAlive note Works best with programs that only run a single instance
+# fn_tag dnKeepProgAlive note If program runs multiple instances you may have
+# fn_tag dnKeepProgAlive note difficulty specifying a particular instance 
+# fn_tag dnKeepProgAlive param grep_string purpose String used by psgrep to check whether program is running
+# fn_tag dnKeepProgAlive param grep_string required yes
+# fn_tag dnKeepProgAlive param grep_string multipart no
+# fn_tag dnKeepProgAlive param grep_string type string
+# fn_tag dnKeepProgAlive param grep_string note Must be unique enough to match only desired program
+# fn_tag dnKeepProgAlive param filepath purpose Filepath of program executable -- used to restart program
+# fn_tag dnKeepProgAlive param filepath required yes
+# fn_tag dnKeepProgAlive param filepath multipart no
+# fn_tag dnKeepProgAlive param filepath type path
+dnKeepProgAlive () {
+    # check parameters
+    local func="${FUNCNAME[0]}"
+    # - grep string must exist
+    if [ -z "${1}" ] ; then
+        dnLog "${func}: No grep string supplied - aborting"
+        exit ${dn_false}
+    fi
+    # - program filepath must exist and be executable
+    if [ -z "${2}" ] ; then
+        dnLog "${func}: No program filepath supplied - aborting"
+        exit ${dn_false}
+    fi
+    if [ ! -x "${2}" ] ; then
+        dnLog "${func}: Program filepath '${2}' is not executable"
+        exit ${dn_false}
+    fi
+    # - can only have two parameters
+    if [ ${#} -gt 2 ] ; then
+        dnLog "${func}: Have $( dnNumberToWords "${#}" ) params, require two"
+        exit ${dn_false}
+    fi
+    # - assign variables
+    local grep_string="${1}" prog="${2}"
+    # set display for gui apps
+    export DISPLAY=:0
+    # do loop restarting prog if it has stopped
+    while true; do
+        [ ! $( pgrep "${grep_string}" ) ] && ${prog} > /dev/null 2>&1
+        sleep 600
+    done
+}
+
+# vim: set foldmethod=marker :

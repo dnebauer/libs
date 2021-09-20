@@ -1,0 +1,1106 @@
+#!/bin/bash
+
+# Suite: libdncommon-bash  # do not alter or delete -- required by vim plugin
+# File: libdvd
+# Author: David Nebauer
+# Purpose: Useful bash functions for using DVDs
+
+
+# Function: dnAviToDvdMpg                                            {{{1
+# Convert AVI to dvd MPG
+#   params: -a = avi file for conversion (mandatory)
+#           -o = output basename (optional, default=avi file basename)
+#           -d = delete intermediate files (default=no deletion)
+#           -v = video format ('pal'|'ntsc') (optional, default='pal')
+#           -r = playback aspect ratio ('4:3'|'16:9')
+#                (optional, default='4:3')
+#   prints: feedback
+#   return: whether succeeded (boolean: 0=true, 1=false)
+#   needs:  apps [transcode ; mplex ; ffmpeg]
+#   note:   creates intermediate files and output file in cwd
+# fn_tag dnAviToDvdMpg purpose Convert AVI to dvd MPG
+# fn_tag dnAviToDvdMpg prints Feedback
+# fn_tag dnAviToDvdMpg returns Whether conversion succeeded (Boolean)
+# fn_tag dnAviToDvdMpg note Creates intermediate files and output file in current directory
+# fn_tag dnAviToDvdMpg note These are not positional parameters -- they are getopt-style options and arguments
+# fn_tag dnAviToDvdMpg note Options are single letters, e.g., '-l'
+# fn_tag dnAviToDvdMpg note Options may or may not have an argument
+# fn_tag dnAviToDvdMpg param -a purpose AVI file for conversion
+# fn_tag dnAviToDvdMpg param -a required yes
+# fn_tag dnAviToDvdMpg param -a multipart no
+# fn_tag dnAviToDvdMpg param -a type path
+# fn_tag dnAviToDvdMpg param -o purpose Output basename
+# fn_tag dnAviToDvdMpg param -o required no
+# fn_tag dnAviToDvdMpg param -o multipart no
+# fn_tag dnAviToDvdMpg param -o type string
+# fn_tag dnAviToDvdMpg param -o default AVI file basename
+# fn_tag dnAviToDvdMpg param -d purpose Flag indicating intermediate files are to be deleted
+# fn_tag dnAviToDvdMpg param -d required no
+# fn_tag dnAviToDvdMpg param -d multipart no
+# fn_tag dnAviToDvdMpg param -d note This option does not take an argument
+# fn_tag dnAviToDvdMpg param -d default Intermediate files will not be deleted
+# fn_tag dnAviToDvdMpg param -v purpose Video format
+# fn_tag dnAviToDvdMpg param -v required no
+# fn_tag dnAviToDvdMpg param -v multipart no
+# fn_tag dnAviToDvdMpg param -v type string
+# fn_tag dnAviToDvdMpg param -v value pal
+# fn_tag dnAviToDvdMpg param -v value ntsc
+# fn_tag dnAviToDvdMpg param -v default pal
+# fn_tag dnAviToDvdMpg param -r purpose Playback aspect ratio
+# fn_tag dnAviToDvdMpg param -r required no
+# fn_tag dnAviToDvdMpg param -r multipart no
+# fn_tag dnAviToDvdMpg param -r type string
+# fn_tag dnAviToDvdMpg param -r value 4:3
+# fn_tag dnAviToDvdMpg param -r value 16:9
+# fn_tag dnAviToDvdMpg param -r defaul 4:3
+dnAviToDvdMpg () {
+	# set local variables
+	local avi="" target_basename="" delete=1 video="" aspect_ratio="" retval=""
+	# process command-line variables
+	OPTIND=1
+	while getopts ":do:a:v:r:" opt ; do
+		case ${opt} in
+			d  ) delete=0;;
+			o  ) target_basename="${OPTARG}";;
+			a  ) avi="${OPTARG}";;
+			v  ) video="${OPTARG}";;
+			a  ) aspect_ratio="${OPTARG}";;
+			\? ) msg="Invalid flag '${OPTARG}' detected"
+			     msg="${msg} in function '${FUNCNAME}'"
+			     dnError "${msg}"
+				 exit 1;;
+			\: ) msg="No argument supplied for flag '${OPTARG}'"
+			     msg="${msg} in function '${FUNCNAME}'"
+				 dnError "${msg}"
+				 exit 1;;
+		esac
+	done
+	shift $(( ${OPTIND} - 1 ))
+	# check variables
+	#   avi source file
+	local avi_filepath="$( dnNormalisePath "${avi}" )"
+	local avi_path="$( dnParentDir "${avi}" )"
+	local avi_file="$( dnExtractFilename "${avi}" )"
+	if test $( echo ${avi_file} | grep -c -- "\.[aA][vV][iI]$" ) -ne 1 ; then
+		dnError "Source AVI file '${avi}' has an invalid extension"
+		return 1
+	fi
+	#   target_basename
+	local source_basename="$( echo "${avi_file}" \
+			| sed -e 's=\([[:print:]]\+\)\.[aA][vV][iI]$=\1=' )"
+	test -z "${target_basename}" && target_basename="${source_basename}"
+	#   video mode
+	test -z "${video}" && video="pal"
+	if test $( echo "${video}" | grep -c -- "^pal$\|^ntsc$" ) -ne 1 ; then
+		dnError "Invalid video mode '${video}' (must be 'pal' or 'ntsc')"
+		return 1
+	fi
+	#   playback aspect ratio
+	test -z "${aspect_ratio}" && aspect_ratio="4:3"
+	if test $( echo "${aspect_ratio}" | grep -c -- "^4:3$\|^16:9$" ) -ne 1 ; then
+		dnError "Invalid aspect ratio '${aspect_ratio}'" \
+		        "(must be '4:3' or '16:9')"
+		return 1
+	fi
+	# feedback
+	dnInfo "Configuration:"
+	dnInfo "${dn_divider_top}"
+	dnInfo "Source AVI = ${avi_filepath}"
+	dnInfo "Target MPG = $( pwd )/${target_basename}.mpg"
+	dnInfo "Video mode = ${video}"
+	dnInfo "Aspect ratio = ${aspect_ratio}"
+	case ${delete} in
+		0 ) dnInfo "Delete intermediate files = true";;
+		* ) dnInfo "Delete intermediate files = false";;
+	esac
+	dnInfo "${dn_divider_bottom}"
+	# assemble command for conversion to intermediate video and sound files
+	local transcode="transcode"  # transcoding tool
+	transcode="${transcode} -i ${avi_filepath}"  # input avi file
+	transcode="${transcode} -y ffmpeg"  # video export module
+	case "${video}" in  # video format
+		'pal'  ) transcode="${transcode} --export_prof dvd-pal";;
+		'ntsc' ) transcode="${transcode} --export_prof dvd-ntsc";;
+	esac
+	case "${aspect_ratio}" in  # playback aspect ratio: 2=4:3, 3=16:9
+		'4:3'  ) transcode="${transcode} --export_asr 2";;
+		'16:9' ) transcode="${transcode} --export_asr 3";;
+	esac
+	transcode="${transcode} -o ${source_basename} "  # video output
+	                                                 # file basename
+	transcode="${transcode} -D 0"  # video to start at this audio frame number
+	transcode="${transcode} -b 224"  # audio encoder bitrate
+	transcode="${transcode} -N 0x2000"  # audio export format: 0x2000=AC3, 
+	                                    # 0x50=MP2, 0x55=MP3, 0xfffe=OGG
+	transcode="${transcode} -s 2"  # increase volume of audio stream by 2
+	transcode="${transcode} -m ${source_basename}.ac3"  # audio output filename
+	transcode="${transcode} -J modfps=clonetype=3"  # external filter plugin
+	transcode="${transcode} --export_fps 25"  # export framerate
+	# assemble command to multiplex intermediate files into one dvd MPG
+	local mplex="mplex"  # multiplexing tool
+	mplex="${mplex} -f 8"  # output format: 8=DVD with NAV sectors
+	mplex="${mplex} -o ${target_basename}.mpg"  # output file name
+	mplex="${mplex} ${source_basename}.m2v"  # input files
+	mplex="${mplex} ${source_basename}.ac3"
+	# create intermediate files (note: will be put into cwd)
+	dnInfo "Transcoding (creates intermediate files)..."
+	dnInfo "${dn_divider_top}"
+	${transcode}
+	retval=${?}
+	dnInfo "${dn_divider_bottom}"
+	if test ${retval} -ne 0 ; then
+		dnError "Transcoding of source AVI file to intermediate files failed"
+		return 1
+	fi
+	# create dvd MPG
+	dnInfo "Multiplexing (creates target dvd MPG)..."
+	dnInfo "${dn_divider_top}"
+	${mplex}
+	retval=${?}
+	dnInfo "${dn_divider_bottom}"
+	if test ${retval} -ne 0 ; then
+		dnError "Multiplexing of intermediate files to dvd MPG failed"
+		return 1
+	fi
+	# delete intermediate files
+	if test ${delete} -eq 0 ; then
+		retval=0
+		dnInfon "Deleting intermediate files... "
+		for ext in m2v ac3 ; do
+			rm -f ${source_basename}.${ext} &> /dev/null || retval=1
+		done
+		case ${retval} in
+			0 ) echo "OK";;
+			1 ) echo "Failed";;
+		esac
+	fi
+}
+# Function: dnGetDvdTitle                                            {{{1
+# Get dvd title
+#   params: 1 - source device
+#   prints: dvd title
+#   return: 0|1 (success|failure)
+#   needs:  apps [dvdbackup]
+# fn_tag dnGetDvdTitle purpose Get dvd title
+# fn_tag dnGetDvdTitle prints Dvd title
+# fn_tag dnGetDvdTitle returns Whether dvd title retrieved (Boolean)
+# fn_tag dnGetDvdTitle param device purpose Source device
+# fn_tag dnGetDvdTitle param device required yes
+# fn_tag dnGetDvdTitle param device multipart no
+# fn_tag dnGetDvdTitle param device type path
+dnGetDvdTitle () {
+	local exit_status="" title="" source_device="${1}"
+	title=$( dvdbackup -i "${source_device}" -I 2> /dev/null \
+	         | grep "DVD\-Video information of the DVD" \
+	         | awk -F " " '{ print $NF }' \
+	       )
+	exit_status=${?}
+	echo "${title}"
+	return ${exit_status}
+}
+# Function: dnGetIsoTitle                                            {{{1
+# Get iso title
+#   params: 1 - iso filepath
+#   prints: iso title
+#   return: 0|1 (success|failure)
+#   needs:  tools [ dd ]
+# fn_tag dnGetIsoTitle purpose Get iso image title
+# fn_tag dnGetIsoTitle prints Iso image title
+# fn_tag dnGetIsoTitle returns Whether iso title successfully extracted
+# fn_tag dnGetIsoTitle param filepath purpose Iso image to be analysed
+# fn_tag dnGetIsoTitle param filepath required yes
+# fn_tag dnGetIsoTitle param filepath multipart no
+# fn_tag dnGetIsoTitle param filepath type path
+dnGetIsoTitle () {
+	# create and set variables
+	local title="" iso="$( dnNormalisePath "${1}" )"
+	local exit_status=0  # default
+	# get title and strip spaces
+	title="$( dd if=${iso} bs=1 skip=32808 count=32 2>/dev/null )"
+	dnFlagTrue ${?} || exit_status=1
+	title="$( dnStripEnclosingSpaces "${title}" )"
+	dnFlagTrue ${?} || exit_status=1
+	# return result and indicate outcome
+	echo "${title}"
+	return ${exit_status}
+}
+# Function: dnSetIsoTitle                                            {{{1
+# Set iso title
+#   params: 1 - iso filepath
+#           2 - iso title
+#   prints: nil
+#   return: 0|1 (success|failure)
+#   needs:  tools [ dd ]
+# fn_tag dnSetIsoTitle purpose Set iso image title
+# fn_tag dnSetIsoTitle prints NIL
+# fn_tag dnSetIsoTitle returns Whether iso title successfully set
+# fn_tag dnSetIsoTitle param filepath purpose Iso image to edit
+# fn_tag dnSetIsoTitle param filepath required yes
+# fn_tag dnSetIsoTitle param filepath multipart no
+# fn_tag dnSetIsoTitle param filepath type path
+# fn_tag dnSetIsoTitle param title purpose New iso title
+# fn_tag dnSetIsoTitle param title required yes
+# fn_tag dnSetIsoTitle param title multipart no
+# fn_tag dnSetIsoTitle param title type string
+dnSetIsoTitle () {
+	# create and set variables
+	local iso="$( dnNormalisePath "${1}" )"
+	local title="$( dnTidyDvdName "${2}" )"
+	while [ $( dnStrLen "${title}" ) -lt 32 ] ; do title="${title} " ; done
+	local exit_status=0  # default
+	# set title
+	echo -n "${title}" \
+		| dd of=${iso} \
+		     conv=notrunc \
+			 bs=1 \
+			 seek=32808 \
+			 count=32 \
+		2>/dev/null
+	exit_status=${PIPESTATUS[1]}
+	# indicate outcome
+	return ${exit_status}
+}
+# Function: dnRipDvd                                                 {{{1
+# Rip video dvd to disk
+#   params: 1 - source dvd device [required]
+#           2 - hard disk directory to rip dvd to [required]
+#           3 - error log filepath [required]
+#           4 - override dvd name [optional]
+#   prints: feedback
+#   return: boolean (0=success, 1=failure)
+#   needs:  apps [dvdbackup]
+#   usage:  errlog="$( mktemp )" || dnEndScript 1 "Unable to make temp file"
+#           dnTempTrap "${errlog}"
+#           msg="Ripping..."
+#           dnInfon "${dn_fg_red}${dn_fm_blink}${dn_fm_reverse}${msg}${dn_reset}"
+#           dnRipDvd "${source_dev}" "${output_dir}" "${errlog}" "${name}"
+#           exit_status=${?}
+#           dnEraseText "${msg}"
+#           echo -n "Rip... "
+#           dnReport ${exit_status}
+#           if [ ${exit_status} -ne 0 ] ; then
+#           	dnConfirm "View error log?" && less "${errlog}"
+#           	dnEndScript 1
+#           fi
+#           dnTempKill "${errlog}"
+#           ...
+# fn_tag dnRipDvd purpose Rip video dvd to hard disc
+# fn_tag dnRipDvd prints Feedback
+# fn_tag dnRipDvd returns Whether video was successfully ripped
+# fn_tag dnRipDvd usage errlog="$( mktemp )" || dnEndScript 1 "Unable to make temp file"
+# fn_tag dnRipDvd usage dnTempTrap "${errlog}"
+# fn_tag dnRipDvd usage msg="Ripping..."
+# fn_tag dnRipDvd usage dnInfon "${dn_fg_red}${dn_fm_blink}${dn_fm_reverse}${msg}${dn_reset}"
+# fn_tag dnRipDvd usage dnRipDvd "${source_dev}" "${output_dir}" "${errlog}" "${name}"
+# fn_tag dnRipDvd usage exit_status=${?}
+# fn_tag dnRipDvd usage dnEraseText "${msg}"
+# fn_tag dnRipDvd usage echo -n "Rip... "
+# fn_tag dnRipDvd usage dnReport ${exit_status}
+# fn_tag dnRipDvd usage if [ ${exit_status} -ne 0 ] ; then
+# fn_tag dnRipDvd usage \tdnConfirm "View error log?" && less "${errlog}"
+# fn_tag dnRipDvd usage \tdnEndScript 1
+# fn_tag dnRipDvd usage fi
+# fn_tag dnRipDvd usage dnTempKill "${errlog}"
+# fn_tag dnRipDvd usage ...
+# fn_tag dnRipDvd param source_device purpose Source dvd device
+# fn_tag dnRipDvd param source_device required yes
+# fn_tag dnRipDvd param source_device multipart no
+# fn_tag dnRipDvd param source_device type path
+# fn_tag dnRipDvd param target_dir purpose Hard disk directory to rip video to
+# fn_tag dnRipDvd param target_dir required yes
+# fn_tag dnRipDvd param target_dir multipart no
+# fn_tag dnRipDvd param target_dir type path
+# fn_tag dnRipDvd param error_log purpose File to which error messages are written
+# fn_tag dnRipDvd param error_log required yes
+# fn_tag dnRipDvd param error_log multipart no
+# fn_tag dnRipDvd param error_log type path
+# fn_tag dnRipDvd param dvd_name purpose Name of iso image/dvd to be created from output of this function
+# fn_tag dnRipDvd param dvd_name required no
+# fn_tag dnRipDvd param dvd_name multipart no
+# fn_tag dnRipDvd param dvd_name type string
+# fn_tag dnRipDvd param dvd_name note Overrides existing image name
+dnRipDvd () {
+	# set and check variables
+	local device="${1}" dir="$( dnNormalisePath "${2}" )"
+	local err_log="$( dnNormalisePath "${3}" )" name="${4:-""}"
+	[ -z "${device}" ] && dnFailScript "No dvd device supplied"
+	dnDirValid "${dir}" || dnFailScript "No valid output directory supplied"
+	if ! dnFileValid "${err_log}" ; then
+		dnError "No error log filepath supplied"
+		return 1
+	fi
+	# assemble command
+	cmd="dvdbackup -M -i ${device} -o ${dir}"
+	[ -n "${name}" ] && cmd="${cmd} -n ${name}"
+	# run command
+	${cmd} 2>>"${err_log}"
+	# signal result
+	return ${?}
+}
+# Function: dnMakeIso                                                {{{1
+# Make ISO9660 filesystem image
+#   params: 1 - feedback mode (raw|progress|silent) [required]
+#           2 - output ISO filepath [required]
+#           3 - path to root of input directory tree [required]
+#           4 - volume name (X = none supplied) [required]
+#           5 - error log filepath [required for mode='progress']
+#   prints: feedback if not suppressed
+#   return: boolean (0=success, 1=failure)
+#   needs:  apps [genisoimage, progressbar]
+#           functions [dnProgressBarFilter]
+#   usage:  errlog="$( mktemp )" || dnEndScript 1 "Unable to make temp file"
+#           dnTempTrap "${errlog}"
+#			dnInfo "ISO image: '${iso}'" "Generating ISO..."
+#           dnMakeIso 'progress' "/burn/my_dvd.iso" "${input_root}" \
+#           	"${label}" "${errlog}"
+#			exit_status=${?}
+#			if [ ${exit_status} -ne 0 ] || ! dnFileValid "${iso}" ; then
+#				[ ${exit_status} -eq 0 ] \
+#						|| dnError "Errors reported during build of ISO image"
+#				dnFileValid "${iso}" \
+#						|| dnError "Creation of ISO image" "  '${iso}'" "failed"
+#           	dnConfirm "View error log?" && less "${errlog}"
+#				dnEndScript 1
+#			fi
+#           dnTempKill "${errlog}"
+#           ...
+# fn_tag dnMakeIso purpose Makes an ISO9660 filesystem
+# fn_tag dnMakeIso prints Feedback if not suppressed (see parameter 'feedback-mode')
+# fn_tag dnMakeIso returns Whether filesystem successfully created (Boolean)
+# fn_tag dnMakeIso note Uses tool 'genisoimage'
+# fn_tag dnMakeIso usage errlog="$( mktemp )" || dnEndScript 1 "Unable to make temp file"
+# fn_tag dnMakeIso usage dnTempTrap "${errlog}"
+# fn_tag dnMakeIso usage dnInfo "ISO image: '${iso}'" "Generating ISO..."
+# fn_tag dnMakeIso usage dnMakeIso 'progress' "/burn/my_dvd.iso" "${input_root}" \
+# fn_tag dnMakeIso usage \t"${label}" "${errlog}"
+# fn_tag dnMakeIso usage exit_status=${?}
+# fn_tag dnMakeIso usage if [ ${exit_status} -ne 0 ] || ! dnFileValid "${iso}" ; then
+# fn_tag dnMakeIso usage \t[ ${exit_status} -eq 0 ] \
+# fn_tag dnMakeIso usage \t\t\t|| dnError "Errors reported during build of ISO image"
+# fn_tag dnMakeIso usage \tdnFileValid "${iso}" \
+# fn_tag dnMakeIso usage \t\t\t|| dnError "Creation of ISO image" "  '${iso}'" "failed"
+# fn_tag dnMakeIso usage \tdnConfirm "View error log?" && less "${errlog}"
+# fn_tag dnMakeIso usage \tdnEndScript 1
+# fn_tag dnMakeIso usage fi
+# fn_tag dnMakeIso usage dnTempKill "${errlog}"
+# fn_tag dnMakeIso usage ...
+# fn_tag dnMakeIso param feedback-mode purpose Whether and what type of screen feedback is displayed
+# fn_tag dnMakeIso param feedback-mode required yes
+# fn_tag dnMakeIso param feedback-mode multipart no
+# fn_tag dnMakeIso param feedback-mode type string
+# fn_tag dnMakeIso param feedback-mode value raw
+# fn_tag dnMakeIso param feedback-mode value progress
+# fn_tag dnMakeIso param feedback-mode value silent
+# fn_tag dnMakeIso param feedback-mode note Mode 'raw' = unfiltered feedback from 'genisoimage'
+# fn_tag dnMakeIso param feedback-mode note Mode 'progress' = progress bar tracking percentage progress
+# fn_tag dnMakeIso param feedback-mode note Mode 'silent' = all feedback suppressed
+# fn_tag dnMakeIso param feedback-mode note If mode = 'progress' must supply error log (see parameter 'error-log')
+# fn_tag dnMakeIso param feedback-mode note Mode 'progress' requires bash function 'dnProgressBarFilter'
+# fn_tag dnMakeIso param feedback-mode note Mode 'progress' requires tool 'dn-progressbar'
+# fn_tag dnMakeIso param output-iso purpose Location of created ISO9660 filesystem image
+# fn_tag dnMakeIso param output-iso required yes
+# fn_tag dnMakeIso param output-iso multipart no
+# fn_tag dnMakeIso param output-iso type path
+# fn_tag dnMakeIso param input purpose Location of root of input directory tree
+# fn_tag dnMakeIso param input required yes
+# fn_tag dnMakeIso param input multipart no
+# fn_tag dnMakeIso param input type path
+# fn_tag dnMakeIso param volume-name purpose Volume name of ISO9660 filesystem
+# fn_tag dnMakeIso param volume-name required yes
+# fn_tag dnMakeIso param volume-name multipart no
+# fn_tag dnMakeIso param volume-name type string
+# fn_tag dnMakeIso param volume-name note Use 'X' if not supplying volume name
+# fn_tag dnMakeIso param error-log purpose Location of error log
+# fn_tag dnMakeIso param error-log required yes
+# fn_tag dnMakeIso param error-log multipart no
+# fn_tag dnMakeIso param error-log type path
+# fn_tag dnMakeIso param error-log note Does not have to exists prior to calling function
+dnMakeIso () {
+	# set and check variables
+	local mode="${1}" iso="$( dnNormalisePath "${2}" )"
+	local dir="$( dnNormalisePath "${3}" )"
+	local name="${4}"
+	[ "${name}" = "X" ] && name=''
+	name="$( dnTidyDvdName "${name}" )"
+	local err_log="$( dnNormalisePath "${5}" )"
+	local retval= msg= cmd=
+	[ -z "${iso}" ] && dnFailScript "No output ISO filepath supplied"
+	[ -z "${dir}" ] && dnFailScript "No input directory tree supplied"
+	dnDirValid "${dir}" || dnFailScript "Invalid input directory tree"
+		# if mode is progress must have error log
+	[ "${mode}" = 'progress' ] && ! dnFileValid "${err_log}" \
+		&& dnError "No error log filepath supplied" && return 1
+	# make iso and capture exit status
+	cmd="genisoimage -J -R -dvd-video"
+	[ -n "${name}" ] && cmd="${cmd} -V ${name}"
+	cmd="${cmd} -o ${iso} ${dir}"
+	case ${mode} in
+	'raw'      ) #genisoimage -J -R -dvd-video -o ${iso} ${dir}
+	             ${cmd}
+	             retval=${?}
+				 ;;
+	'silent'   ) #genisoimage -J -R -dvd-video -o ${iso} ${dir} &> /dev/null
+	             ${cmd} &> /dev/null
+	             retval=${?}
+				 ;;
+	'progress' ) #genisoimage -J -R -dvd-video -o ${iso} ${dir} 2>&1 \
+	             ${cmd} 2>>"${err_log}" \
+				 	| dnProgressBarFilter genisoimage \
+					| progressbar
+                 retval=${PIPESTATUS[0]}
+                 echo  # progress bar sometimes ends with cursor on bar line
+                 ;;
+	*          ) msg= "Case failure in function '${FUNCTNAME}'"
+				 dnFailScript "${msg}"
+				 ;;
+	esac
+	# signal result
+	return ${retval}
+}
+# Function: dnBurnDvd                                                {{{1
+# Burn ISO9660 filesystem image to dvd
+#   params: 1 - feedback mode (raw|progress|silent) [required]
+#           2 - burning device [required]
+#           3 - ISO filepath [required]
+#           4 - burn speed (X=none specified) [required]
+#           5 - error log filepath [required for mode='progress']
+#   prints: feedback if not suppressed
+#   return: boolean (0=success, 1=failure)
+#   needs:  apps [grwoisofs, progressbar]
+#           functions [dnProgressBarFilter]
+#   usage:  errlog="$( mktemp )" || dnEndScript 1 "Unable to make temp file"
+#           dnTempTrap "${errlog}"
+#           if ! dnBurnDvd 'progress' "/dev/dvd" \
+#           		"/burn/my_dvd.iso" 16 "${errlog}" ; then
+#           	dnError "Burn failed"
+#           	dnConfirm "View error log?" && less "${errlog}"
+#           fi
+#           dnTempKill "${errlog}"
+#           ...
+# fn_tag dnBurnDvd purpose Burn ISO9660 filesystem image to dvd
+# fn_tag dnBurnDvd prints Feedback (if not suppressed)
+# fn_tag dnBurnDvd returns Whether burn successful (Boolean)
+# fn_tag dnBurnDvd usage errlog="$( mktemp )" || dnEndScript 1 "Unable to make temp file"
+# fn_tag dnBurnDvd usage dnTempTrap "${errlog}"
+# fn_tag dnBurnDvd usage if ! dnBurnDvd 'progress' "/dev/dvd" \
+# fn_tag dnBurnDvd usage \t\t"/burn/my_dvd.iso" 16 "${errlog}" ; then
+# fn_tag dnBurnDvd usage \tdnError "Burn failed"
+# fn_tag dnBurnDvd usage \tdnConfirm "View error log?" && less "${errlog}"
+# fn_tag dnBurnDvd usage fi
+# fn_tag dnBurnDvd usage dnTempTrap "${errlog}"
+# fn_tag dnBurnDvd usage ...
+# fn_tag dnBurnDvd param feedback purpose Feedback mode
+# fn_tag dnBurnDvd param feedback required yes
+# fn_tag dnBurnDvd param feedback multipart no
+# fn_tag dnBurnDvd param feedback type string
+# fn_tag dnBurnDvd param feedback value raw
+# fn_tag dnBurnDvd param feedback value progress
+# fn_tag dnBurnDvd param feedback value silent
+# fn_tag dnBurnDvd param device purpose Burning device
+# fn_tag dnBurnDvd param device required yes
+# fn_tag dnBurnDvd param device multipart no
+# fn_tag dnBurnDvd param device type path
+# fn_tag dnBurnDvd param iso purpose ISO image filepath
+# fn_tag dnBurnDvd param iso required yes
+# fn_tag dnBurnDvd param iso multipart no
+# fn_tag dnBurnDvd param iso type path
+# fn_tag dnBurnDvd param speed purpose Burn speed
+# fn_tag dnBurnDvd param speed required yes
+# fn_tag dnBurnDvd param speed multipart no
+# fn_tag dnBurnDvd param speed type integer
+# fn_tag dnBurnDvd param speed note Units are those used in specifying burner device burn speed without 'X'
+# fn_tag dnBurnDvd param speed note Example: If device and disk burn at '6X', use '6' as parameter
+# fn_tag dnBurnDvd param speed note Use 'X' if no speed specified -- means device will decide on burn speed
+# fn_tag dnBurnDvd param error_log purpose Error log filepath
+# fn_tag dnBurnDvd param error_log required no
+# fn_tag dnBurnDvd param error_log multipart no
+# fn_tag dnBurnDvd param error_log type path
+# fn_tag dnBurnDvd param error_log note Required if feedback mode set to 'progress'
+dnBurnDvd () {
+	# set and check variables
+	local mode="${1}" device="${2}" iso="$( dnNormalisePath "${3}" )"
+	local speed="$( echo "${4}" | tr '[:lower:]' '[:upper:]' )"
+	local err_log="$( dnNormalisePath "${5:-""}" )" retval= msg= cmd=
+	dnFileValid "${iso}" || dnFailScript "No ISO filepath supplied"
+		# if mode is progress must have error log
+	[ "${mode}" = 'progress' ] && ! dnFileValid "${err_log}" \
+		&& dnError "No error log filepath supplied" && return 1
+	dnValidNonZeroPosInt "${speed}" || speed='X'
+	# build basic command
+	cmd="growisofs -dvd-compat"
+	[ "${speed}" = 'X' ] || cmd="${cmd} -speed=${speed}"
+	cmd="${cmd} -Z ${device}=${iso}"
+	# burn iso and capture exit status
+	case ${mode} in
+	'raw'      ) ${cmd}
+	             retval=${?}
+				 ;;
+	'silent'   ) ${cmd} &> /dev/null
+	             retval=${?}
+				 ;;
+	'progress' ) ${cmd} 2>>"${err_log}" \
+	             		| dnProgressBarFilter growisofs \
+				 		| progressbar
+                 retval=${PIPESTATUS[0]}
+                 echo  # progress bar sometimes ends with cursor on bar line
+                 ;;
+	*          ) msg= "Case failure in function '${FUNCTNAME}'"
+				 dnFailScript "${msg}"
+				 ;;
+	esac
+	# signal result
+	return ${retval}
+}
+# Function: dnTidyDvdName                                            {{{1
+# Tidy dvd name
+#   params: 1 - dvd name
+#   prints: string - tidied dvd name
+#   return: nil
+# fn_tag dnTidyDvdName purpose Tidies dvd name
+# fn_tag dnTidyDvdName prints Tidied dvd title (String)
+# fn_tag dnTidyDvdName returns NIL
+# fn_tag dnTidyDvdName note Strips extraneous spaces, make uppercase, converts internal spaces to underscores and truncates at 32 chars
+# fn_tag dnTidyDvdName param name purpose Dvd name to tidy
+# fn_tag dnTidyDvdName param name required yes
+# fn_tag dnTidyDvdName param name multipart no
+# fn_tag dnTidyDvdName param name type string
+dnTidyDvdName () {
+	local name="${1}"
+	# strip extraneous spaces
+	name="$( dnStripEnclosingSpaces "${name}" )"
+	# convert lower->upper and spaces->underscores
+	name="$( echo "${name}" | tr '[:lower:]' '[:upper:]' | tr '[:space:]' '_' )"
+	# 'tr' conversion often add terminal space
+	name="$( echo "${name}" | sed -e 's/_*$//' )"
+	# max length 32 characters
+	name="$( echo "${name}" | head --bytes=32 )"
+	# done
+	echo "${name}"
+}
+# Function: dnOversizeIso                                            {{{1
+# Checks whether ISO too large
+#   params: 1 - iso filepath [required]
+#           2 - max size ('4.7G') (default='4.7G') [optional]
+#   prints: nil
+#   return: boolean (0=oversize|1=undersize)
+# fn_tag dnOversizeIso purpose Determines whether iso image is too large to fit on a dvd disc
+# fn_tag dnOversizeIso prints NIL
+# fn_tag dnOversizeIso returns Whether iso image is oversized
+# fn_tag dnOversizeIso param iso purpose ISO image filepath
+# fn_tag dnOversizeIso param iso required yes
+# fn_tag dnOversizeIso param iso multipart no
+# fn_tag dnOversizeIso param iso type path
+# fn_tag dnOversizeIso param maximum purpose Maximum size of ISO image
+# fn_tag dnOversizeIso param maximum required no
+# fn_tag dnOversizeIso param maximum multipart no
+# fn_tag dnOversizeIso param maximum type string
+# fn_tag dnOversizeIso param maximum value 4.7G
+# fn_tag dnOversizeIso param maximum value 8.5G
+# fn_tag dnOversizeIso param maximum default 4.7G
+dnOversizeIso () {
+	# set and check variables
+	local iso="$( dnNormalisePath "${1}" )" limit="${2:-"4.7G"}" max_bytes=
+	case ${limit} in
+		'4.7G' ) max_bytes='4700000000';;
+		'8.5G' ) max_bytes='8500000000';;
+		*      ) dnFatal "Case mismatch in function '${FUNCNAME}'" && exit 1;;
+	esac
+	# check size and return result
+	[ $( dnFileSize "${iso}" 'b' ) -gt ${max_bytes} ]
+	return ${?}
+}
+# Resizes ISO
+#   params: 1 - iso filepath [required]
+#           2 - max size (as per dnOversizeIso params) [required]
+#   prints: interactive
+#   return: boolean (0=success|1=failure)
+#   needs:  apps [wine, DVDShrink]
+# fn_tag dnResizeIso purpose Resize ISO image
+# fn_tag dnResizeIso prints Interactive terminal sessions and GUI dialogs
+# fn_tag dnResizeIso returns Whether resizing successful (Boolean)
+# fn_tag dnResizeIso note Uses DVDShrink under wine
+# fn_tag dnResizeIso note Renames original file and expects user to save new image under original name
+# fn_tag dnResizeIso note Deletes original file if new file with appropriate name and size is created
+# fn_tag dnResizeIso param iso purpose ISO image filepath
+# fn_tag dnResizeIso param iso required yes
+# fn_tag dnResizeIso param iso multipart no
+# fn_tag dnResizeIso param iso type path
+# fn_tag dnResizeIso param size purpose Maximum size of ISO image after resizing
+# fn_tag dnResizeIso param size required yes
+# fn_tag dnResizeIso param size multipart no
+# fn_tag dnResizeIso param size type string
+# fn_tag dnResizeIso param size value 4.7G
+# fn_tag dnResizeIso param size value 8.5G
+# fn_tag dnResizeIso param size note Same allowable values as used for dnOversizeIso parameter 'maximum'
+dnResizeIso () {
+	# create and check variables
+	local iso="$( dnNormalisePath "${1}" )" max_size="${2}" retval=1 msg=
+	! dnFileValid "${iso}" && dnError "Invalid ISO file '${iso}'" && return 1
+	[ -z "${max_size}" ] && dnError "No size limit provided" && return 1
+	local dvd_shrink="${HOME}/.wine/drive_c/Program Files"
+	dvd_shrink="${dvd_shrink}/DVD Shrink/DVD Shrink 3.2.exe"
+	# prepare to run DVDShrink
+	dnInfo "ISO image must be resized with DVDShrink"
+	iso_old="$( dnParentDir "${iso}" )/$( dnExtractFileBase "${iso}" )_orig.iso"
+	dnInfo "Renaming ISO image"
+	mv "${iso}" "${iso_old}"
+	if [ ${?} -eq 0 ] ; then dnInfo "File successfully renamed"
+	else dnError "Renaming failed" ; return 1
+	fi
+	dnInfo "Changed ISO image name to:" \
+		 "  '${iso_old}'." \
+		 "You must save the new ISO image as:" \
+		 "  '${iso}'."
+	dnInfo "Ready to run DVDShrink using wine." \
+		 "Use Ctrl-I to open ISO image, optionally do deep analysis by" \
+		 "clicking the \"Analysis\" button (examines each frame" \
+		 "rather than the default of 1 in 100), click the \"Re-author\"" \
+		 "button, select titles in right-hand pane by right-clicking and" \
+		 "selecting \"Add\", click \"Backup!\" when disc image ready," \
+		 "choose target \"ISO image file\", enter target image file name" \
+		 "(preferably as suggested above) and, finally, click \"OK\"."
+	dnPromptUser
+	# do shrink
+	dnInfo "${dn_divider}"
+	wine "${dvd_shrink}"
+	dnInfo "${dn_divider}"
+	# check for resized iso
+	if dnFileValid "${iso}" ; then  # found iso
+		dnInfo "Found ISO image with recommended name:" "  '${iso}'"
+		if dnFileValid "${iso_old}" ; then  # delete old iso file
+			dnInfo "Old ISO image is no longer used but still present:" \
+				 "  '${iso_old}'"
+			dnInfon "Deleting... "
+			rm -f "${iso_old}" &> /dev/null
+			dnReport ${?}
+		fi
+		if dnOversizeIso "${iso}" "${max_size}" ; then
+			msg="ISO image is still too large: $( dnFileSize "${iso}" 'h' )"
+			dnError "${msg}"
+		else
+			dnInfo "Resizing succeeded"
+			retval=0  # only codepoint where success guaranteed
+		fi
+	else  # user did not create resized file with same filepath
+		dnError "Unable to locate ISO image:" "  '${iso}'" "Resizing failed"
+	fi
+	# indicate result
+	return ${retval}
+}
+# Function: dnShowPlayerHelp                                         {{{1
+# Show player app help screen
+#   params: 1 - player app ('xine')
+#           2 - temporary file for help screen text
+#   prints: PID of help display
+#   return: nil
+#   usage:  tmp_file="$( mktemp )" &> /dev/null || return 1
+#			dnTempTrap "${tmp_file}"
+#           pid="$( dnShowPlayerHelp 'xine' "${tmp_file}" )"
+#           ...
+#           dnPidRunning "${pid}" && dnKillPid "${pid}"
+#			dnTempKill "${tmp_file}"
+# fn_tag dnShowPlayerHelp purpose Display an application-specific help screen
+# fn_tag dnShowPlayerHelp prints PID of terminal displaying help file
+# fn_tag dnShowPlayerHelp returns NIL
+# fn_tag dnShowPlayerHelp note Help text is displayed in a terminal (Konsole)
+# fn_tag dnShowPlayerHelp param app purpose Application for which help is to be displayed
+# fn_tag dnShowPlayerHelp param app required yes
+# fn_tag dnShowPlayerHelp param app multipart no
+# fn_tag dnShowPlayerHelp param app type string
+# fn_tag dnShowPlayerHelp param app value xine
+# fn_tag dnShowPlayerHelp param temp_file purpose Filepath of temporary file used to hold help text
+# fn_tag dnShowPlayerHelp param temp_file required yes
+# fn_tag dnShowPlayerHelp param temp_file multipart no
+# fn_tag dnShowPlayerHelp param temp_file type path
+# fn_tag dnShowPlayerHelp param temp_file note This file does not need to exists prior to function invocation
+dnShowPlayerHelp () {
+	# set and check variables
+	local player="${1}" file="$( dnNormalisePath "${2}" )"
+	local pid= help= title= size=
+	local icon="/home/david/conf/system/icons/help.png"
+	# set application specific settings: help, title and size
+	case ${player} in
+	'xine' )
+	help=$( cat <<-EOI
+			XINE help
+			=========
+			
+			Play
+			----
+			<RET>: play
+			<SPC>: pause
+			s: stop
+			fullscreen: f
+
+			Jump ahead
+			----------
+			60s: <Right>
+			30s: Alt-<Right>
+			15s: Ctl-<Right>
+
+			Jump to %
+			---------
+			start 10% ... 90%
+			Ctl-0 -1      -9
+
+			Speed
+			-----
+			Increase: <Up>
+			Decrease: <Down>
+			Reset: Alt-<Down>
+
+			Volume
+			------
+			Increase: V
+			Decrease: v
+			Mute toggle: Ctl-m
+
+			Audio Channels
+			--------------
+			Next: +
+			Prev: -
+
+			Subtitles
+			---------
+			Next: ,
+			Prev: .
+
+			Menu Nav.
+			---------
+			Numeric cluster
+			  arrows
+			
+			Jump to Menu
+			------------
+			Title: <F1>
+			Root: <F2>
+			Subtitle: <F3>
+			Audio: <F4>
+			EOI)
+	title="Xine Help"
+	size="20x40"
+		;;
+	* ) dnError "Case mismatch in function '${FUNCNAME}'" && return 1;;
+	esac
+	# write help text to file
+	echo "${help}" > "${file}"
+	# display help
+	konsole -T "${title}" \
+			--icon "${icon}" \
+			--vt_sz "${size}" \
+			--nomenubar \
+			--notabbar \
+			-e less "${file}" &> /dev/null &
+	# get and return pid
+	pid="${!}"
+	echo "${pid}"
+}
+# Function: dnPlayIso                                                {{{1
+# Play ISO image
+#   params: 1 - player app ('xine')
+#           2 - device/file
+#   prints: nil
+#   return: boolean (0=success|1=failure)
+#   assume: device/file is correct and normalised
+# fn_tag dnPlayIso purpose Play ISO image
+# fn_tag dnPlayIso prints NIL
+# fn_tag dnPlayIso returns Whether ISO image successfully played (Boolean)
+# fn_tag dnPlayIso note Can play from hard disk or player device
+# fn_tag dnPlayIso note Assumes source device or file is correct and normalised
+# fn_tag dnPlayIso param player purpose Application used to play ISO image
+# fn_tag dnPlayIso param player required yes
+# fn_tag dnPlayIso param player multipart no
+# fn_tag dnPlayIso param player type string
+# fn_tag dnPlayIso param player value xine
+# fn_tag dnPlayIso param iso purpose Source device or file for ISO image
+# fn_tag dnPlayIso param iso required yes
+# fn_tag dnPlayIso param iso multipart no
+# fn_tag dnPlayIso param iso type path
+dnPlayIso () {
+	# set and check variables
+	local player="${1}" dev_file="${2}" retval=1 cmd=
+	# create player command
+	case ${player} in
+	'xine' ) cmd="xine dvd:${dev_file}";;
+	* ) dnError "Case mismatch in function '${FUNCNAME}'" && return 1;;
+	esac
+	# play dvd
+	${cmd} &> /dev/null
+	# indicate success or failure
+	return ${?}
+}
+# Function: dnExtractM2vFromVob                                      {{{1
+# Extract video stream from vob 
+#   params: 1 - input filepath [required]
+#           2 - output filepath [required]
+#   prints: nil
+#   return: boolean (0=success|1=failure)
+#   assume: input pathname exists, output pathname does not
+# fn_tag dnExtractM2vFromVob purpose Extract video stream from vob file
+# fn_tag dnExtractM2vFromVob prints NIL
+# fn_tag dnExtractM2vFromVob returns Whether extraction successful (Boolean)
+# fn_tag dnExtractM2vFromVob param input purpose Input vob file
+# fn_tag dnExtractM2vFromVob param input required yes
+# fn_tag dnExtractM2vFromVob param input multipart no
+# fn_tag dnExtractM2vFromVob param input type path
+# fn_tag dnExtractM2vFromVob param input note File must exist
+# fn_tag dnExtractM2vFromVob param output purpose Output m2v file
+# fn_tag dnExtractM2vFromVob param output required yes
+# fn_tag dnExtractM2vFromVob param output multipart no
+# fn_tag dnExtractM2vFromVob param output type path
+# fn_tag dnExtractM2vFromVob param output note This file need not, and usually does not, exist
+dnExtractM2vFromVob () {
+	# set and check variables
+	local in_file="$( dnNormalisePath "${1}" )"
+	local out_file="$( dnNormalisePath "${2}" )"
+	# extract stream
+	tcextract -i "${in_file}" -x mpeg2 > "${out_file}" 2>/dev/null
+	return ${?}
+}
+# Function: dnExtractAc3FromVob                                      {{{1
+# Extract audio stream from vob 
+#   params: 1 - input filepath [required]
+#           2 - output filepath [required]
+#   prints: nil
+#   return: boolean (0=success|1=failure)
+#   assume: input pathname exists, output pathname does not
+# fn_tag dnExtractAc3FromVob purpose Extract audio stream from vob file
+# fn_tag dnExtractAc3FromVob prints NIL
+# fn_tag dnExtractAc3FromVob returns Whether extraction successful (Boolean)
+# fn_tag dnExtractAc3FromVob param input purpose Input vob file
+# fn_tag dnExtractAc3FromVob param input required yes
+# fn_tag dnExtractAc3FromVob param input multipart no
+# fn_tag dnExtractAc3FromVob param input type path
+# fn_tag dnExtractAc3FromVob param input note File must exist
+# fn_tag dnExtractAc3FromVob param output purpose Output ac3 file
+# fn_tag dnExtractAc3FromVob param output required yes
+# fn_tag dnExtractAc3FromVob param output multipart no
+# fn_tag dnExtractAc3FromVob param output type path
+# fn_tag dnExtractAc3FromVob param output note This file need not, and usually does not, exist
+dnExtractAc3FromVob () {
+	# set and check variables
+	local in_file="$( dnNormalisePath "${1}" )"
+	local out_file="$( dnNormalisePath "${2}" )"
+	# extract stream
+	tcextract -i "${in_file}" -x ac3 > "${out_file}" 2>/dev/null
+	return ${?}
+}
+# Function: dnRemuxVob                                               {{{1
+# Remultiplex a VOB 
+#   params: 1 - input filepath [required]
+#   prints: nil
+#   return: boolean (0=success|1=failure)
+#   assume: input pathname exists, output pathname does not
+# fn_tag dnRemuxVob purpose Remultiplex a vob file
+# fn_tag dnRemuxVob prints NIL
+# fn_tag dnRemuxVob returns Whether remultiplexing successful (Boolean)
+# fn_tag dnRemuxVob note Attempts to create remultiplexed file with same name as original (original is renamed)
+# fn_tag dnRemuxVob param input purpose Input vob file
+# fn_tag dnRemuxVob param input required yes
+# fn_tag dnRemuxVob param input multipart no
+# fn_tag dnRemuxVob param input type path
+dnRemuxVob () {
+	# set and check variables
+	local in_file="$( dnNormalisePath "${1}" )" out_file=
+	local in_file_basename="$( basename "${in_file}" )"
+	local file_base="$( dnExtractFileBase "${in_file}" )"
+	local renamed_to="$( dnParentDir "${in_file}" )/${file_base}_orig.vob"
+	local renamed_to_basename="$( basename "${renamed_to}" )"
+	local tmp_dir="$( mktemp -d )" \
+		|| dnEndScript 1 "Unable to make temp directory"
+	dnTempTrap "${tmp_dir}"
+	local m2v="${tmp_dir}/${file_base}.m2v"
+	local ac3="${tmp_dir}/${file_base}.ac3"
+	local in_base="${tmp_dir}/${file_base}"
+	# convert to intermediate formats
+	dnInfon "Extracting video stream from vob... "
+	dnExtractM2vFromVob "${in_file}" "${m2v}"
+	dnCritRep ${?} "Unable to extract video stream from vob"
+	dnInfon "Extracting audio stream from vob... "
+	dnExtractAc3FromVob "${in_file}" "${ac3}"
+	dnCritRep ${?} "Unable to extract audio stream from vob"
+	# rename input file
+	local msg="Renaming input file '${in_file_basename}' to"
+	msg="${msg} '${renamed_to_basename}'... "
+	dnInfon "${msg}"
+	mv "${in_file}" "${renamed_to}" &> /dev/null
+	dnCritRep ${?} "Unable to rename input VOB file"
+	out_file="${in_file}"
+	# remux
+	dnInfon "Re-multiplexing video and audio streams... "
+	dnConvertM2vAc3ToMpg "${in_base}" "${out_file}" &> /dev/null
+	dnCritRep ${?} "Unable to re-multiplex"
+	# clean up
+	dnTempKill "${tmp_dir}"
+}
+# Function: dnPlayDvd                                                {{{1
+# Play dvd
+#   params: 1 - dvd player
+#           2 - dvd device
+#           3 - dvd name [optional]
+#   prints: feedback
+#   return: boolean [ 0 = able to play | 1 = unable to play ]
+# fn_tag dnPlayDvd purpose Play dvd
+# fn_tag dnPlayDvd prints Feedback
+# fn_tag dnPlayDvd returns Whether dvd played successfully (boolean)
+# fn_tag dnPlayDvd param player purpose Player application
+# fn_tag dnPlayDvd param player required yes
+# fn_tag dnPlayDvd param player multipart no
+# fn_tag dnPlayDvd param player type string
+# fn_tag dnPlayDvd param device purpose Dvd device
+# fn_tag dnPlayDvd param device required yes
+# fn_tag dnPlayDvd param device multipart no
+# fn_tag dnPlayDvd param device type path
+# fn_tag dnPlayDvd param dvd_name purpose Name/title of dvd
+# fn_tag dnPlayDvd param dvd_name required no
+# fn_tag dnPlayDvd param dvd_name multipart no
+# fn_tag dnPlayDvd param dvd_name type string
+# fn_tag dnPlayDvd param dvd_name note Used in feedback if present
+dnPlayDvd () {
+	# set and check variables
+	local player_name="${1}" device="$( dnNormalisePath "${2}" )"
+	local dvd_name="${3:-""}" retval= cmd=
+	local msg="Playing dvd${dvd_name:+ '${dvd_name}'}..."
+	# check for valid player
+	if ! dnValidDvdPlayer "${player_name}" ; then
+		dnError "Invalid player '${player_name}'"
+		return 1
+	fi
+	# set play command
+	# <player> <params> <prefix><device> <suffix>
+	cmd="$( dnDvdPlayerBin "${player_name}" )"
+	cmd="${cmd} $( dnDvdPlayerParameters "${player_name}" )"
+	cmd="${cmd} $( dnDvdPlayerDevicePrefix "${player_name}" )"
+	cmd="${cmd}${device}"
+	cmd="${cmd} $( dnDvdPlayerDeviceSuffix "${player_name}" )"
+	dnInfo "${msg}"
+	echo "==========================================="
+	${cmd}
+	retval=${?}
+	echo "==========================================="
+	[ -n "${dvd_name}" ] && dnInfo "Finished playing '${dvd_name}'"
+	return ${?}
+}
+# Function: dnValidDvdPlayer                                         {{{1
+# Check that player is valid
+#   params: 1 - dvd player
+#   prints: NIL
+#   return: boolean [ 0 = valid player | 1 = invalid ]
+# fn_tag dnValidDvdPlayer purpose Determine whether dvd player is valid
+# fn_tag dnValidDvdPlayer prints NIL
+# fn_tag dnValidDvdPlayer returns Whether player is valid (boolean)
+# fn_tag dnValidDvdPlayer note Valid if registered player and executable exists
+# fn_tag dnValidDvdPlayer param player purpose Dvd player application
+# fn_tag dnValidDvdPlayer param player required yes
+# fn_tag dnValidDvdPlayer param player multipart no
+# fn_tag dnValidDvdPlayer param player type string
+dnValidDvdPlayer () {
+	local i= player="${1}" retval=1
+	for (( i=0 ; i<${#dn_dvd_player_names[*]} ; i++ )) ; do
+		if [ "$( dnLowercase "${dn_dvd_player_names[${i}]}" )" \
+				 = "$( dnLowercase "${player}" )" ] ; then
+			which "${dn_dvd_player_bins[${i}]}" &>/dev/null && retval=0
+			break
+		fi
+	done
+	return ${retval}
+}
+# Function: dnDvdPlayerBin                                           {{{1
+# Get dvd player executable
+#   params: 1 - dvd player
+#   prints: executable name
+#   return: NIL
+# fn_tag dnDvdPlayerBin purpose Provide executable name for a dvd player
+# fn_tag dnDvdPlayerBin prints Executable name
+# fn_tag dnDvdPlayerBin returns NIL
+# fn_tag dnDvdPlayerBin param player purpose Dvd player application
+# fn_tag dnDvdPlayerBin param player required yes
+# fn_tag dnDvdPlayerBin param player multipart no
+# fn_tag dnDvdPlayerBin param player type string
+dnDvdPlayerBin () {
+	local i= player="${1}" bin=
+	for (( i=0 ; i<${#dn_dvd_player_names[*]} ; i++ )) ; do
+		if [ "$( dnLowercase "${dn_dvd_player_names[${i}]}" )" \
+				 = "$( dnLowercase "${player}" )" ] ; then
+			bin="${dn_dvd_player_bins[${i}]}"
+			break
+		fi
+	done
+	echo "${bin}"
+}
+# Function: dnDvdPlayerParameters                                    {{{1
+# Get dvd player parameters
+#   params: 1 - dvd player
+#   prints: parameters
+#   return: nil
+# fn_tag dnDvdPlayerParameters purpose Provide appropriate parameters for a dvd player
+# fn_tag dnDvdPlayerParameters prints Parameters
+# fn_tag dnDvdPlayerParameters returns NIL
+# fn_tag dnDvdPlayerParameters note Supplies parameters for a command-line invocation of the player
+# fn_tag dnDvdPlayerParameters param player purpose Dvd player application
+# fn_tag dnDvdPlayerParameters param player required yes
+# fn_tag dnDvdPlayerParameters param player multipart no
+# fn_tag dnDvdPlayerParameters param player type string
+dnDvdPlayerParameters () {
+	local i= player="${1}" params=
+	for (( i=0 ; i<${#dn_dvd_player_names[*]} ; i++ )) ; do
+		if [ "$( dnLowercase "${dn_dvd_player_names[${i}]}" )" \
+				 = "$( dnLowercase "${player}" )" ] ; then
+			params="${dn_dvd_player_params[${i}]}"
+			break
+		fi
+	done
+	echo "${params}"
+}
+# Function: dnDvdPlayerDevicePrefix                                    {{{1
+# Get dvd player parameters
+#   params: 1 - dvd player
+#   prints: parameters
+#   return: nil
+# fn_tag dnDvdPlayerDevicePrefix purpose Provide device prefix for a dvd player command
+# fn_tag dnDvdPlayerDevicePrefix prints Device prefix
+# fn_tag dnDvdPlayerDevicePrefix returns NIL
+# fn_tag dnDvdPlayerDevicePrefix note Supplies prefix for device in command-line invocation of the player
+# fn_tag dnDvdPlayerDevicePrefix param player purpose Dvd player application
+# fn_tag dnDvdPlayerDevicePrefix param player required yes
+# fn_tag dnDvdPlayerDevicePrefix param player multipart no
+# fn_tag dnDvdPlayerDevicePrefix param player type string
+dnDvdPlayerDevicePrefix () {
+	local i= player="${1}" prefix=
+	for (( i=0 ; i<${#dn_dvd_player_names[*]} ; i++ )) ; do
+		if [ "$( dnLowercase "${dn_dvd_player_names[${i}]}" )" \
+				 = "$( dnLowercase "${player}" )" ] ; then
+			prefix="${dn_dvd_player_device_prefixes[${i}]}"
+			break
+		fi
+	done
+	echo "${prefix}"
+}
+# Function: dnDvdPlayerDeviceSuffix                                    {{{1
+# Get dvd player parameters
+#   params: 1 - dvd player
+#   prints: parameters
+#   return: nil
+# fn_tag dnDvdPlayerDeviceSuffix purpose Provide device suffix for a dvd player command
+# fn_tag dnDvdPlayerDeviceSuffix prints Device suffix
+# fn_tag dnDvdPlayerDeviceSuffix returns NIL
+# fn_tag dnDvdPlayerDeviceSuffix note Supplies suffix for device in command-line invocation of the player
+# fn_tag dnDvdPlayerDeviceSuffix param player purpose Dvd player application
+# fn_tag dnDvdPlayerDeviceSuffix param player required yes
+# fn_tag dnDvdPlayerDeviceSuffix param player multipart no
+# fn_tag dnDvdPlayerDeviceSuffix param player type string
+dnDvdPlayerDeviceSuffix () {
+	local i= player="${1}" suffix=
+	for (( i=0 ; i<${#dn_dvd_player_names[*]} ; i++ )) ; do
+		if [ "$( dnLowercase "${dn_dvd_player_names[${i}]}" )" \
+				 = "$( dnLowercase "${player}" )" ] ; then
+			suffix="${dn_dvd_player_device_suffixes[${i}]}"
+			break
+		fi
+	done
+	echo "${suffix}"
+}
+
+# }}}1
+
+# vim: set foldmethod=marker :

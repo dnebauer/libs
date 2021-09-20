@@ -1,0 +1,79 @@
+#!/bin/bash
+
+# Suite: libdncommon-bash  # do not alter or delete -- required by vim plugin
+# File: liball
+# Author: David Nebauer
+# Purpose: Useful bash functions
+
+# Use '\a' to add vimtags
+
+# LOAD SUBSIDIARY LIBRARIES                                          {{{1
+
+. @pkglibexec_dir@/libarrays               # handling arrays
+. @pkglibexec_dir@/libcontrol              # program control
+. @pkglibexec_dir@/libconvert              # convert file formats
+. @pkglibexec_dir@/libdevices              # handling devices
+. @pkglibexec_dir@/libdvd                  # working with DVDs
+. @pkglibexec_dir@/libfiles                # handling files/directories
+. @pkglibexec_dir@/libinternet             # handling the internet
+#. @pkglibexec_dir@/libkde                  # handling KDE-specific settings
+. @pkglibexec_dir@/liblists                # handling lists
+. @pkglibexec_dir@/libnumbers              # handling numbers
+. @pkglibexec_dir@/libprogram-interaction  # interacting with other programs
+. @pkglibexec_dir@/libstrings              # string manipulation
+. @pkglibexec_dir@/libtime                 # manipulating times
+. @pkglibexec_dir@/libuser-interaction     # interacting with user
+. @pkglibexec_dir@/libvariables            # useful variables
+
+# This is a test function
+# It contains deliberate errors to prevent full tag data being captured
+
+# fn_tag dnTest purpose Provide a test function
+# n_tag dnTest prints NIL
+# n_tag dnTest returns NIL
+# fn_tag dnTest usage dnTest
+# fn_tag dnTest usage var="$( dnTest )"
+# fn_tag dnTest note This is an empty function
+# fn_tag dnTest note It is for testing purposes only
+# fn_tag dnTest option p purpose User prompt
+# fn_tag dnTest option p required no
+# fn_tag dnTest option p multiple no
+# fn_tag dnTest option p type none
+# fn_tag dnTest option p note Have used type none
+# fn_tag dnTest option p note So there should be no values
+# fn_tag dnTest option g purpose None really
+# n_tag dnTest option g required yes
+# fn_tag dnTest option g multiple yes
+# fn_tag dnTest option g type string
+# fn_tag dnTest option g value One 1
+# fn_tag dnTest option g value Two 2
+# fn_tag dnTest option g default Two 2
+# fn_tag dnTest option g note Inconsistency here
+# fn_tag dnTest option g note Option is required yet has default
+# fn_tag dnTest param gip purpose Ronald
+# fn_tag dnTest param gip required no
+# fn_tag dnTest param gip multipart yes
+# n_tag dnTest param gip type boolean
+# fn_tag dnTest param gip value true
+# fn_tag dnTest param gip value false
+# fn_tag dnTest param gip default false
+# fn_tag dnTest param gip note Nothing of interest here
+# fn_tag dnTest param gip note Really, 'nothing' of interest
+# fn_tag dnTest param gip note Except the "quoting" & other entities going on
+# fn_tag dnTest param per purpose Reagan
+# fn_tag dnTest param per required yes
+# fn_tag dnTest param per multipart no
+# fn_tag dnTest param per type string
+# fn_tag dnTest param per value Apple
+# fn_tag dnTest param per value Banana
+# fn_tag dnTest param per value Grapefruit
+# fn_tag dnTest param per default Grapefruit
+# fn_tag dnTest param per note This is another inconsistency
+# fn_tag dnTest param per note Note it is only a POTENTIAL inconsistency
+dnTest () {
+    echo "Test function"
+}
+
+# }}}1
+
+# vim: set foldmethod=marker :

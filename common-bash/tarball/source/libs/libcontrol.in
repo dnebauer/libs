@@ -1,0 +1,669 @@
+#!/bin/bash
+
+# Suite: libdncommon-bash  # do not alter or delete -- required by vim plugin
+# File: libcontrol
+# Author: David Nebauer
+# Purpose: Useful bash functions for controlling programs
+
+
+# Function: dnFailScript                                             {{{1
+# Script fails before user interaction begins
+#   option: t  - print stack trace (optional)
+#   option: s  - number of functions to skip (optional)
+#              - passed to dnStackTrace (see that function for default value)
+#   params: 1+ - message
+#   prints: feedback
+#   return: nil
+# fn_tag dnFailScript purpose Exit script with feedback
+# fn_tag dnFailScript prints Error messages
+# fn_tag dnFailScript returns Failure value (Boolean)
+# fn_tag dnFailScript note Designed to be used instead of 'dnEndScript'
+# fn_tag dnFailScript note Designed for exiting script before user feedback given
+# fn_tag dnFailScript note Prints any error messages passed to it (or default message)
+# fn_tag dnFailScript note Then prints a brief help message
+# fn_tag dnFailScript option t purpose Causes stack trace to be printed by 'dnStackTrace'
+# fn_tag dnFailScript option t required no
+# fn_tag dnFailScript option t multiple no
+# fn_tag dnFailScript option t type none
+# fn_tag dnFailScript option s purpose Number of function calls to skip in trace output
+# fn_tag dnFailScript option s required no
+# fn_tag dnFailScript option s multiple no
+# fn_tag dnFailScript option s type integer
+# fn_tag dnFailScript option s note Value is passed to dnStackTrace using its 's' option -- see it for option information
+# fn_tag dnFailScript option s note This option implies the 't' option
+# fn_tag dnFailScript param message purpose Error messages to be displayed before exiting
+# fn_tag dnFailScript param message required no
+# fn_tag dnFailScript param message multipart yes
+# fn_tag dnFailScript param message type string
+# fn_tag dnFailScript param message default Aborting script
+dnFailScript () {
+    # process options
+    local OPTIND skip= do_trace=${dn_false}
+    while getopts ":ts:" opt ; do
+    case ${opt} in
+        't' ) do_trace=${dn_true};;
+        's' ) if dnValidPosInteger "${OPTARG}" ; then
+                  skip="${OPTARG}"
+                  do_trace=${dn_true}
+              fi;;
+    esac
+    done
+    shift $(( ${OPTIND} - 1 ))
+    # set variables
+    local -a msg
+    msg+=( "${@:-"Aborting script"}" )
+    # display messages
+	dnFatal "${msg[@]}."
+	dnInfo "Try '${dn_self} -h'."
+    # - print stack trace if requested
+    if dnFlagTrue ${do_trace} ; then
+        local -a calls
+        if test -n "${skip}" ; then trace="$( dnStackTrace -s ${skip} )"
+        else                        trace="$( dnStackTrace )"
+        fi
+        dnInfo "Stack trace:"
+        # use subshell to quarantine change to IFS
+        (
+            IFS=$'\n'
+            for i in $( echo "${trace}" ) ; do
+                dnInfo "  ${i}"
+            done
+        )
+    fi
+    # exit script
+	exit 1
+}
+# Function: dnFailScriptDlg                                          {{{1
+# Script fails before user interaction begins
+#   option: t  - print stack trace to stdout (optional)
+#              - stack trace is not included in dialog output
+#   option: s  - number of functions to skip (optional)
+#              - passed to dnStackTrace (see that function for default value)
+#   params: 1+ - message
+#   prints: feedback
+#   return: nil
+# fn_tag dnFailScriptDlg purpose Exit script with feedback
+# fn_tag dnFailScriptDlg prints Error messages
+# fn_tag dnFailScriptDlg returns Failure value (Boolean)
+# fn_tag dnFailScriptDlg note Designed to be used instead of 'dnEndScriptDlg'
+# fn_tag dnFailScriptDlg note Designed for exiting script before user feedback given
+# fn_tag dnFailScriptDlg note Similar to 'dnFailScript' but also displays error and help messages in dialog
+# fn_tag dnFailScriptDlg option t purpose Causes stack trace to be printed by 'dnStackTrace'
+# fn_tag dnFailScriptDlg option t required no
+# fn_tag dnFailScriptDlg option t multiple no
+# fn_tag dnFailScriptDlg option t type none
+# fn_tag dnFailScriptDlg option s purpose Number of function calls to skip in trace output
+# fn_tag dnFailScriptDlg option s required no
+# fn_tag dnFailScriptDlg option s multiple no
+# fn_tag dnFailScriptDlg option s type integer
+# fn_tag dnFailScriptDlg option s note Value is passed to dnStackTrace using its 's' option -- see it for option information
+# fn_tag dnFailScriptDlg option s note This option implies the 't' option
+# fn_tag dnFailScriptDlg param message-line purpose One line of exit message
+# fn_tag dnFailScriptDlg param message-line required no
+# fn_tag dnFailScriptDlg param message-line multipart yes
+# fn_tag dnFailScriptDlg param message-line type string
+# fn_tag dnFailScriptDlg param message-line default Aborting script
+dnFailScriptDlg () {
+    # process options
+    local OPTIND skip= do_trace=${dn_false}
+    while getopts ":ts:" opt ; do
+    case ${opt} in
+        't' ) do_trace=${dn_true};;
+        's' ) if dnValidPosInteger "${OPTARG}" ; then
+                  skip="${OPTARG}"
+                  do_trace=${dn_true}
+              fi;;
+    esac
+    done
+    shift $(( ${OPTIND} - 1 ))
+	# set and check variables
+    local -a msg_par=( "${@}" ) msg_try="Try '${dn_self} -h'"
+	[ ${#msg_par[*]} -gt 0 ] || msg_par=( 'Aborting script' )
+	local msg_dlg= msg= i=
+	# get compound message for dialog
+	for (( i=0 ; i<${#msg_par[*]} ; i++ )) ; do
+		if [ -z "${msg_dlg}" ] ; then msg_dlg="${msg_par[${i}]}."
+		else msg_dlg="${msg_dlg}\n${msg_par[${i}]}."
+		fi
+	done
+	msg_dlg="${msg_dlg}\n${msg_try}."
+	# display messages in dialog and terminal
+	dnErrorDlg "${msg_dlg}"
+	dnInfo "${msg_par}" "${msg_try}"
+    # - print stack trace (to stdout only) if requested
+    if dnFlagTrue ${do_trace} ; then
+        local -a calls=()
+        if test -n "${skip}" ; then trace="$( dnStackTrace -s ${skip} )"
+        else                        trace="$( dnStackTrace )"
+        fi
+        dnInfo "Stack trace:"
+        # use subshell to quarantine change to IFS
+        (
+            IFS=$'\n'
+            for i in $( echo "${trace}" ) ; do
+                dnInfo "  ${i}"
+            done
+        )
+    fi
+    # exit script
+	exit 1
+}
+# Function: dnEndScriptPrompt                                        {{{1
+# Common exit point from script requiring prompt
+#   option: t  - print stack trace (optional)
+#   option: s  - number of functions to skip (optional)
+#              - passed to dnStackTrace (see that function for default value)
+#   params: 1  - exit status
+#                ('0'=success|'-'=success with no feedback|*=failed)
+#                [default='-']
+#           2+ - message
+#   prints: nil
+#   return: nil
+# fn_tag dnEndScriptPrompt purpose Common exit point from script requiring prompt
+# fn_tag dnEndScriptPrompt prints Feedback
+# fn_tag dnEndScriptPrompt returns Whether script exiting successfully (Boolean)
+# fn_tag dnEndScriptPrompt note First prints any messages passed as parameters
+# fn_tag dnEndScriptPrompt note Next prints success or failure message unless suppressed
+# fn_tag dnEndScriptPrompt note Then prints stack trace if requested
+# fn_tag dnEndScriptPrompt note Next prints exit message
+# fn_tag dnEndScriptPrompt note Finally prompts user before exiting
+# fn_tag dnEndScriptPrompt option t purpose Causes stack trace to be printed by 'dnStackTrace'
+# fn_tag dnEndScriptPrompt option t required no
+# fn_tag dnEndScriptPrompt option t multiple no
+# fn_tag dnEndScriptPrompt option t type none
+# fn_tag dnEndScriptPrompt option t note Will print trace regardless of 'exit-status' param
+# fn_tag dnEndScriptPrompt option s purpose Number of function calls to skip in trace output
+# fn_tag dnEndScriptPrompt option s required no
+# fn_tag dnEndScriptPrompt option s multiple no
+# fn_tag dnEndScriptPrompt option s type integer
+# fn_tag dnEndScriptPrompt option s note Value is passed to dnStackTrace using its 's' option -- see it for option information
+# fn_tag dnEndScriptPrompt option s note This option implies the 't' option
+# fn_tag dnEndScriptPrompt param exit-status purpose Indicates whether exiting successfully or not
+# fn_tag dnEndScriptPrompt param exit-status required yes
+# fn_tag dnEndScriptPrompt param exit-status multipart no
+# fn_tag dnEndScriptPrompt param exit-status type string
+# fn_tag dnEndScriptPrompt param exit-status value 0
+# fn_tag dnEndScriptPrompt param exit-status value -
+# fn_tag dnEndScriptPrompt param exit-status value 1
+# fn_tag dnEndScriptPrompt param exit-status note '0' = exiting sucessfully and display success message
+# fn_tag dnEndScriptPrompt param exit-status note '-' = exiting successfully but suppress success message
+# fn_tag dnEndScriptPrompt param exit-status note * (any other value) = exiting unsuccessfully and display failure message
+# fn_tag dnEndScriptPrompt param message purpose Exit message
+# fn_tag dnEndScriptPrompt param message required no
+# fn_tag dnEndScriptPrompt param message multipart yes
+# fn_tag dnEndScriptPrompt param message type string
+dnEndScriptPrompt () {
+    # process options
+    local OPTIND skip= do_trace=${dn_false}
+    while getopts ":ts:" opt ; do
+    case ${opt} in
+        't' ) do_trace=${dn_true};;
+        's' ) if dnValidPosInteger "${OPTARG}" ; then
+                  skip="${OPTARG}"
+                  do_trace=${dn_true}
+              fi;;
+    esac
+    done
+    shift $(( ${OPTIND} - 1 ))
+    # variables
+	local exit_status=${1:-"-"}
+	shift
+    # print messages
+	case ${exit_status} in
+		'0' ) [ ${#} -gt 0 ] && dnInfo "${@}"
+		      dnInfo "${dn_self} succeeded";;
+		'-' ) ;;  # no feedback
+		 *  ) [ ${#} -gt 0 ] && dnError "${@}"
+		      dnError "${dn_self} failed";;
+	esac
+    # - print stack trace if requested
+    if dnFlagTrue ${do_trace} ; then
+        local -a calls=()
+        if test -n "${skip}" ; then trace="$( dnStackTrace -s ${skip} )"
+        else                        trace="$( dnStackTrace )"
+        fi
+        dnInfo "Stack trace:"
+        # use subshell to quarantine change to IFS
+        (
+            IFS=$'\n'
+            for i in $( echo "${trace}" ) ; do
+                dnInfo "  ${i}"
+            done
+        )
+    fi
+	dnInfo "...${dn_self} is finished"
+	[ "${exit_status}" = '-' ] && exit_status=0
+    # prompt user and exit
+	dnPrompt
+	exit ${exit_status}
+}
+# Function: dnEndScript                                              {{{1
+# Common exit point from script
+#   option: t  - print stack trace (optional)
+#   option: s  - number of functions to skip (optional)
+#              - passed to dnStackTrace (see that function for default value)
+#   params: 1  - exit status
+#                ('0'=success|'-'=success with no feedback|*=failed)
+#                [default='-']
+#           2+ - message
+#   prints: nil
+#   return: nil
+# fn_tag dnEndScript purpose Common exit point from script
+# fn_tag dnEndScript prints Feedback
+# fn_tag dnEndScript returns Whether script exiting successfully (Boolean)
+# fn_tag dnEndScript note First prints any messages passed as parameters
+# fn_tag dnEndScript note Next prints success or failure message unless suppressed
+# fn_tag dnEndScript note Then prints stack trace if requested
+# fn_tag dnEndScript note Finally prints exit message
+# fn_tag dnEndScript option t purpose Causes stack trace to be printed by 'dnStackTrace'
+# fn_tag dnEndScript option t required no
+# fn_tag dnEndScript option t multiple no
+# fn_tag dnEndScript option t type none
+# fn_tag dnEndScript option t note Will print trace regardless of 'exit-status' param
+# fn_tag dnEndScript option s purpose Number of function calls to skip in trace output
+# fn_tag dnEndScript option s required no
+# fn_tag dnEndScript option s multiple no
+# fn_tag dnEndScript option s type integer
+# fn_tag dnEndScript option s note Value is passed to dnStackTrace using its 's' option -- see it for option information
+# fn_tag dnEndScript option s note This option implies the 't' option
+# fn_tag dnEndScript param exit-status purpose Indicates whether exiting successfully or not
+# fn_tag dnEndScript param exit-status required yes
+# fn_tag dnEndScript param exit-status multipart no
+# fn_tag dnEndScript param exit-status type string
+# fn_tag dnEndScript param exit-status value 0
+# fn_tag dnEndScript param exit-status value -
+# fn_tag dnEndScript param exit-status value 1
+# fn_tag dnEndScript param exit-status note '0' = exiting sucessfully and display success message
+# fn_tag dnEndScript param exit-status note '-' = exiting successfully but suppress success message
+# fn_tag dnEndScript param exit-status note * (any other value) = exiting unsuccessfully and display failure message
+# fn_tag dnEndScript param message purpose Exit message
+# fn_tag dnEndScript param message required no
+# fn_tag dnEndScript param message multipart yes
+# fn_tag dnEndScript param message type string
+dnEndScript () {
+    # process options
+    local OPTIND skip= do_trace=${dn_false}
+    while getopts ":ts:" opt ; do
+    case ${opt} in
+        't' ) do_trace=${dn_true};;
+        's' ) if dnValidPosInteger "${OPTARG}" ; then
+                  skip="${OPTARG}"
+                  do_trace=${dn_true}
+              fi;;
+    esac
+    done
+    shift $(( ${OPTIND} - 1 ))
+    # variables
+	local exit_status=${1:-"-"}
+	shift
+    # display messages
+	case ${exit_status} in
+		'0' ) [ ${#} -gt 0 ] && dnInfo "${@}"
+		      dnInfo "${dn_self} succeeded";;
+		'-' ) ;;  # no feedback
+		 *  ) [ ${#} -gt 0 ] && dnError "${@}"
+		      dnError "${dn_self} failed";;
+	esac
+    # - print stack trace if requested
+    if dnFlagTrue ${do_trace} ; then
+        local -a calls=()
+        if test -n "${skip}" ; then trace="$( dnStackTrace -s ${skip} )"
+        else                        trace="$( dnStackTrace )"
+        fi
+        dnInfo "Stack trace:"
+        # use subshell to quarantine change to IFS
+        (
+            IFS=$'\n'
+            for i in $( echo "${trace}" ) ; do
+                dnInfo "  ${i}"
+            done
+        )
+    fi
+	dnInfo "...${dn_self} is finished"
+    # exit
+	[ "${exit_status}" = '-' ] && exit_status=0
+	exit ${exit_status}
+}
+# Function: dnEndScriptStderr                                        {{{1
+# Common exit point from script
+#   option: t  - print stack trace to stdout (optional)
+#              - stack trace is not included in dialog output
+#   option: s  - number of functions to skip (optional)
+#              - passed to dnStackTrace (see that function for default value)
+#   params: 1  - exit status
+#                ('0'=success|'-'=success with no feedback|*=failed)
+#                [default='-']
+#           2+ - message
+#   prints: nil
+#   return: nil
+# fn_tag dnEndScriptStderr purpose Common exit point from script
+# fn_tag dnEndScriptStderr prints Feedback
+# fn_tag dnEndScriptStderr returns Whether script exiting successfully (Boolean)
+# fn_tag dnEndScriptStderr note First prints any messages passed as parameters
+# fn_tag dnEndScriptStderr note Next prints success or failure message unless suppressed
+# fn_tag dnEndScriptStderr note Then prints stack trace if requested
+# fn_tag dnEndScriptStderr note Finally prints exit message
+# fn_tag dnEndScriptStderr option t purpose Causes stack trace to be printed by 'dnStackTrace'
+# fn_tag dnEndScriptStderr option t required no
+# fn_tag dnEndScriptStderr option t multiple no
+# fn_tag dnEndScriptStderr option t type none
+# fn_tag dnEndScriptStderr option t note Will print trace regardless of 'exit-status' param
+# fn_tag dnEndScriptStderr option s purpose Number of function calls to skip in trace output
+# fn_tag dnEndScriptStderr option s required no
+# fn_tag dnEndScriptStderr option s multiple no
+# fn_tag dnEndScriptStderr option s type integer
+# fn_tag dnEndScriptStderr option s note Value is passed to dnStackTrace using its 's' option -- see it for option information
+# fn_tag dnEndScriptStderr option s note This option implies the 't' option
+# fn_tag dnEndScriptStderr param exit-status purpose Indicates whether exiting successfully or not
+# fn_tag dnEndScriptStderr param exit-status required yes
+# fn_tag dnEndScriptStderr param exit-status multipart no
+# fn_tag dnEndScriptStderr param exit-status type string
+# fn_tag dnEndScriptStderr param exit-status value 0
+# fn_tag dnEndScriptStderr param exit-status value -
+# fn_tag dnEndScriptStderr param exit-status value 1
+# fn_tag dnEndScriptStderr param exit-status note '0' = exiting sucessfully and display success message
+# fn_tag dnEndScriptStderr param exit-status note '-' = exiting successfully but suppress success message
+# fn_tag dnEndScriptStderr param exit-status note * (any other value) = exiting unsuccessfully and display failure message
+# fn_tag dnEndScriptStderr param message purpose Exit message
+# fn_tag dnEndScriptStderr param message required no
+# fn_tag dnEndScriptStderr param message multipart yes
+# fn_tag dnEndScriptStderr param message type string
+dnEndScriptStderr () {
+    # process options
+    local OPTIND skip= do_trace=${dn_false}
+    while getopts ":ts:" opt ; do
+    case ${opt} in
+        't' ) do_trace=${dn_true};;
+        's' ) if dnValidPosInteger "${OPTARG}" ; then
+                  skip="${OPTARG}"
+                  do_trace=${dn_true}
+              fi;;
+    esac
+    done
+    shift $(( ${OPTIND} - 1 ))
+    # variables
+	local exit_status=${1:-"-"}
+	shift
+    # print messages
+	case ${exit_status} in
+		'0' ) [ ${#} -gt 0 ] && dnInfoStderr "${@}"
+		      dnInfoStderr "${dn_self} succeeded";;
+		'-' ) ;;  # no feedback
+		 *  ) [ ${#} -gt 0 ] && dnErrorStderr "${@}"
+		      dnErrorStderr "${dn_self} failed";;
+	esac
+    # - print stack trace if requested
+    if dnFlagTrue ${do_trace} ; then
+        local -a calls=()
+        if test -n "${skip}" ; then trace="$( dnStackTrace -s ${skip} )"
+        else                        trace="$( dnStackTrace )"
+        fi
+        dnInfoStderr "Stack trace:"
+        # use subshell to quarantine change to IFS
+        (
+            IFS=$'\n'
+            for i in $( echo "${trace}" ) ; do
+                dnInfoStderr "  ${i}"
+            done
+        )
+    fi
+	dnInfoStderr "...${dn_self} is finished"
+    # exit
+	[ "${exit_status}" = '-' ] && exit_status=0
+	exit ${exit_status}
+}
+# Function: dnEndScriptDlg                                           {{{1
+# Common exit point from script
+#   option: t  - print stack trace to stdout (optional)
+#              - stack trace is not included in dialog output
+#   option: s  - number of functions to skip (optional)
+#              - passed to dnStackTrace (see that function for default value)
+#   params: 1  - exit status
+#                ('0'=success|'-'=no status|*=failed)
+#                [default='-']
+#           2+ - message
+#   prints: nil
+#   return: nil
+#   needs:  functions [dnInfo ; dnError]
+# fn_tag dnEndScriptDlg purpose Common exit point from script
+# fn_tag dnEndScriptDlg prints Feedback
+# fn_tag dnEndScriptDlg returns Whether script exiting successfully (Boolean)
+# fn_tag dnEndScriptDlg note Acts as 'dnEndScript' but also displays messages in dialog
+# fn_tag dnEndScriptDlg note Dialog includes any messages passed as parameters
+# fn_tag dnEndScriptDlg note Dialog also includes success or failure message unless suppressed
+# fn_tag dnEndScriptDlg note Dialog finally includes an exit message
+# fn_tag dnEndScriptDlg option t purpose Causes stack trace to be printed by 'dnStackTrace'
+# fn_tag dnEndScriptDlg option t required no
+# fn_tag dnEndScriptDlg option t multiple no
+# fn_tag dnEndScriptDlg option t type none
+# fn_tag dnEndScriptDlg option t note Will print trace regardless of 'exit-status' param
+# fn_tag dnEndScriptDlg option s purpose Number of function calls to skip in trace output
+# fn_tag dnEndScriptDlg option s required no
+# fn_tag dnEndScriptDlg option s multiple no
+# fn_tag dnEndScriptDlg option s type integer
+# fn_tag dnEndScriptDlg option s note Value is passed to dnStackTrace using its 's' option -- see it for option information
+# fn_tag dnEndScriptDlg option s note This option implies the 't' option
+# fn_tag dnEndScriptDlg param exit-status purpose Indicates whether exiting successfully or not
+# fn_tag dnEndScriptDlg param exit-status required yes
+# fn_tag dnEndScriptDlg param exit-status multipart no
+# fn_tag dnEndScriptDlg param exit-status type string
+# fn_tag dnEndScriptDlg param exit-status value 0
+# fn_tag dnEndScriptDlg param exit-status value -
+# fn_tag dnEndScriptDlg param exit-status value 1
+# fn_tag dnEndScriptDlg param exit-status note '0' = exiting sucessfully and include success message
+# fn_tag dnEndScriptDlg param exit-status note '-' = exiting successfully but do not include success message
+# fn_tag dnEndScriptDlg param exit-status note * (any other value) = exiting unsuccessfully and include failure message
+# fn_tag dnEndScriptDlg param message purpose Exit message
+# fn_tag dnEndScriptDlg param message required no
+# fn_tag dnEndScriptDlg param message multipart yes
+# fn_tag dnEndScriptDlg param message type string
+dnEndScriptDlg () {
+    # process options
+    local OPTIND skip= do_trace=${dn_false}
+    while getopts ":ts:" opt ; do
+    case ${opt} in
+        't' ) do_trace=${dn_true};;
+        's' ) if dnValidPosInteger "${OPTARG}" ; then
+                  skip="${OPTARG}"
+                  do_trace=${dn_true}
+              fi;;
+    esac
+    done
+    shift $(( ${OPTIND} - 1 ))
+    # variables
+	local exit_status=${1:-"-"} msg_dlg= msg=
+	shift
+	# get compound message for dialog
+	for msg in "${@}" ; do
+		if [ -z "${msg_dlg}" ] ; then msg_dlg="${msg}."
+		else msg_dlg="${msg_dlg}\n${msg}."
+		fi
+	done
+	# output to terminal and dialog
+	case ${exit_status} in
+		'0' ) [ ${#} -gt 0 ] && dnInfo "${@}"
+		      dnInfo "${dn_self} succeeded"
+			  dnInfoDlg "${msg_dlg}";;
+		'-' ) ;;  # no feedback
+		 *  ) [ ${#} -gt 0 ] && dnError "${@}"
+		      dnError "${dn_self} failed"
+			  dnErrorDlg "${msg_dlg}";;
+	esac
+    # - print stack trace (to stdout only) if requested
+    if dnFlagTrue ${do_trace} ; then
+        local -a calls=()
+        if test -n "${skip}" ; then trace="$( dnStackTrace -s ${skip} )"
+        else                        trace="$( dnStackTrace )"
+        fi
+        dnInfo "Stack trace:"
+        # use subshell to quarantine change to IFS
+        (
+            IFS=$'\n'
+            for i in $( echo "${trace}" ) ; do
+                dnInfo "  ${i}"
+            done
+        )
+    fi
+	dnInfo "...${dn_self} is finished"
+    # exit
+	[ "${exit_status}" = '-' ] && exit_status=0
+	exit ${exit_status}
+}
+# Function: dnStandardiseBoolean                                     {{{1
+# Standardise flag value to 0|1
+#   params: 1 - flag value [required]
+#   prints: boolean (0=true|1=false) if match standard value
+#           input value unchanged if no match to standard value
+#   return: nil
+# fn_tag dnStandardiseBoolean purpose Standardise truth value to '0'|'1'
+# fn_tag dnStandardiseBoolean prints New boolean value if able to convert (Boolean) or unchanged parameter if not
+# fn_tag dnStandardiseBoolean returns NIL
+# fn_tag dnStandardiseBoolean param value purpose True /false value to standardise as boolean
+# fn_tag dnStandardiseBoolean param value required yes
+# fn_tag dnStandardiseBoolean param value multipart no
+# fn_tag dnStandardiseBoolean param value type string
+dnStandardiseBoolean () {
+	# set variables
+	local flag="$( dnLowercase "${1}" )"
+	# standardise
+	case ${flag} in
+		'y'|'yes'|'t'|'true'|'on'|'0'  ) flag=0;;
+		'n'|'no'|'f'|'false'|'off'|'1' ) flag=1;;
+		* ) flag="${flag}";;  # unchanged
+	esac
+	# return result and indicate outcome
+	echo "${flag}"
+}
+# Function: dnStandardiseControl                                     {{{1
+# Standardise flag value to 0|1
+#   params: 1 - flag value [required]
+#   prints: boolean (0=on|1=off) if match standard value
+#           input value unchanged if no match to standard value
+#   return: nil
+# fn_tag dnStandardiseControl purpose Standardise control term (verb) as boolean
+# fn_tag dnStandardiseControl prints Standardised term (Boolean) if converted or unchanged parameter if not
+# fn_tag dnStandardiseControl returns NIL
+# fn_tag dnStandardiseControl note Converts term such as 'enable', 'halt' and 'begin'
+# fn_tag dnStandardiseControl param value purpose Control term to standardise
+# fn_tag dnStandardiseControl param value required yes
+# fn_tag dnStandardiseControl param value multipart no
+# fn_tag dnStandardiseControl param value type string
+dnStandardiseControl () {
+	# set variables
+	local flag="$( dnLowercase "${1}" )"
+	# standardise
+	case ${flag} in
+	'on'|'enable'|'activate'|'start'|'trigger'|'actuate'|'begin'|'go'|'0' )
+		flag=0;;
+	'off'|'disable'|'inactivate'|'stop'|'halt'|'end'|'1' )
+		flag=1;;
+	* ) flag="${flag}";;  # unchanged
+	esac
+	# return result
+	echo "${flag}"
+}
+# }}}1
+# Function: dnStackTrace                                             {{{1
+# Print stack trace
+#   option: s - number of function calls to skip
+#               (optional, default=1)
+#   option: p - prepend (optional, default='')
+#   params: nil
+#   prints: stack trace (string)
+#   return: nil
+#   note:   prints function calls recursively from the
+#             function that called this one to the first
+#             function called from the script ('main')
+#           for each function prints function name,
+#             file and line number of function call
+#           by default skips the most recent function
+#             call; the assumption is that the most recent
+#             function call is from an exit function to the
+#             stack trace -- this function call is ignored;
+#             the function call to the exit function is the
+#             first to be printed because it was presumably
+#             triggered by the error of interest
+#   usage:  # raw output
+#           dnStackTrace
+#           # prepend string outside stack trace function
+#           trace="$( dnStackTrace )"
+#           (
+#               IFS=$'\n'  # brackets create subshell limiting scope
+#                          # of change to IFS value
+#               for i in $( echo "${trace}" ) ; do
+#                   # anything provided it doesn't mind IFS being a
+#                   # newline instead of its default value of whitespace
+#                   echo "Fatal error: ${i}"
+#               done
+#           )
+#           # prepend string using stack trace function
+#           dnStackTrace -p "Fatal error: "
+# fn_tag dnStackTrace purpose Print stack trace
+# fn_tag dnStackTrace prints Stack trace (String)
+# fn_tag dnStackTrace returns NIL
+# fn_tag dnStackTrace usage # raw output
+# fn_tag dnStackTrace usage dnStackTrace
+# fn_tag dnStackTrace usage # prepend string using stack trace function
+# fn_tag dnStackTrace usage dnStackTrace -p "Fatal error: "
+# fn_tag dnStackTrace usage # prepend string outside stack trace function
+# fn_tag dnStackTrace usage trace="$( dnStackTrace)"
+# fn_tag dnStackTrace usage (
+# fn_tag dnStackTrace usage # brackets create subshell limiting scope of change to IFS value
+# fn_tag dnStackTrace usage for i in $( echo "${trace}" ) ; do
+# fn_tag dnStackTrace usage # anything provided it doesn't mind IFS being a
+# fn_tag dnStackTrace usage # newline instead of its default value of whitespace
+# fn_tag dnStackTrace usage echo "Fatal error: ${i}"
+# fn_tag dnStackTrace usage done
+# fn_tag dnStackTrace usage )
+# fn_tag dnStackTrace note Prints details of function calls recursively from most recent
+# fn_tag dnStackTrace note For each call prints name of function containing call, name of file containing calling function, and line number of function call
+# fn_tag dnStackTrace option s purpose Number of function calls to skip when outputting details
+# fn_tag dnStackTrace option s required no
+# fn_tag dnStackTrace option s multiple no
+# fn_tag dnStackTrace option s type integer
+# fn_tag dnStackTrace option s default 1
+# fn_tag dnStackTrace option s note Most recent call is assumed to be a generic exit/error function calling this function
+# fn_tag dnStackTrace option s note Default skips this call so first call displayed is call to exit/error function
+# fn_tag dnStackTrace option p purpose Prefix string to prepend to each function call in output
+# fn_tag dnStackTrace option p required no
+# fn_tag dnStackTrace option p multiple no
+# fn_tag dnStackTrace option p type string
+# fn_tag dnStackTrace option p note Default is empty string, i.e., no prefix string
+dnStackTrace () {
+    # variables
+    local OPTIND frame=0 max_frame=0 max_len=0 prepend= skip=1
+    local -a fns=() lines=() files=()
+    # process options
+    while getopts ":s:p:" opt ; do
+    case ${opt} in
+        's' ) dnValidPosInteger "${OPTARG}" && skip="${OPTARG}";;
+        'p' ) prepend="${OPTARG}";;
+    esac
+    done
+    shift $(( ${OPTIND} - 1 ))
+    # process stack frames
+    while caller_info=( $( caller ${frame} ) ) ; do
+        # work out maximum frame number as we go
+        max_frame=${frame}
+        # load individual stack trace elements into arrays
+        lines+=( "${caller_info[0]}" )
+        fns+=( "${caller_info[1]}" )
+        files+=( "${caller_info[@]:2}" )
+        ((frame++))
+    done
+    # work out where to start listing function calls
+    # - skip cannot be greater than last function call
+    test ${skip} -gt ${max_frame} && skip=${max_frame}
+    # get maximum function name length
+    for (( i=${skip} ; i<${#fns[@]} ; i++ )) ; do
+        test ${#fns[${i}]} -gt ${max_len} && max_len=${#fns[${i}]}
+    done
+    # assemble and output stack trace
+    for (( i=${skip} ; i<${#fns[@]} ; i++ )) ; do
+        echo -n "${prepend}$( printf %-${max_len}s ${fns[${i}]} )"
+        echo    " in ${files[${i}]}: ${lines[${i}]}"
+    done
+}
+# }}}1
+
+# vim: set foldmethod=marker :

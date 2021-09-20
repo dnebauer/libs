@@ -1,0 +1,7 @@
+libnet-ping-external-perl (0.15-1) unstable; urgency=low
+
+  * Local package
+  * Initial release
+  * Closes: 500099
+
+ -- David Nebauer <david@nebauer.org>  Sat, 4 Apr 2020 12:47:51 +0930

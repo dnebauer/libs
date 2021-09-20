@@ -1,0 +1,77 @@
+ dpkg-buildpackage -rfakeroot -D -us -uc
+dpkg-buildpackage: source package libdesktop-detect-perl
+dpkg-buildpackage: source version 0.03-1
+dpkg-buildpackage: source distribution unstable
+dpkg-buildpackage: source changed by David Nebauer <david@hezmana.cogito.loc>
+ dpkg-source --before-build Desktop-Detect-0.03
+dpkg-buildpackage: host architecture amd64
+ fakeroot debian/rules clean
+dh clean
+   dh_testdir
+   dh_auto_clean
+   dh_clean
+ dpkg-source -b Desktop-Detect-0.03
+dpkg-source: info: using source format `3.0 (quilt)'
+dpkg-source: info: building libdesktop-detect-perl using existing ./libdesktop-detect-perl_0.03.orig.tar.gz
+dpkg-source: info: building libdesktop-detect-perl in libdesktop-detect-perl_0.03-1.debian.tar.xz
+dpkg-source: info: building libdesktop-detect-perl in libdesktop-detect-perl_0.03-1.dsc
+ debian/rules build
+dh build
+   dh_testdir
+   dh_auto_configure
+Checking if your kit is complete...
+Looks good
+Generating a Unix-style Makefile
+Writing Makefile for Desktop::Detect
+Writing MYMETA.yml and MYMETA.json
+   dh_auto_build
+make[1]: Entering directory '/home/david/data/computing/projects/libs/desktop-detect-perl/Desktop-Detect-0.03'
+cp lib/Desktop/Detect.pm blib/lib/Desktop/Detect.pm
+Manifying blib/man3/Desktop::Detect.3pm
+make[1]: Leaving directory '/home/david/data/computing/projects/libs/desktop-detect-perl/Desktop-Detect-0.03'
+   dh_auto_test
+make[1]: Entering directory '/home/david/data/computing/projects/libs/desktop-detect-perl/Desktop-Detect-0.03'
+PERL_DL_NONLAZY=1 /usr/bin/perl "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, 'blib/lib', 'blib/arch')" t/*.t
+t/00-compile.t ............ ok
+t/release-pod-coverage.t .. skipped: these tests are for release candidate testing
+t/release-pod-syntax.t .... skipped: these tests are for release candidate testing
+t/release-rinci.t ......... skipped: these tests are for release candidate testing
+All tests successful.
+Files=4, Tests=1,  0 wallclock secs ( 0.01 usr  0.00 sys +  0.05 cusr  0.00 csys =  0.06 CPU)
+Result: PASS
+make[1]: Leaving directory '/home/david/data/computing/projects/libs/desktop-detect-perl/Desktop-Detect-0.03'
+ fakeroot debian/rules binary
+dh binary
+   dh_testroot
+   dh_prep
+   dh_auto_install
+make[1]: Entering directory '/home/david/data/computing/projects/libs/desktop-detect-perl/Desktop-Detect-0.03'
+Installing /home/david/data/computing/projects/libs/desktop-detect-perl/Desktop-Detect-0.03/debian/libdesktop-detect-perl/usr/share/perl5/Desktop/Detect.pm
+Installing /home/david/data/computing/projects/libs/desktop-detect-perl/Desktop-Detect-0.03/debian/libdesktop-detect-perl/usr/share/man/man3/Desktop::Detect.3pm
+make[1]: Leaving directory '/home/david/data/computing/projects/libs/desktop-detect-perl/Desktop-Detect-0.03'
+   dh_installdocs
+   dh_installchangelogs
+   dh_installman
+   dh_perl
+   dh_link
+   dh_compress
+   dh_fixperms
+   dh_installdeb
+   dh_gencontrol
+   dh_md5sums
+   dh_builddeb
+dpkg-deb: building package `libdesktop-detect-perl' in `../libdesktop-detect-perl_0.03-1_all.deb'.
+ dpkg-genchanges  >../libdesktop-detect-perl_0.03-1_amd64.changes
+dpkg-genchanges: including full source code in upload
+ dpkg-source --after-build Desktop-Detect-0.03
+dpkg-buildpackage: full upload (original source is included)
+Now running lintian...
+W: libdesktop-detect-perl: new-package-should-close-itp-bug
+W: libdesktop-detect-perl: copyright-contains-dh-make-perl-boilerplate
+W: libdesktop-detect-perl: description-contains-dh-make-perl-template
+Finished running lintian.
+Now signing changes and any dsc files...
+ signfile libdesktop-detect-perl_0.03-1.dsc David Nebauer <david@hezmana.cogito.loc>
+gpg: skipped "David Nebauer <david@hezmana.cogito.loc>": secret key not available
+gpg: /tmp/debsign.kmNkhQhH/libdesktop-detect-perl_0.03-1.dsc: clearsign failed: secret key not available
+debsign: gpg error occurred!  Aborting....

@@ -1,0 +1,6 @@
+addon: libdncommon-bash-shell-ftplugin
+description: "add use of dncommon-bash functions in shell script editing"
+disabledby: "b:let do_not_load_libdncommon_bash = 1"
+files:
+  - ftplugin/sh_libdncommon-bash.vim
+  - doc/libdncommon-bash-shell-ftplugin.txt

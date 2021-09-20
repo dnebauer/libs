@@ -1,0 +1,7 @@
+libclipboard-perl (0.13-1) unstable; urgency=low
+
+  * Local package
+  * Initial release
+  * Closes: #759549
+
+ -- David Nebauer <david@nebauer.org>  Mon, 10 Aug 2015 15:00:02 +0930

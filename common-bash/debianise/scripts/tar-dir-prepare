@@ -1,0 +1,61 @@
+#!/bin/sh
+
+# File: tar-dir-prepare
+
+# Package: libdncommon-bash
+
+# This file will be sourced by dn-build-deb just prior to building
+# the source distribution in 'tarball/build'.  That directory is
+# the cwd when this file is sourced.  Must be in same dir before
+# finish.
+
+# Some useful variables available to this file are:
+#   pkg         - package name
+#   root        - directory: project root
+#   tar_build   - directory: <root>/tarball/build
+#   deb_scripts - directory: <root>/debianise/scripts
+#   deb_source  - directory: <root>/debianise/source
+
+################################################################
+
+# VARIABLES
+
+x_dir= x_dirs='source autotools'
+x_manfiles= x_manfile_target='<manfiles>'
+x_funcdict="$( pwd )/vim/funcdict.in"
+x_funcload="$( pwd )/vim/funcload.vim.in"
+x_libmaster="$( pwd )/libs/liball.in"
+x_storage="$( pwd )/store/perlfuncdata.in"
+x_gen_script="${deb_scripts}/gen-helper-files"
+x_exit_status=0  # true
+
+# MAIN
+
+# delete current contents of build directory
+rm -fr * &>/dev/null \
+	|| dnEndScript 1 "Can't delete contents of:" "  '$( pwd )'"
+
+# copy files fron 'autotools' and 'source' directories
+dnInfo "Adding build files"
+for x_dir in ${x_dirs} ; do
+	cp -r -L ../${x_dir}/* ./ 2>/dev/null \
+		|| dnEndScript 1 "Error copying ${x_dir} files"
+done
+
+# generate dictionary and vim function loader files
+dnInfo "Creating application helper files" "${dn_divider}"
+${x_gen_script} \
+	-m "${x_libmaster}" \
+	-d "${x_funcdict}" \
+	-l "${x_funcload}" \
+	-s "${x_storage}" \
+	|| x_exit_status=1
+dnInfo "${dn_divider}"
+
+unset x_dir x_dirs x_manfiles x_manfile_target x_funcdict x_funcload
+unset x_libmaster x_gen_script x_storage
+
+if ! dnFlagTrue "${x_exit_status}" ; then
+	dnError "creation of application helper files failed"
+	dnEndScript 1
+fi

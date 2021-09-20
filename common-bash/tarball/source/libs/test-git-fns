@@ -1,0 +1,163 @@
+#!/bin/sh
+
+# File: test-git-fns
+# Author: David Nebauer
+# Purpose: Test bed
+# Created: 2013-05-08 Created
+
+
+# VARIABLES
+
+args="${@}"
+msg="Loading libraries" ; echo -ne "\\033[1;37;41m${msg}\\033[0m"
+source "/usr/lib/libdncommon-bash/liball"  # supplies functions
+dnEraseText "${msg}"
+# provided by libdncommon-bash: dn_self,dn_divider[_top|_bottom]
+usage="Usage:"
+args=""
+unset msg
+
+
+# PROCEDURES
+
+# Show usage
+#   params: nil
+#   prints: nil
+#   return: nil
+displayUsage () {
+cat << _USAGE
+${dn_self}: test git functions
+
+Test libdncommon-bash functions:
+  dnLocalGitRepoUptodate
+  dnDisplayFilesGitRepoStatus
+  dnUpdateLocalGitRepo
+  dnUpdateRemoteGitRepo
+
+They are located in library file:
+  /usr/lib/libdncommon-bash/libprogram-interaction
+
+*WARNING*  When run the script initially deletes all files
+*WARNING*  in the directory and, if present, the hidden
+*WARNING*  '.git' subdirectory.
+
+${usage} ${dn_self} ${parameters}
+       ${dn_self} -h
+_USAGE
+}
+# Process command line
+#   params: all command line parameters
+#   prints: feedback
+#   return: nil
+processCommandLine () {
+	# Read the command line options
+	#   - if optstring starts with ':' then error reporting is suppressed
+	#     leave ':' at start as '\?' and '\:' error capturing require it
+	#   - if option is followed by ':' then it is expected to have an argument
+	while getopts ":h" opt ; do
+		case ${opt} in
+			'h' ) displayUsage && exit 0;;
+			\?  ) echo -e "Error: Invalid flag '${OPTARG}' detected"
+				  echo -e "Usage: ${dn_self} ${parameters}"
+				  echo -e "Try '${dn_self} -h' for help"
+				  echo -ne "\a"
+				  exit 1;;
+			\:  ) echo -e "Error: No argument supplied for flag '${OPTARG}'"
+				  echo -e "Usage: ${dn_self} ${parameters}"
+				  echo -e "Try '${dn_self} -h' for help"
+				  echo -ne "\a"
+				  exit 1;;
+		esac
+	done
+	shift $(( ${OPTIND} - 1 ))
+	args="${@}"  # reset arguments
+	unset usage parameters
+}
+# Print informative message in red
+#   params: 1+ - string
+#   prints: red string
+#   return: nil
+dnRedInfo () {
+    while [ -n "${1}" ] ; do
+        dnInfo "\033[0;31m${1}\033[0m"
+        shift
+    done
+}
+
+
+# MAIN
+
+# Process command line
+processCommandLine "${@}"
+while [ "${*}" != "${args}" ] ; do shift ; done
+unset args
+
+# Informational message
+dnInfo "${dn_self} is running..."
+
+# delete previous experiment
+rm -fr .git &>/dev/null
+rm * &>/dev/null
+
+# create local git repo
+dnRedInfo "CREATE GIT REPO"
+git init
+
+# create initial repo files
+dnRedInfo "CREATE INITIAL FILES AND COMMIT THEM"
+echo "content  zero" > file-zero
+echo "content   one" > file-one
+echo "content   two" > file-two
+echo "content three" > file-three
+echo "content  five" > file-fiveA
+echo "content   six" > file-sixA
+echo "content seven" > file-seven
+echo "content eight" > file-eight
+git add file-zero file-one file-two file-three file-fiveA file-sixA file-seven file-eight
+echo "content" > file-never-added
+
+# commit initial repo files
+git commit -m 'first commit'
+
+# now make alterations to files and/or repo index
+dnRedInfo "NOW CREATE CHANGES TO FILE STATUS"
+## add file
+echo "content  four" > file-four
+git add file-four
+## remove files
+rm file-three
+git rm file-two
+## rename files
+mv file-zero file-zero_beta
+git mv file-one file-one_beta
+## modify file
+echo "more content" >> file-seven
+echo "more content" >> file-eight
+git add file-eight
+
+# get raw git status output
+echo "${dn_divider}"
+dnRedInfo "HERE IS RAW OUTPUT OF GIT STATUS PORCELAIN COMMAND"
+git status --porcelain
+echo "${dn_divider}"
+# now go through local/remote repo update
+if ! dnLocalGitRepoUptodate ; then
+    dnRedInfo "LOCAL REPO NOT UP TO DATE" "DISPLAYING FILE STATUS"
+    dnDisplayFilesGitRepoStatus
+    if dnConfirm "Commit changes to local git repo?" ; then
+        dnRedInfo "NOW UPDATE LOCAL REPO"
+        dnUpdateLocalGitRepo
+    fi
+fi
+if dnLocalGitRepoUptodate ; then
+    dnInfo "Local git repo is up to date"
+    if dnConfirm "Update remote github repo?" ; then
+        dnRedInfo "NOW UPDATE REMOTE GIT REPO"
+        dnUpdateRemoteGitRepo
+    else
+        dnWarn "Remote git repo was not updated"
+    fi
+else
+    dnWarn "Local git repo is not up to date"
+    dnWarn "Remote git repo is not synchronised"
+fi

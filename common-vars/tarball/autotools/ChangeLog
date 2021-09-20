@@ -1,0 +1,47 @@
+2012-05-27  David Nebauer  <david@nebauer.org>
+
+	* removed floppy device
+
+2012-05-19  David Nebauer  <david@nebauer.org>
+
+	* removed references to ogle video player
+
+2012-05-19  David Nebauer  <david@nebauer.org>
+
+	* removed references to xdialog
+
+2011-01-10  David Nebauer  <david@nebauer.org>
+
+	* update directory variables; rewrite autotools files; rewrite debian rules file as dh wrapper
+
+2011-01-02  David Nebauer  <david@nebauer.org>
+
+	* change all gui info, warn and error dialogs to use notify-send
+
+2010-06-12  David Nebauer  <david@nebauer.org>
+
+	* update kaffeine command line semantics
+
+2009-09-09  David Nebauer  <david@nebauer.org>
+
+	* added dialog-related variables
+
+2008-09-24  David Nebauer  <david@nebauer.org>
+
+	* simplify naming of parameters
+
+2008-09-21  David Nebauer  <david@nebauer.org>
+
+	* modified parameter namesand added floppy drive detailsto array params
+
+2008-09-18  David Nebauer  <david@nebauer.org>
+
+	* change config file optical_drive_*s to drive_*s and added load|mount|playables params
+
+2008-08-25  David Nebauer  <david@nebauer.org>
+
+	* multiple value keys are plural rather than appending '_array'
+
+2008-0824  David Nebauer  <david@nebauer.org>
+
+	* Initial packaging

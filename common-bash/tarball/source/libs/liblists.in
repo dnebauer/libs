@@ -1,0 +1,320 @@
+#!/bin/bash
+
+# Suite: libdncommon-bash  # do not alter or delete -- required by vim plugin
+# File: liblists
+# Author: David Nebauer
+# Purpose: Useful bash functions for working with lists
+
+
+# Function: dnElementInList                                          {{{1
+# Check whether element in list
+#   params: 1 - search term [required]
+#           2 - list to be searched [required]
+#           3 - list delimiter (default=SPC) [optional]
+#   prints: nil
+#   return: boolean (0=in list, 1=not in list)
+# fn_tag dnElementInList purpose Determine whether list contains a particular element
+# fn_tag dnElementInList prints NIL
+# fn_tag dnElementInList returns Whether list contains element
+# fn_tag dnElementInList param element purpose Element to be searched for in list
+# fn_tag dnElementInList param element required yes
+# fn_tag dnElementInList param element multipart no
+# fn_tag dnElementInList param element type string
+# fn_tag dnElementInList param list purpose List to be searched
+# fn_tag dnElementInList param list required yes
+# fn_tag dnElementInList param list multipart no
+# fn_tag dnElementInList param list type string
+# fn_tag dnElementInList param list note The list is a simple string -- not a complex data type
+# fn_tag dnElementInList param delimiter purpose List delimiter
+# fn_tag dnElementInList param delimiter required no
+# fn_tag dnElementInList param delimiter multipart no
+# fn_tag dnElementInList param delimiter type string
+# fn_tag dnElementInList param delimiter default 'Space'
+dnElementInList () {
+	local grep="${1}" source="${2}" delim="${3:-" "}" old_IFS="${IFS}" retval=
+	IFS="${delim}"
+	[ $( echo "${source}" | grep -c -- "\b${grep}\b" ) -eq 1 ]
+	retval=${?}
+	IFS="${old_IFS}"
+	return ${retval}
+}
+# Function: dnFormatList                                             {{{1
+# Format list of valid options for display
+#   params: 1 - list of options (space-delimited)
+#   prints: formatted list (e.g. "one two" -' "'one'|'two'")
+#   return: nil
+# fn_tag dnFormatList purpose Format list for display
+# fn_tag dnFormatList prints Formatted list
+# fn_tag dnFormatList returns NIL
+# fn_tag dnFormatList note Encapsulates each element in single quotes and separates elements with vertical bars
+# fn_tag dnFormatList note Requires list to be space-delimited
+# fn_tag dnFormatList note Example: "one two" -> "'one'|'two'"
+# fn_tag dnFormatList param list purpose List of elements
+# fn_tag dnFormatList param list required yes
+# fn_tag dnFormatList param list multipart no
+# fn_tag dnFormatList param list type string
+# fn_tag dnFormatList param list note Must be space-delimited
+dnFormatList () {
+	local output="${1}"
+	# add inter-option formatting
+	output="$( echo "${output}" | sed -e "s/ /'|'/g" )"
+	# add initial and terminal quotes and print output for capture
+	echo "'${output}'"
+}
+# Function: dnPrintElements                                          {{{1
+# Print list (of space-delimited elements) one per line
+#   params: 1 - list (space-delimited)
+#           2 - 'info' [optional] = print using dnInfo command
+#   prints: list (newline-delimited)
+#   return: nil
+#   invoke: dnPrintElements "${foo[*]}"
+#   needs:  functions [dnInfo]
+# fn_tag dnPrintElements purpose Prints list
+# fn_tag dnPrintElements prints List elements -- one per line
+# fn_tag dnPrintElements returns NIL
+# fn_tag dnPrintElements usage dnPrintElements "${foo[*]}"
+# fn_tag dnPrintElements param list purpose List of elements to print
+# fn_tag dnPrintElements param list required yes
+# fn_tag dnPrintElements param list multipart no
+# fn_tag dnPrintElements param list type string
+# fn_tag dnPrintElements param list note List must be space-delimited
+# fn_tag dnPrintElements param output-command purpose Determines which output command is used
+# fn_tag dnPrintElements param output-command required no
+# fn_tag dnPrintElements param output-command multipart no
+# fn_tag dnPrintElements param output-command type string
+# fn_tag dnPrintElements param output-command value info
+# fn_tag dnPrintElements param output-command note If set to 'info' will output using 'dnInfo', else will output using 'echo'
+dnPrintElements () {
+	local cmd="${2:-""}"  # determine print mode
+	if [ "${cmd}" = "info" ] ; then cmd="dnInfo" ; else cmd="echo" ; fi
+	for element in ${1} ; do ${cmd} "${element}" ; done  # print list
+}
+# Function: dnRemoveDuplicates                                      {{{1
+# Remove duplicate elements from a list
+#   params: 1 - list (space-delimited)
+#   prints: unique list (newline-delimited)
+#   return: nil
+#   invoke: dnRemoveDuplicates "${foo[*]}"
+#   needs:  functions [dnPrintElements]
+# fn_tag dnRemoveDuplicates purpose Remove duplicate elements from a list
+# fn_tag dnRemoveDuplicates prints Unique list (newline-delimited)
+# fn_tag dnRemoveDuplicates returns NIL
+# fn_tag dnRemoveDuplicates usage dnRemoveDuplicates "${foo[*]}"
+# fn_tag dnRemoveDuplicates param list purpose List to be processed
+# fn_tag dnRemoveDuplicates param list required yes
+# fn_tag dnRemoveDuplicates param list multipart no
+# fn_tag dnRemoveDuplicates param list type string
+# fn_tag dnRemoveDuplicates param list note Must be space-delimited
+dnRemoveDuplicates () {
+	echo "$( echo "$( dnPrintElements "${1}" )" | sort | uniq )"
+}
+# Function: dnRemoveElements                                        {{{1
+# Remove elements from a list
+#   params: 1 - list (space-delimited)
+#           2 - elements to remove (space-delimited)
+#   prints: modified list
+#   return: nil
+#   invoke: dnRemoveElements "${foo[*]}" "${elements[*]}"
+# fn_tag dnRemoveElements purpose Remove elements from a list
+# fn_tag dnRemoveElements prints Modified list
+# fn_tag dnRemoveElements returns NIL
+# fn_tag dnRemoveElements usage dnRemoveElements "${foo[*]}" "${elements[*]}"
+# fn_tag dnRemoveElements note All input and output lists are to be space-delimited
+# fn_tag dnRemoveElements param master-list purpose List of elements to be modified
+# fn_tag dnRemoveElements param master-list required yes
+# fn_tag dnRemoveElements param master-list multipart no
+# fn_tag dnRemoveElements param master-list type string
+# fn_tag dnRemoveElements param master-list note Space-delimited
+# fn_tag dnRemoveElements param remove-list purpose List of elements to remove from the first (master) list
+# fn_tag dnRemoveElements param remove-list required yes
+# fn_tag dnRemoveElements param remove-list multipart no
+# fn_tag dnRemoveElements param remove-list type string
+# fn_tag dnRemoveElements param remove-list note Space-delimited
+dnRemoveElements () {
+	local list="${1}" elements="${2}" element=
+	for element in ${elements} ; do
+		list="$( echo "${list}" | sed -e "s^ ${element}^^g" )"
+		list="$( echo "${list}" | sed -e "s^${element} ^^g" )"
+	done
+	echo "${list}"
+}
+
+# }}}1
+# Function: dnListsIntersect                                        {{{1
+# Check whether lists share element(s)
+#   params: 1 - list (space-delimited)
+#           2 - list (space-delimited)
+#   prints: nil
+#   return: boolean (0=intersects|1=does not)
+#   invoke: dnListsIntersect "${foo[*]}" "${elements[*]}"
+# fn_tag dnListsIntersect purpose Determine whether two lists intersect -- share at least one element
+# fn_tag dnListsIntersect prints NIL
+# fn_tag dnListsIntersect returns Whether lists intersect (Boolean)
+# fn_tag dnListsIntersect usage dnListsIntersect "${foo[*]}" "${elements[*]}"
+# fn_tag dnListsIntersect param list-A purpose First list to compare
+# fn_tag dnListsIntersect param list-A required yes
+# fn_tag dnListsIntersect param list-A multipart no
+# fn_tag dnListsIntersect param list-A type string
+# fn_tag dnListsIntersect param list-A note Space-delimited
+# fn_tag dnListsIntersect param list-B purpose Second list to compare
+# fn_tag dnListsIntersect param list-B required yes
+# fn_tag dnListsIntersect param list-B multipart no
+# fn_tag dnListsIntersect param list-B type string
+# fn_tag dnListsIntersect param list-B note Space-delimited
+dnListsIntersect () {
+	local list_a="${1}" list_b="${2}" retval=1
+	list_a="$( dnStripEnclosingSpaces "${list_a}" )"
+	list_b="$( dnStripEnclosingSpaces "${list_b}" )"
+	for a in ${list_a} ; do
+		for b in ${list_b} ; do
+			[ "${a}" = "${b}" ] && retval=0
+		done
+	done
+	unset a b
+	return ${retval}
+}
+# Function: dnListSubset                                            {{{1
+# Check whether one list contains another
+#   params: 1 - master list (space-delimited)
+#           2 - subset list (space-delimited)
+#   prints: nil
+#   return: boolean (0=subset|1=not a subset)
+#   invoke: dnListSubset "${foo[*]}" "${elements[*]}"
+# fn_tag dnListSubset purpose Check whether one list contains another
+# fn_tag dnListSubset prints NIL
+# fn_tag dnListSubset returns Whether second list is a subset of the first (Boolean)
+# fn_tag dnListSubset usage dnListSubset "${foo[*]}" "${elements[*]}"
+# fn_tag dnListSubset param master-list purpose List which may contain the other list
+# fn_tag dnListSubset param master-list required yes
+# fn_tag dnListSubset param master-list multipart no
+# fn_tag dnListSubset param master-list type string
+# fn_tag dnListSubset param master-list note Space-delimited
+# fn_tag dnListSubset param subset-list purpose List which may be subset of master list
+# fn_tag dnListSubset param subset-list required yes
+# fn_tag dnListSubset param subset-list multipart no
+# fn_tag dnListSubset param subset-list type string
+# fn_tag dnListSubset param subset-list note Space-delimited
+dnListSubset () {
+	local list="${1}" subset="${2}" retval=0 found=
+	list="$( dnStripEnclosingSpaces "${list}" )"
+	subset="$( dnStripEnclosingSpaces "${subset}" )"
+	for element in ${subset} ; do
+		found=1
+		for item in ${list} ; do
+			[ "${element}" = "${item}" ] && found=0
+		done
+		dnFlagTrue "${found}" || retval=1
+	done
+	unset element list
+	return ${retval}
+}
+# Function: dnListCount                                             {{{1
+# The number of items in a list
+#   params: 1 - list
+#           2 - delimiter (default=SPC) [optional]
+#   prints: count
+#   return: nil
+#   invoke: dnListCount "${foo[*]}" ' '
+# fn_tag dnListCount purpose Count the number of elements in a list
+# fn_tag dnListCount prints Element count
+# fn_tag dnListCount returns NIL
+# fn_tag dnListCount usage dnListCount "${foo[*]}" ' '
+# fn_tag dnListCount param list purpose List whose elements are to be counted
+# fn_tag dnListCount param list required yes
+# fn_tag dnListCount param list multipart no
+# fn_tag dnListCount param list type string
+# fn_tag dnListCount param delimiter purpose List delimiter
+# fn_tag dnListCount param delimiter required no
+# fn_tag dnListCount param delimiter multipart no
+# fn_tag dnListCount param delimiter type string
+# fn_tag dnListCount param delimiter note Default = 'Space'
+dnListCount () {
+	local list="${1}" delim="${2:-" "}"
+	echo "$( echo "${list}" | awk -F "${delim}" '{ print NF }' )"
+	## another method that can be used with space-delimited lists
+	#for item in ${list} ; do count=$(( ++count )) ; done
+}
+# Function: dnAddToList                                              {{{1
+# Add item to list
+#   params: 1 - base list
+#           2 - new item
+#   prints: newly expanded list
+#   return: nil
+#   usage:  list="$( addToList "${list}" "${new_item}" )"
+# fn_tag dnAddToList purpose add item to list
+# fn_tag dnAddToList prints newly expanded list
+# fn_tag dnAddToList returns NIL
+# fn_tag dnAddToList note usage: list="$( dnaddToList "${list}" "${new_item}" )"
+# fn_tag dnAddToList param list purpose base list to be added to
+# fn_tag dnAddToList param list required yes
+# fn_tag dnAddToList param list multipart no
+# fn_tag dnAddToList param list type string
+# fn_tag dnAddToList param item purpose new item to add to list
+# fn_tag dnAddToList param item required yes
+# fn_tag dnAddToList param item multipart no
+# fn_tag dnAddToList param item type string
+dnAddToList () {
+	local list="${1}" item="${2}"
+	if [ -z "${list}" ] ; then echo "${item}"
+	else echo "${list} ${item}"
+	fi
+}
+# Function: dnListMissing                                            {{{1
+# Determine which items in second list are not in first list
+# [i.e., 'missing' from first list]
+#   params: 1 - base list
+#           2 - comparison list
+#   prints: list of items missing from first list
+#   return: nil
+#   usage:  echo "Missing '$( dnListMissing "${a1[*]}" "${a2[*]}" )'"
+# fn_tag dnListMissing purpose compare two lists and determine which items in the second list are not in the first list
+# fn_tag dnListMissing prints list of missing items
+# fn_tag dnListMissing returns NIL
+# fn_tag dnListMissing note determines which items are 'missing' from the first list
+# fn_tag dnListMissing param base_list purpose list whose missing items will be determined
+# fn_tag dnListMissing param base_list required yes
+# fn_tag dnListMissing param base_list multipart no
+# fn_tag dnListMissing param base_list type string
+# fn_tag dnListMissing param comparison_list purpose list whose items will be compared to the base list
+# fn_tag dnListMissing param comparison_list required yes
+# fn_tag dnListMissing param comparison_list multipart no
+# fn_tag dnListMissing param comparison_list type string
+dnListMissing () {
+	local base_list="${1}" test_list="${2}"
+	local result= base_val= test_val= base_list_has_element=
+	for test_val in ${test_list} ; do
+		base_list_has_element='no'
+		for base_val in ${base_list} ; do
+			[ "${test_val}" = "${base_val}" ] && base_list_has_element='yes'
+		done
+		if [ "${base_list_has_element}" = 'no' ] ; then
+			result="$( dnAddToList "${result}" "${test_val}" )"
+		fi
+	done
+	echo "${result}"
+}
+# Function: dnListExtra                                              {{{1
+# Determine which items in first list are not in second list
+# [i.e., 'extra' in first list]
+#   params: 1 - base list
+#           2 - comparison list
+#   prints: list of extra items in first list
+#   return: nil
+#   usage:  echo "Additional: '$( dnListExtra "${a1[*]}" "${a2[*]}" )'"
+# fn_tag dnListExtra purpose compare two lists and determine which items in the first list are not in the second list
+# fn_tag dnListExtra prints list of extra items
+# fn_tag dnListExtra returns NIL
+# fn_tag dnListExtra note determines which items are 'extra' in the first list
+# fn_tag dnListExtra param base_list purpose list whose extra items will be determined
+# fn_tag dnListExtra param base_list required yes
+# fn_tag dnListExtra param base_list multipart no
+# fn_tag dnListExtra param base_list type string
+# fn_tag dnListExtra param comparison_list purpose list whose items will be compared to the base list
+# fn_tag dnListExtra param comparison_list required yes
+# fn_tag dnListExtra param comparison_list multipart no
+# fn_tag dnListExtra param comparison_list type string
+dnListExtra () { echo "$( dnListMissing "${2}" "${1}" )"; }
+
+# }}}1
+
+# vim: set foldmethod=marker :

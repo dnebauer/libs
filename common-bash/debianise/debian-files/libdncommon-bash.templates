@@ -1,0 +1,9 @@
+Template: libdncommon-bash/install-addons
+Type: boolean
+Default: false
+Description: Enable addon system-wide?
+ This package provides the addon 'libdncommon-bash-shell-ftplugin'.
+ .
+ The Debian Packaging Policy for Vim requires that extensions not shipped with Vim itself be handled by the vim-addons tool.  See the vim-addons man page for commands to enable an addon for a single user, to enable it for all users system-wide, and how to disable an addon for single users if it is enabled system-wide.
+ .
+ The Policy further requires that addons not be enabled by default, hence this step.
