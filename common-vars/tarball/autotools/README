@@ -1,4 +1,0 @@
-libdncommon-vars README
-=======================
-
-Supplies variables for use by other libraries.  Some of these variables, such as optical device names, will vary between computer systems.

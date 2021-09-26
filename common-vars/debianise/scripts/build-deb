@@ -6,7 +6,7 @@
 # PARAMETERS
 
 # root directory of project
-root="/home/david/data/computing/projects/libs/dncommon-vars"
+root="/home/david/data/computing/projects/libs/common-vars"
 
 # package name
 pkg="libdncommon-vars"

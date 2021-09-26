@@ -1,3 +1,10 @@
+libdncommon-bash (5.24-2) UNRELEASED; urgency=low
+
+  * Change distro to UNRELEASED to prevent package signing
+  * Remove AUTHORS, ChangeLog, NEWS and README build files
+
+ -- David Nebauer <david@nebauer.org>  Mon, 08 Feb 2021 00:24:08 +0930
+
 libdncommon-bash (5.24-1) unstable; urgency=low
 
   * New upstream release

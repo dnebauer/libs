@@ -3,10 +3,13 @@
 # --------------------------------------------------------------------
 
 # Process this file with autoconf to produce a configure script
-AC_INIT( [Useful variables], [2.2], [david@nebauer.org], [libdncommon-vars],)
-AM_INIT_AUTOMAKE
-AC_PREREQ([2.61])
-AC_CONFIG_SRCDIR([])
+AC_PREREQ([2.71])
+AC_INIT([Useful variables],
+        [2.2],
+        [david@nebauer.org],
+        [libdncommon-vars],
+)
+AM_INIT_AUTOMAKE([foreign])
 
 # --------------------------------------------------------------------
 
@@ -117,5 +120,9 @@ AC_SUBST(man_dir)
 # --------------------------------------------------------------------
 
 # Create files
-AC_CONFIG_FILES([ Makefile libdncommon-vars.1 libdncommon-varsrc ])
+AC_CONFIG_FILES([
+    Makefile
+    libdncommon-vars.1
+    libdncommon-varsrc
+])
 AC_OUTPUT
