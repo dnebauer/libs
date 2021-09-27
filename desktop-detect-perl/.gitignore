@@ -1,4 +1,4 @@
-*.deb
+# *.deb
 *.diff.gz
 *.dsc
 *.orig.tar.gz
