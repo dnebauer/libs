@@ -1,4 +1,0 @@
-debianise/source/**
-!debianise/source/*.deb
-tarball/archive/**
-tarball/build/**

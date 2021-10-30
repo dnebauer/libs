@@ -1,6 +1,0 @@
-libcurses-widgets-listbox-dnlistbox-perl (1.2-1) unstable; urgency=low
-
-  * Initial release (Closes: #1)
-
- -- David Nebauer <david@nebauer.org>  Sat, 06 Sep 2008 14:30:37 +0930
-

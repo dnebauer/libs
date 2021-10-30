@@ -1,0 +1,27 @@
+Source: libcurses-widgets-listbox-dnlistbox-perl
+Section: perl
+Priority: optional
+Maintainer: David Nebauer <david@nebauer.org>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.0
+Rules-Requires-Root: no
+
+Package: libcurses-widgets-listbox-dnlistbox-perl
+Architecture: all
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         perl (>=5.10.0-13),
+         libcurses-perl (>=1.23-1+b1),
+         libcurses-widgets-perl (>=1.997-5)
+Description: Customised Curses::Widgets::ListBox widget
+ The original ListBox widget provided by Curses::Widgets checks
+ the input key for whether it is an exit key before processing
+ it.  For this reason it is not possible to use one key to both
+ select an option and exit the menu, which is the default
+ behaviour most users expect.
+ .
+ This customised version of the widget overrides the 'execute'
+ method from Curses::Widgets to process the input key before
+ checking whether it is an exit key.  Because of this, if the
+ same key is used for TOGGLE and FOCUSSWITCH it will
+ simultaneously select the current menu item and exit.

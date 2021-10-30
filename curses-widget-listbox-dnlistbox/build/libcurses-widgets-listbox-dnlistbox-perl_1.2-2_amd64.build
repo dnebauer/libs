@@ -1,0 +1,79 @@
+ dpkg-buildpackage -us -uc -ui -i -b
+dpkg-buildpackage: info: source package libcurses-widgets-listbox-dnlistbox-perl
+dpkg-buildpackage: info: source version 1.2-2
+dpkg-buildpackage: info: source distribution UNRELEASED
+dpkg-buildpackage: info: source changed by David Nebauer <david@nebauer.org>
+ dpkg-source -i --before-build .
+dpkg-buildpackage: info: host architecture amd64
+ debian/rules clean
+dh clean 
+   dh_clean
+ debian/rules binary
+dh binary 
+   dh_update_autotools_config
+   dh_autoreconf
+   debian/rules override_dh_auto_configure
+make[1]: Entering directory '/home/david/data/computing/projects/libs/curses-widget-listbox-dnlistbox/build/libcurses-widgets-listbox-dnlistbox-perl-1.2'
+dh_auto_configure -- --sharedstatedir=/var/lib
+	/usr/bin/perl Makefile.PL INSTALLDIRS=vendor "OPTIMIZE=-g -O2 -ffile-prefix-map=/home/david/data/computing/projects/libs/curses-widget-listbox-dnlistbox/build/libcurses-widgets-listbox-dnlistbox-perl-1.2=. -fstack-protector-strong -Wformat -Werror=format-security -Wdate-time -D_FORTIFY_SOURCE=2" "LD=x86_64-linux-gnu-gcc -g -O2 -ffile-prefix-map=/home/david/data/computing/projects/libs/curses-widget-listbox-dnlistbox/build/libcurses-widgets-listbox-dnlistbox-perl-1.2=. -fstack-protector-strong -Wformat -Werror=format-security -Wl,-z,relro" --sharedstatedir=/var/lib
+Checking for required modules:
+  Carp... OK
+  Curses... OK
+  Curses::Widgets... OK
+Checking if your kit is complete...
+Looks good
+'--SHAREDSTATEDIR' is not a known MakeMaker parameter name.
+Generating a Unix-style Makefile
+Writing Makefile for Curses::Widgets::ListBox::DnListBox
+Writing MYMETA.yml and MYMETA.json
+make[1]: Leaving directory '/home/david/data/computing/projects/libs/curses-widget-listbox-dnlistbox/build/libcurses-widgets-listbox-dnlistbox-perl-1.2'
+   dh_auto_build
+	make -j12
+make[1]: Entering directory '/home/david/data/computing/projects/libs/curses-widget-listbox-dnlistbox/build/libcurses-widgets-listbox-dnlistbox-perl-1.2'
+cp lib/Curses/Widgets/ListBox/DnListBox.pm blib/lib/Curses/Widgets/ListBox/DnListBox.pm
+Manifying 1 pod document
+make[1]: Leaving directory '/home/david/data/computing/projects/libs/curses-widget-listbox-dnlistbox/build/libcurses-widgets-listbox-dnlistbox-perl-1.2'
+   dh_auto_test
+	make -j12 test TEST_VERBOSE=1
+make[1]: Entering directory '/home/david/data/computing/projects/libs/curses-widget-listbox-dnlistbox/build/libcurses-widgets-listbox-dnlistbox-perl-1.2'
+PERL_DL_NONLAZY=1 "/usr/bin/perl" "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(1, 'blib/lib', 'blib/arch')" t/*.t
+t/Curses-Widgets-ListBox-DnListBox.t .. 
+1..1
+ok 1 - use Curses::Widgets::ListBox::DnListBox;
+ok
+All tests successful.
+Files=1, Tests=1,  0 wallclock secs ( 0.01 usr  0.00 sys +  0.03 cusr  0.00 csys =  0.04 CPU)
+Result: PASS
+make[1]: Leaving directory '/home/david/data/computing/projects/libs/curses-widget-listbox-dnlistbox/build/libcurses-widgets-listbox-dnlistbox-perl-1.2'
+   create-stamp debian/debhelper-build-stamp
+   dh_prep
+   dh_auto_install --destdir=debian/libcurses-widgets-listbox-dnlistbox-perl/
+	make -j12 install DESTDIR=/home/david/data/computing/projects/libs/curses-widget-listbox-dnlistbox/build/libcurses-widgets-listbox-dnlistbox-perl-1.2/debian/libcurses-widgets-listbox-dnlistbox-perl AM_UPDATE_INFO_DIR=no PREFIX=/usr
+make[1]: Entering directory '/home/david/data/computing/projects/libs/curses-widget-listbox-dnlistbox/build/libcurses-widgets-listbox-dnlistbox-perl-1.2'
+Manifying 1 pod document
+Installing /home/david/data/computing/projects/libs/curses-widget-listbox-dnlistbox/build/libcurses-widgets-listbox-dnlistbox-perl-1.2/debian/libcurses-widgets-listbox-dnlistbox-perl/usr/share/perl5/Curses/Widgets/ListBox/DnListBox.pm
+Installing /home/david/data/computing/projects/libs/curses-widget-listbox-dnlistbox/build/libcurses-widgets-listbox-dnlistbox-perl-1.2/debian/libcurses-widgets-listbox-dnlistbox-perl/usr/share/man/man3/Curses::Widgets::ListBox::DnListBox.3pm
+make[1]: Leaving directory '/home/david/data/computing/projects/libs/curses-widget-listbox-dnlistbox/build/libcurses-widgets-listbox-dnlistbox-perl-1.2'
+   dh_installdocs
+   dh_installchangelogs
+   dh_installman
+   dh_perl
+   dh_link
+   dh_strip_nondeterminism
+   dh_compress
+   dh_fixperms
+   dh_missing
+   dh_installdeb
+   dh_gencontrol
+dpkg-gencontrol: warning: Depends field of package libcurses-widgets-listbox-dnlistbox-perl: substitution variable ${shlibs:Depends} used, but is not defined
+dpkg-gencontrol: warning: package libcurses-widgets-listbox-dnlistbox-perl: substitution variable ${perl:Depends} unused, but is defined
+   dh_md5sums
+   dh_builddeb
+dpkg-deb: building package 'libcurses-widgets-listbox-dnlistbox-perl' in '../libcurses-widgets-listbox-dnlistbox-perl_1.2-2_all.deb'.
+ dpkg-genbuildinfo --build=binary
+ dpkg-genchanges --build=binary >../libcurses-widgets-listbox-dnlistbox-perl_1.2-2_amd64.changes
+dpkg-genchanges: info: binary-only upload (no source code included)
+ dpkg-source -i --after-build .
+dpkg-buildpackage: info: binary-only upload (no source included)
+Now running lintian libcurses-widgets-listbox-dnlistbox-perl_1.2-2_amd64.changes ...
+Finished running lintian.
