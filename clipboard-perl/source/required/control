@@ -2,9 +2,9 @@ Source: libclipboard-perl
 Section: perl
 Priority: optional
 Maintainer: David Nebauer <david@nebauer.org>
-Build-Depends: debhelper (>= 9)
+Build-Depends: debhelper-compat (= 13)
 Build-Depends-Indep: perl
-Standards-Version: 3.9.6
+Standards-Version: 4.6.0
 Homepage: https://metacpan.org/release/Clipboard
 
 Package: libclipboard-perl
