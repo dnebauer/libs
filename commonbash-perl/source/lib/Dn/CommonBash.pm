@@ -165,7 +165,7 @@ method _load_from_library ($master) {
         for ($key_element) {
 
             # option attribute definition line
-            when (/^option\z/xsm) {
+            if ($_ =~ /^option\z/xsm) {
                 my $flag = $elements[4];
                 my $attr = $elements[5];
                 my $val  = join q{ }, @elements[ 6 .. $#elements ];
@@ -175,18 +175,18 @@ method _load_from_library ($master) {
                 }
                 my $option = $func->option($flag);
                 for ($attr) {
-                    when (/^purpose\z/xsmi)  { $option->purpose($val); }
-                    when (/^required\z/xsmi) { $option->required($val); }
-                    when (/^multiple\z/xsmi) { $option->multiple($val); }
-                    when (/^type\z/xsmi)     { $option->type($val); }
-                    when (/^value\z/xsmi)    { $option->add_value($val); }
-                    when (/^default\z/xsmi)  { $option->default($val); }
-                    when (/^note\z/xsmi)     { $option->add_note($val); }
+                    if    ($_ =~ /^purpose\z/xsmi)  { $option->purpose($val); } ## no critic (ProhibitCascadingIfElse)
+                    elsif ($_ =~ /^required\z/xsmi) { $option->required($val); }
+                    elsif ($_ =~ /^multiple\z/xsmi) { $option->multiple($val); }
+                    elsif ($_ =~ /^type\z/xsmi)     { $option->type($val); }
+                    elsif ($_ =~ /^value\z/xsmi)    { $option->add_value($val); }
+                    elsif ($_ =~ /^default\z/xsmi)  { $option->default($val); }
+                    elsif ($_ =~ /^note\z/xsmi)     { $option->add_note($val); }
                 }
             }
 
             # param attribute definition line
-            when (/^param\z/xsm) {
+            elsif ($_ =~ /^param\z/xsm) {
                 my $name = $elements[4];
                 my $attr = $elements[5];
                 my $val  = join q{ }, @elements[ 6 .. $#elements ];
@@ -196,26 +196,26 @@ method _load_from_library ($master) {
                 }
                 my $param = $func->param($name);
                 for ($attr) {
-                    when (/^purpose\z/xsmi)   { $param->purpose($val); }
-                    when (/^required\z/xsmi)  { $param->required($val); }
-                    when (/^multipart\z/xsmi) { $param->multipart($val); }
-                    when (/^type\z/xsmi)      { $param->type($val); }
-                    when (/^value\z/xsmi)     { $param->add_value($val); }
-                    when (/^default\z/xsmi)   { $param->default($val); }
-                    when (/^note\z/xsmi)      { $param->add_note($val); }
+                    if    ($_ =~ /^purpose\z/xsmi)   { $param->purpose($val); } ## no critic (ProhibitCascadingIfElse)
+                    elsif ($_ =~ /^required\z/xsmi)  { $param->required($val); }
+                    elsif ($_ =~ /^multipart\z/xsmi) { $param->multipart($val); }
+                    elsif ($_ =~ /^type\z/xsmi)      { $param->type($val); }
+                    elsif ($_ =~ /^value\z/xsmi)     { $param->add_value($val); }
+                    elsif ($_ =~ /^default\z/xsmi)   { $param->default($val); }
+                    elsif ($_ =~ /^note\z/xsmi)      { $param->add_note($val); }
                 }
             }
 
             # function attribute definition line
-            default {
+            else {
                 my $attr = $elements[3];
                 my $val = join q{ }, @elements[ 4 .. $#elements ];
                 for ($attr) {
-                    when (/^purpose\z/xsmi) { $func->purpose($val); }
-                    when (/^prints\z/xsmi)  { $func->prints($val); }
-                    when (/^returns\z/xsmi) { $func->returns($val); }
-                    when (/^note\z/xsmi)    { $func->add_note($val); }
-                    when (/^usage\z/xsmi)   { $func->add_usage($val); }
+                    if    ($_ =~ /^purpose\z/xsmi) { $func->purpose($val); } ## no critic (ProhibitCascadingIfElse)
+                    elsif ($_ =~ /^prints\z/xsmi)  { $func->prints($val); }
+                    elsif ($_ =~ /^returns\z/xsmi) { $func->returns($val); }
+                    elsif ($_ =~ /^note\z/xsmi)    { $func->add_note($val); }
+                    elsif ($_ =~ /^usage\z/xsmi)   { $func->add_usage($val); }
                 }
             }
         }
@@ -324,15 +324,15 @@ method select_function ($filter, $store) {
     }
 
     for ( scalar @funcs ) {
-        when ( $_ == 0 ) {
+        if    ( $_ == 0 ) {
             say q{No matching function found};
             return;
         }
-        when ( $_ == 1 ) {
+        elsif ( $_ == 1 ) {
             say q{Only one matching function found};
             return "@funcs";
         }
-        default {    # > 1
+        else {    # > 1
             return $cp->input_choose( q{Select function:}, @funcs );
         }
     }

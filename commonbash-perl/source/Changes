@@ -1,4 +1,9 @@
 Revision history for Dn-CommonBash
 
 {{$NEXT}}
+
+0.2  2024-01-30
+        - Replace when() (deprecated)
+
+0.1  2021-11-08
         - Initial release
