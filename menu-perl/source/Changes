@@ -1,4 +1,8 @@
 Revision history for Dn-Menu
 
 {{$NEXT}}
+0.2  2024-01-30
+        - Replace when() (deprecated)
+
+0.1  2021-10-30
         - Initial release

@@ -1,3 +1,9 @@
+libdn-menu-perl (0.2-2) UNRELEASED; urgency=low
+
+  * Replace when() (deprecated)
+
+ -- David Nebauer <david@nebauer.org>  Tue, 30 Jan 2024 23:02:50 +0930
+
 libdn-menu-perl (0.1-2) UNRELEASED; urgency=low
 
   * Move Curses::Widgets::ListBox::DnListBox to own package

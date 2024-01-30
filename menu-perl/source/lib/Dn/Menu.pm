@@ -169,13 +169,13 @@ method select_option () {
 
     # determine selected menu item differently depending on menu type
     for ( $self->_type ) {
-        when (/^hotkey\z/xsmi) {
+        if    ($_ =~ /^hotkey\z/xsmi) {
             return $self->_select_hotkey();
         }
-        when (/^term\z/xsmi) {
+        elsif ($_ =~ /^term\z/xsmi) {
             return $self->_select_term();
         }
-        when (/^gui\z/xsmi) {
+        elsif ($_ =~ /^gui\z/xsmi) {
             return $self->_select_gui();
         }
     }
@@ -281,7 +281,7 @@ method _display_hotkey_menu ($hotkeys_ref, $items_ref) {
         $item_length = length $item;
 
         for ($col) {
-            when (/^1\z/xsm) {    # column 1
+            if ($_ =~ /^1\z/xsm) {    # column 1
                 if ( $item_length > $column_width ) {    # occupy entire line
                     $full_line_item = $TRUE;
                 }
@@ -295,7 +295,7 @@ method _display_hotkey_menu ($hotkeys_ref, $items_ref) {
                     $next_col = 2;    # prepare for next loop
                 }
             }
-            when (/^2\z/xsm) {        # column 2
+            elsif ($_ =~ /^2\z/xsm) {        # column 2
                 if ( $item_length > $column_width ) {    # occupy entire line
                     $full_line_item = $TRUE;
                 }
