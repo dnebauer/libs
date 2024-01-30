@@ -1,0 +1,202 @@
+#!/usr/bin/perl
+
+use Moo;    #                                                          {{{1
+use strictures 2;
+use 5.006;
+use 5.22.1;
+use version; our $VERSION = qv('0.1');
+use namespace::clean;    #                                             }}}1
+
+{
+
+    package Dn::Internal;
+
+    use Moo;    # {{{1
+    use strictures 2;
+    use namespace::clean -except => [ '_options_data', '_options_config' ];
+    use Dn::Cards::ExtractPdfPages;
+    use English qw(-no_match_vars);
+    use Function::Parameters;
+    use List::MoreUtils qw(uniq);
+    use MooX::HandlesVia;
+    use MooX::Options protect_argv => 0;
+    use Readonly;
+    use Types::Standard;
+
+    with qw(
+        Dn::Role::Path
+    );
+
+    Readonly my $TRUE  => 1;
+    Readonly my $FALSE => 0;    #                                      }}}1
+
+    # options
+
+    # density (-d)                                                     {{{1
+    option 'density' => (
+        is      => 'ro',
+        format  => 'i',
+        default => 300,
+        short   => 'd',
+        doc     => 'Image resolution (pixels per inch, default=300)',
+    );
+
+    # quality (-q)                                                     {{{1
+    option 'quality' => (
+        is      => 'ro',
+        format  => 'i',
+        default => 100,
+        short   => 'q',
+        doc     => 'Compression level (1=highest to 100=least, default=100)',
+    );    #                                                            }}}1
+
+    # attributes
+
+    # _files                                                           {{{1
+    has '_file_list' => (
+        is          => 'lazy',
+        isa         => Types::Standard::ArrayRef [Types::Standard::Str],
+        handles_via => 'Array',
+        handles     => { _files => 'elements' },
+        doc         => 'Image files',
+    );
+
+    method _build__file_list () {
+        my @matches;
+        for my $arg (@ARGV) { push @matches, glob "$arg"; }
+        my @unique_matches = List::MoreUtils::uniq @matches;
+        my @files = grep { $self->file_readable($_) } @unique_matches;
+        return [@files];
+    }    #                                                             }}}1
+
+    # methods
+
+    # main()                                                           {{{1
+    #
+    # does:   main method
+    # params: nil
+    # prints: feedback
+    # return: n/a, dies on failure
+    method main () {
+
+        my $extract = Dn::Cards::ExtractPdfPages->new(
+            pdf_files => [ $self->_files ],
+            density   => $self->density,
+            quality   => $self->quality,
+        );
+
+        return $extract->extract_pdf_pages;
+    }    #                                                             }}}1
+
+}
+
+my $p = Dn::Internal->new_with_options->main;
+
+1;
+
+# POD                                                                  {{{1
+
+__END__
+
+=encoding utf8
+
+=head1 NAME
+
+dn-cards-pdf-extract - extract pdf pages as images
+
+=head1 USAGE
+
+B<dn-cards-pdf-extract> [B<-d> I<density>] [B<-q> I<quality>] I<glob> [I<glob>
+...]
+
+B<dn-cards-pdf-extract -h>
+
+=head1 REQUIRED ARGUMENTS
+
+=over
+
+=item B<glob>
+
+Glob specifying pdf files. Specifying files other than image files will result
+in either the Image::Magick or Perl::API2 module dying spectacularly when it
+attempts to load the file as an image, which also causes this script to die.
+String. Required.
+
+=back
+
+=head1 OPTIONS
+
+=over
+
+=item B<-d>  B<--density>
+
+Image resolution in dots per inch (dpi). This is an ImageMagick attribute.
+Integer. Optional. Default: 300.
+
+Further details are available from L<online
+documentation|http://www.imagemagick.org/script/command-line-options.php#density>.
+On debian systems the libimage-magick-perl package provides L<similar
+information|file:///usr/share/doc/libimage-magick-perl/html/www/command-line-options.html#density>.
+
+=item B<-q>  B<--quality>
+
+Set image compression level. This is an ImageMagick attribute. Values range
+from 1 (lowest image quality and highest compression) to 100 (best quality but
+least effective compression). Integer. Optional. Default: 100.
+
+Further details are available from L<online
+documentation|http://www.imagemagick.org/script/command-line-options.php#quality>.
+On debian systems the libimage-magick-perl package provides L<similar
+information|file:///usr/share/doc/libimage-magick-perl/html/www/command-line-options.html#quality>.
+
+=item B<-h>
+
+Display help and exit.
+
+=back
+
+=head1 DESCRIPTION
+
+Takes a set of pdf files and extracts each page as a png image file. All output
+files are created in the current directory, overwriting any files of the same
+name.
+
+The created image files have the same base name as their parent pdf files, with
+an added page number. The page numbers are left-zero-padded so as to have a
+uniform width, enabling correct sorting order. For example, the 13-page pdf
+file F<my-stuff.pdf> will give rise to 13 image files, including
+F<my-stuff_03.png> and F<my-stuff_12.png>.
+
+Since multiple input filepaths can have the same file name, and all output file
+names are derived from the parent pdf file name, and all output files are
+written to the current directory, and existing output files are silently
+overwritten, having multiple input filepaths with identical file names is
+problematic. For that reason, the C<extract_images> method will abort if it
+detects multiple input filepaths with identical file names.
+
+=head1 DEPENDENCIES
+
+=head2 Perl modules
+
+Dn::Role::Path, English, Function::Parameters, List::MoreUtils, Moo,
+MooX::HandlesVia, MooX::Options, namespace::clean, Readonly, strictures,
+Types::Standard, version.
+
+=head1 BUGS AND LIMITATIONS
+
+Please report any bugs to the author.
+
+=head1 AUTHOR
+
+David Nebauer (david at nebauer dot org)
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright (c) 2017 David Nebauer (david at nebauer dot org)
+
+This script is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut
+
+# vim:fdm=marker

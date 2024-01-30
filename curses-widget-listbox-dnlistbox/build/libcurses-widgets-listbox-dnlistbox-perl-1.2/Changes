@@ -1,0 +1,7 @@
+Revision history for Perl extension Curses::Widgets::ListBox::DnListBox.
+
+1.2   Sun Sep  7 12:13:01 CST 2008
+	- initial release
+0.01  Sun Sep  7 12:10:26 2008
+	- original version; created by h2xs 1.23 with options
+		-XAn Curses::Widgets::ListBox::DnListBox

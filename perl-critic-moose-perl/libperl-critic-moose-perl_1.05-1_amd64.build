@@ -1,0 +1,204 @@
+ dpkg-buildpackage -us -uc -ui
+dpkg-buildpackage: info: source package libperl-critic-moose-perl
+dpkg-buildpackage: info: source version 1.05-1
+dpkg-buildpackage: info: source distribution unstable
+dpkg-buildpackage: info: source changed by David Nebauer <david@hezmana.cogito.ergo.sum>
+ dpkg-source --before-build .
+dpkg-buildpackage: info: host architecture amd64
+ debian/rules clean
+dh clean
+   dh_clean
+ dpkg-source -b .
+dpkg-source: info: using source format '3.0 (quilt)'
+dpkg-source: info: building libperl-critic-moose-perl using existing ./libperl-critic-moose-perl_1.05.orig.tar.gz
+dpkg-source: info: building libperl-critic-moose-perl in libperl-critic-moose-perl_1.05-1.debian.tar.xz
+dpkg-source: info: building libperl-critic-moose-perl in libperl-critic-moose-perl_1.05-1.dsc
+ debian/rules binary
+dh binary
+   dh_update_autotools_config
+   dh_autoreconf
+   dh_auto_configure
+	perl Makefile.PL INSTALLDIRS=vendor "OPTIMIZE=-g -O2 -fdebug-prefix-map=/home/david/data/computing/projects/libs/perl-critic-moose-perl/Perl-Critic-Moose-1.05=. -fstack-protector-strong -Wformat -Werror=format-security -Wdate-time -D_FORTIFY_SOURCE=2" "LD=x86_64-linux-gnu-gcc -g -O2 -fdebug-prefix-map=/home/david/data/computing/projects/libs/perl-critic-moose-perl/Perl-Critic-Moose-1.05=. -fstack-protector-strong -Wformat -Werror=format-security -Wl,-z,relro"
+Checking if your kit is complete...
+Looks good
+Generating a Unix-style Makefile
+Writing Makefile for Perl::Critic::Moose
+Writing MYMETA.yml and MYMETA.json
+   dh_auto_build
+	make -j12
+make[1]: Entering directory '/home/david/data/computing/projects/libs/perl-critic-moose-perl/Perl-Critic-Moose-1.05'
+cp lib/Perl/Critic/Policy/Moose/ProhibitLazyBuild.pm blib/lib/Perl/Critic/Policy/Moose/ProhibitLazyBuild.pm
+cp lib/Perl/Critic/Policy/Moose/ProhibitNewMethod.pm blib/lib/Perl/Critic/Policy/Moose/ProhibitNewMethod.pm
+cp lib/Perl/Critic/Policy/Moose/RequireCleanNamespace.pm blib/lib/Perl/Critic/Policy/Moose/RequireCleanNamespace.pm
+cp lib/Perl/Critic/Policy/Moose/ProhibitMultipleWiths.pm blib/lib/Perl/Critic/Policy/Moose/ProhibitMultipleWiths.pm
+cp lib/Perl/Critic/Policy/Moose/ProhibitDESTROYMethod.pm blib/lib/Perl/Critic/Policy/Moose/ProhibitDESTROYMethod.pm
+cp lib/Perl/Critic/Moose.pm blib/lib/Perl/Critic/Moose.pm
+cp lib/Perl/Critic/Policy/Moose/RequireMakeImmutable.pm blib/lib/Perl/Critic/Policy/Moose/RequireMakeImmutable.pm
+Manifying 7 pod documents
+make[1]: Leaving directory '/home/david/data/computing/projects/libs/perl-critic-moose-perl/Perl-Critic-Moose-1.05'
+   dh_auto_test
+	make -j12 test TEST_VERBOSE=1
+make[1]: Entering directory '/home/david/data/computing/projects/libs/perl-critic-moose-perl/Perl-Critic-Moose-1.05'
+PERL_DL_NONLAZY=1 "/usr/bin/perl" "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(1, 'blib/lib', 'blib/arch')" t/*.t
+# 
+# Versions for all modules listed in MYMETA.json (including optional ones):
+# 
+# === Configure Requires ===
+# 
+#     Module              Want Have
+#     ------------------- ---- ----
+#     ExtUtils::MakeMaker  any 7.34
+# 
+# === Build Requires ===
+# 
+#     Module              Want Have
+#     ------------------- ---- ----
+#     ExtUtils::MakeMaker  any 7.34
+# 
+# === Test Requires ===
+# 
+#     Module                     Want     Have
+#     -------------------------- ---- --------
+#     ExtUtils::MakeMaker         any     7.34
+#     File::Spec                  any     3.78
+#     Test::More                 0.96 1.302162
+#     Test::Perl::Critic::Policy  any    1.138
+# 
+# === Test Recommends ===
+# 
+#     Module         Want     Have
+#     ---------- -------- --------
+#     CPAN::Meta 2.120900 2.150010
+# 
+# === Runtime Requires ===
+# 
+#     Module                   Want  Have
+#     ------------------------ ---- -----
+#     Perl::Critic::Policy      any 1.138
+#     Perl::Critic::Utils       any 1.138
+#     Perl::Critic::Utils::PPI  any 1.138
+#     Readonly                  any  2.05
+#     base                      any  2.27
+#     namespace::autoclean      any  0.29
+#     strict                    any  1.11
+#     warnings                  any  1.44
+# 
+t/00-report-prereqs.t .. 
+1..1
+ok 1
+ok
+t/policies.t ........... 
+1..51
+# Running tests for policies: Moose::ProhibitNewMethod, Moose::ProhibitLazyBuild, Moose::RequireMakeImmutable, Moose::ProhibitMultipleWiths, Moose::RequireCleanNamespace, Moose::ProhibitDESTROYMethod
+ok 1 - Class 'Perl::Critic::Policy::Moose::ProhibitDESTROYMethod' has method 'violates'
+ok 2 - Moose::ProhibitDESTROYMethod - line 1 - Basic passing for Moose.
+ok 3 - Moose::ProhibitDESTROYMethod - line 15 - Basic failure for Moose.
+ok 4 - Moose::ProhibitDESTROYMethod - line 24 - Basic passing for Moose::Role.
+ok 5 - Moose::ProhibitDESTROYMethod - line 38 - Basic failure for Moose::Role.
+ok 6 - Moose::ProhibitDESTROYMethod - line 47 - Multi-package passing.
+ok 7 - Moose::ProhibitDESTROYMethod - line 58 - Failure for custom module.
+ok 8 - Class 'Perl::Critic::Policy::Moose::ProhibitLazyBuild' has method 'violates'
+ok 9 - Moose::ProhibitLazyBuild - line 1 - Basic passing for Moose.
+ok 10 - Moose::ProhibitLazyBuild - line 12 - Basic failure for Moose.
+ok 11 - Moose::ProhibitLazyBuild - line 28 - Basic passing for Moose::Role.
+ok 12 - Moose::ProhibitLazyBuild - line 40 - Basic failure for Moose::Role.
+ok 13 - Class 'Perl::Critic::Policy::Moose::ProhibitMultipleWiths' has method 'violates'
+ok 14 - Moose::ProhibitMultipleWiths - line 1 - Moose with one role
+ok 15 - Moose::ProhibitMultipleWiths - line 9 - Moose with two roles
+ok 16 - Moose::ProhibitMultipleWiths - line 17 - Moose with two parameterized roles
+ok 17 - Moose::ProhibitMultipleWiths - line 26 - Basic failure for Moose
+ok 18 - Moose::ProhibitMultipleWiths - line 35 - Moose::Role with one role
+ok 19 - Moose::ProhibitMultipleWiths - line 43 - Moose::Role with two roles
+ok 20 - Moose::ProhibitMultipleWiths - line 51 - Moose::Role with two parameterized roles
+ok 21 - Moose::ProhibitMultipleWiths - line 60 - Basic failure for Moose::Role
+ok 22 - Moose::ProhibitMultipleWiths - line 69 - Non-Moose passing
+ok 23 - Moose::ProhibitMultipleWiths - line 76 - One Moose, one non-Moose
+ok 24 - Moose::ProhibitMultipleWiths - line 87 - Two Moose passing
+ok 25 - Moose::ProhibitMultipleWiths - line 102 - Two Moose failing
+ok 26 - Moose::ProhibitMultipleWiths - line 119 - Failure for custom module.
+ok 27 - Class 'Perl::Critic::Policy::Moose::ProhibitNewMethod' has method 'violates'
+ok 28 - Moose::ProhibitNewMethod - line 1 - Basic passing
+ok 29 - Moose::ProhibitNewMethod - line 15 - Basic failure for Moose
+ok 30 - Moose::ProhibitNewMethod - line 24 - Basic passing for Moose::Role.
+ok 31 - Moose::ProhibitNewMethod - line 37 - Basic failure for Moose::Role.
+ok 32 - Moose::ProhibitNewMethod - line 45 - Multi-package passing.
+ok 33 - Moose::ProhibitNewMethod - line 55 - Failure for custom module.
+ok 34 - Class 'Perl::Critic::Policy::Moose::RequireCleanNamespace' has method 'violates'
+ok 35 - Moose::RequireCleanNamespace - line 1 - Basic passing - Moose
+ok 36 - Moose::RequireCleanNamespace - line 15 - Basic passing - Moose::Role
+ok 37 - Moose::RequireCleanNamespace - line 29 - Basic passing - Moose and Moose::Util::TypeConstraints
+ok 38 - Moose::RequireCleanNamespace - line 45 - Passing with custom module.
+ok 39 - Moose::RequireCleanNamespace - line 60 - Basic failure - Moose
+ok 40 - Moose::RequireCleanNamespace - line 72 - Basic failure - Moose::Role
+ok 41 - Moose::RequireCleanNamespace - line 84 - Basic failure - Moose and Moose::Util::TypeConstraints
+ok 42 - Moose::RequireCleanNamespace - line 97 - Basic failure - MooseX::Role::Parameterized
+ok 43 - Moose::RequireCleanNamespace - line 109 - Failure with custom module.
+ok 44 - Moose::RequireCleanNamespace - line 121 - autoclean is a cleaner
+ok 45 - Moose::RequireCleanNamespace - line 133 - custom cleaner
+ok 46 - Moose::RequireCleanNamespace - line 146 - Moose without imports
+ok 47 - Class 'Perl::Critic::Policy::Moose::RequireMakeImmutable' has method 'violates'
+ok 48 - Moose::RequireMakeImmutable - line 1 - Passing without parens
+ok 49 - Moose::RequireMakeImmutable - line 15 - Passing with parens
+ok 50 - Moose::RequireMakeImmutable - line 29 - Basic failure
+ok 51 - Moose::RequireMakeImmutable - line 40 - Failure for custom module.
+ok
+All tests successful.
+Files=2, Tests=52,  0 wallclock secs ( 0.02 usr  0.00 sys +  0.45 cusr  0.05 csys =  0.52 CPU)
+Result: PASS
+make[1]: Leaving directory '/home/david/data/computing/projects/libs/perl-critic-moose-perl/Perl-Critic-Moose-1.05'
+   create-stamp debian/debhelper-build-stamp
+   dh_testroot
+   dh_prep
+   dh_auto_install
+	make -j12 install DESTDIR=/home/david/data/computing/projects/libs/perl-critic-moose-perl/Perl-Critic-Moose-1.05/debian/libperl-critic-moose-perl AM_UPDATE_INFO_DIR=no PREFIX=/usr
+make[1]: Entering directory '/home/david/data/computing/projects/libs/perl-critic-moose-perl/Perl-Critic-Moose-1.05'
+Manifying 7 pod documents
+Installing /home/david/data/computing/projects/libs/perl-critic-moose-perl/Perl-Critic-Moose-1.05/debian/libperl-critic-moose-perl/usr/share/perl5/Perl/Critic/Moose.pm
+Installing /home/david/data/computing/projects/libs/perl-critic-moose-perl/Perl-Critic-Moose-1.05/debian/libperl-critic-moose-perl/usr/share/perl5/Perl/Critic/Policy/Moose/ProhibitNewMethod.pm
+Installing /home/david/data/computing/projects/libs/perl-critic-moose-perl/Perl-Critic-Moose-1.05/debian/libperl-critic-moose-perl/usr/share/perl5/Perl/Critic/Policy/Moose/ProhibitDESTROYMethod.pm
+Installing /home/david/data/computing/projects/libs/perl-critic-moose-perl/Perl-Critic-Moose-1.05/debian/libperl-critic-moose-perl/usr/share/perl5/Perl/Critic/Policy/Moose/RequireCleanNamespace.pm
+Installing /home/david/data/computing/projects/libs/perl-critic-moose-perl/Perl-Critic-Moose-1.05/debian/libperl-critic-moose-perl/usr/share/perl5/Perl/Critic/Policy/Moose/ProhibitMultipleWiths.pm
+Installing /home/david/data/computing/projects/libs/perl-critic-moose-perl/Perl-Critic-Moose-1.05/debian/libperl-critic-moose-perl/usr/share/perl5/Perl/Critic/Policy/Moose/RequireMakeImmutable.pm
+Installing /home/david/data/computing/projects/libs/perl-critic-moose-perl/Perl-Critic-Moose-1.05/debian/libperl-critic-moose-perl/usr/share/perl5/Perl/Critic/Policy/Moose/ProhibitLazyBuild.pm
+Installing /home/david/data/computing/projects/libs/perl-critic-moose-perl/Perl-Critic-Moose-1.05/debian/libperl-critic-moose-perl/usr/share/man/man3/Perl::Critic::Policy::Moose::ProhibitMultipleWiths.3pm
+Installing /home/david/data/computing/projects/libs/perl-critic-moose-perl/Perl-Critic-Moose-1.05/debian/libperl-critic-moose-perl/usr/share/man/man3/Perl::Critic::Policy::Moose::RequireCleanNamespace.3pm
+Installing /home/david/data/computing/projects/libs/perl-critic-moose-perl/Perl-Critic-Moose-1.05/debian/libperl-critic-moose-perl/usr/share/man/man3/Perl::Critic::Moose.3pm
+Installing /home/david/data/computing/projects/libs/perl-critic-moose-perl/Perl-Critic-Moose-1.05/debian/libperl-critic-moose-perl/usr/share/man/man3/Perl::Critic::Policy::Moose::ProhibitLazyBuild.3pm
+Installing /home/david/data/computing/projects/libs/perl-critic-moose-perl/Perl-Critic-Moose-1.05/debian/libperl-critic-moose-perl/usr/share/man/man3/Perl::Critic::Policy::Moose::ProhibitNewMethod.3pm
+Installing /home/david/data/computing/projects/libs/perl-critic-moose-perl/Perl-Critic-Moose-1.05/debian/libperl-critic-moose-perl/usr/share/man/man3/Perl::Critic::Policy::Moose::RequireMakeImmutable.3pm
+Installing /home/david/data/computing/projects/libs/perl-critic-moose-perl/Perl-Critic-Moose-1.05/debian/libperl-critic-moose-perl/usr/share/man/man3/Perl::Critic::Policy::Moose::ProhibitDESTROYMethod.3pm
+make[1]: Leaving directory '/home/david/data/computing/projects/libs/perl-critic-moose-perl/Perl-Critic-Moose-1.05'
+   dh_installdocs
+   dh_installchangelogs
+   dh_installman
+   dh_perl
+   dh_link
+   dh_strip_nondeterminism
+   dh_compress
+   dh_fixperms
+   dh_missing
+   dh_installdeb
+   dh_gencontrol
+   dh_md5sums
+   dh_builddeb
+dpkg-deb: building package 'libperl-critic-moose-perl' in '../libperl-critic-moose-perl_1.05-1_all.deb'.
+ dpkg-genbuildinfo
+ dpkg-genchanges  >../libperl-critic-moose-perl_1.05-1_amd64.changes
+dpkg-genchanges: info: including full source code in upload
+ dpkg-source --after-build .
+dpkg-buildpackage: info: full upload (original source is included)
+Now running lintian libperl-critic-moose-perl_1.05-1_amd64.changes ...
+E: libperl-critic-moose-perl source: bogus-mail-host Maintainer david@hezmana.cogito.ergo.sum
+E: libperl-critic-moose-perl: bogus-mail-host Maintainer david@hezmana.cogito.ergo.sum
+E: libperl-critic-moose-perl changes: bogus-mail-host Changed-By david@hezmana.cogito.ergo.sum
+E: libperl-critic-moose-perl changes: bogus-mail-host Maintainer david@hezmana.cogito.ergo.sum
+E: libperl-critic-moose-perl: bogus-mail-host-in-debian-changelog david@hezmana.cogito.ergo.sum
+W: libperl-critic-moose-perl: copyright-contains-automatically-extracted-boilerplate
+W: libperl-critic-moose-perl: description-contains-dh-make-perl-template
+W: libperl-critic-moose-perl: initial-upload-closes-no-bugs
+Finished running lintian.
+Now signing changes and any dsc files...
+ signfile dsc libperl-critic-moose-perl_1.05-1.dsc David Nebauer <david@hezmana.cogito.ergo.sum>
+gpg: skipped "David Nebauer <david@hezmana.cogito.ergo.sum>": No secret key
+gpg: /tmp/debsign.GRBMgWeE/libperl-critic-moose-perl_1.05-1.dsc: clear-sign failed: No secret key
+debsign: gpg error occurred!  Aborting....

@@ -1,0 +1,7 @@
+libdn-commonbash-perl (0.1-1) unstable; urgency=low
+
+  * Local package
+  * Initial release
+  * Closes: 500001
+
+ -- David Nebauer <davidnebauer@hotkey.net.au>  Sat, 15 Oct 2016 21:33:53 +0930

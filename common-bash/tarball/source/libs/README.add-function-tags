@@ -1,0 +1,8 @@
+Adding function tags to a library function
+==========================================
+
+Use mapping '\a'
+
+This calls function 'Dn_AddFnTags'
+which is supplied by '~/.vim/scripts/add-fn-vimtags.vim'
+which is itself loaded by '~/.vim/ftplugin/sh.vim'

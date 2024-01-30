@@ -1,0 +1,11 @@
+requires 'perl', '5.008005';
+requires 'Cwd';
+requires 'Data::Validate::URI';
+requires 'Email::Valid';
+requires 'Type::Library';
+requires 'Type::Utils';
+requires 'Types::Standard';
+
+on test => sub {
+    requires 'Test::More', '0.96';
+};

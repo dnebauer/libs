@@ -1,0 +1,20 @@
+Source: libdn-commonbash-perl
+Section: perl
+Priority: optional
+Maintainer: David Nebauer <davidnebauer@hotkey.net.au>
+Build-Depends: debhelper-compat (= 13),
+ libmodule-build-perl,
+ perl
+Build-Depends-Indep: libdn-common-perl,
+ libmodule-build-tiny-perl (>= 0.039)
+Standards-Version: 3.9.8
+Homepage: https://metacpan.org/release/Dn-CommonBash
+
+Package: libdn-commonbash-perl
+Architecture: all
+Depends: ${misc:Depends}, ${perl:Depends},
+ libdn-common-perl
+Description: helper module for libdncommon-bash
+ Dn::CommonBash is a helper to the library of shell functions called
+ libdncommon-bash. The submodules and associated methods assist in building
+ and using libdncommon-bash.

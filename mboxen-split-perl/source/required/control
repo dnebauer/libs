@@ -1,0 +1,57 @@
+Source: libdn-mboxensplit-perl
+Section: perl
+Priority: optional
+Maintainer: David Nebauer <david@nebauer.org>
+Build-Depends: debhelper-compat (= 13),
+ libmodule-build-perl,
+ perl
+Build-Depends-Indep: libemail-mime-perl (>= 1.949-1),
+ libfile-util-perl (>= 4.201720-1),
+ libfunction-parameters-perl (>= 2.001003-2+b3),
+ libmail-mbox-messageparser-perl (>= 1.5111-2),
+ libmodule-build-tiny-perl (>= 0.039-1.1),
+ libmoo-perl (>= 2.005004-2),
+ libmoox-handlesvia-perl (>= 0.001009-1),
+ libmoox-options-perl (>= 4.103-3),
+ libnamespace-clean-perl (>= 0.27-1),
+ libreadonly-perl (>= 2.050-3),
+ libstrictures-perl (>= 2.000006-1),
+ libterm-clui-perl (>= 1.76-1),
+ libterm-progressbar-simple-perl (>= 0.03-1.1),
+ libtext-pluralize-perl (>= 1.1-1),
+ libtext-unidecode-perl (>= 1.30-1),
+ libtimedate-perl (>= 2.3300-2),
+ libtype-tiny-perl (>= 1.012004-1),
+ libwww-perl (>= 6.53-1)
+Standards-Version: 3.9.8
+Homepage: https://metacpan.org/release/Dn-MboxenSplit
+
+Package: libdn-mboxensplit-perl
+Architecture: all
+Depends: ${misc:Depends}, ${perl:Depends},
+ libemail-mime-perl (>= 1.949-1),
+ libfile-util-perl (>= 4.201720-1),
+ libfunction-parameters-perl (>= 2.001003-2+b3),
+ libmail-mbox-messageparser-perl (>= 1.5111-2),
+ libmoo-perl (>= 2.005004-2),
+ libmoox-handlesvia-perl (>= 0.001009-1),
+ libmoox-options-perl (>= 4.103-3),
+ libnamespace-clean-perl (>= 0.27-1),
+ libreadonly-perl (>= 2.050-3),
+ libstrictures-perl (>= 2.000006-1),
+ libterm-clui-perl (>= 1.76-1),
+ libterm-progressbar-simple-perl (>= 0.03-1.1),
+ libtext-pluralize-perl (>= 1.1-1),
+ libtext-unidecode-perl (>= 1.30-1),
+ libtimedate-perl (>= 2.3300-2),
+ libtype-tiny-perl (>= 1.012004-1),
+ libwww-perl (>= 6.53-1),
+ perl (>= 5.32.1-5)
+Description: split mbox files into single mbox files perl email
+ Takes compound mbox files, extracts individual emails, and write individual
+ mbox files for each email. A subdirectory structure in the output directory
+ groups emails by year and date, preventing any single directory from holding
+ too many files.
+ .
+ This script was designed to make it easier for indexing programs such as
+ recoll to index, search and display matching emails.

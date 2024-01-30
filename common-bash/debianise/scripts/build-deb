@@ -1,0 +1,20 @@
+#!/bin/sh
+
+# File: build-deb  [wrapper for 'dn-build-deb']
+
+
+# PARAMETERS
+
+# root directory of project
+root="/home/david/data/computing/projects/libs/common-bash"
+
+# package name
+pkg="libdncommon-bash"
+
+# package maintainer's email address
+email="david@nebauer.org"
+
+
+# RUN SCRIPT
+
+dn-build-deb -r "${root}" -p "${pkg}" -e "${email}"

@@ -1,0 +1,34 @@
+libdn-common-perl (1.1.3-1) unstable; urgency=low
+
+  * Replace for..when with if-elsif, dispatch hashes and branching ternaries
+
+ -- David Nebauer <david@nebauer.org> Tue, 30 Jan 2024 20:39:37 +0930
+
+libdn-common-perl (1.1.2-1) unstable; urgency=low
+
+  * Correct manpage
+
+ -- David Nebauer <david@nebauer.org>  Mon, 27 Sep 2021 19:21:50 +0930
+
+
+libdn-common-perl (1.1.1-1) unstable; urgency=low
+
+  * Add method: debhelper_compat
+  * Add dependency: debhelper
+
+ -- David Nebauer <david@nebauer.org>  Sun, 26 Sep 2021 22:30:59 +0930
+
+libdn-common-perl (1.1.0-1) unstable; urgency=low
+
+  * Add methods: debian_package_version, debian_standards_version
+  * Add dependency: debian-policy
+
+ -- David Nebauer <david@nebauer.org>  Sun, 26 Sep 2021 21:21:19 +0930
+
+libdn-common-perl (1.0.9-1) unstable; urgency=low
+
+  * Local package
+  * Initial release
+  * Closes: 500006
+
+ -- David Nebauer <david@nebauer.org>  Mon, 04 Nov 2019 18:35:03 +0930

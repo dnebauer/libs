@@ -1,0 +1,260 @@
+.\" Hey, EMACS: -*- nroff -*-
+ 
+.\" Filename: libdncommon-vars.1
+.\" Author:   David Nebauer
+.\" History:  2008-08-24 - created
+ 
+.\" -----------------------------------------------------------------
+.\" NOTES
+.\" -----------------------------------------------------------------
+.ig
+
+For header (.TH), first parameter, NAME, should be all caps
+Second parameter, SECTION, should be 1-8, maybe w/ subsection
+Other parameters are allowed: see man(7), man(1)
+Please adjust the date whenever revising the manpage.
+
+Some roff macros, for reference:
+.nh        disable hyphenation
+.hy        enable hyphenation
+.ad l      left justify
+.ad b      justify to both left and right margins
+.nf        disable filling
+.fi        enable filling
+.br        insert line break
+.sp <n>    insert n+1 empty lines
+for manpage-specific macros, see man(7)
+
+Formatting [see groff_char (7) and man (7) for details]:
+\(aq  : escape sequence for (')
+\[lq] : left/open double quote
+\[rq] : right/close double quote
+`     : left/open single quote
+'     : right/close single quote
+\(em  : escape sequence for em dash
+\(en  : escape sequence for en dash
+\.    : escape sequence for period/dot
+\(rg  : registration symbol
+\(tm  : trademark symbol
+\fX   : escape sequence that changes font, where 'X' can be 'R|I|B|BI'
+        (R = roman/normal | I = italic | B = bold | BI = bold-italic)
+\fP   : switch to previous font
+        in this case '\fR' could also have been used
+.B    : following arguments are boldened
+.I    : following arguments are italicised
+.BI   : following arguments are bold alternating with italics
+.BR   : following arguments are bold alternating with roman
+.IB   : following arguments are italics alternating with bold
+.IR   : following arguments are italics alternating with roman
+.RB   : following arguments are roman alternating with bold
+.RI   : following arguments are roman alternating with italics
+.SM   : following arguments are small (scaled 9/10 of the regular size)
+.SB   : following arguments are small bold (not small alternating with bold) 
+        [note: if argument in alternating pattern contains whitespace,
+               enclose in whitespace]
+.RS x : indent following lines by x characters
+.RE   : end indent
+
+Bulleted list:
+   A bulleted list:
+   .IP \[bu] 2
+   lawyers
+   .IP \[bu]
+   guns
+   .IP \[bu]
+   money
+Numbered list:
+   .nr step 1 1
+   A numbered list:
+   .IP \n[step] 3
+   lawyers
+   .IP \n+[step]
+   guns
+   .IP \n+[step]
+   money
+..
+
+.\" -----------------------------------------------------------------
+.\" SETUP
+.\" -----------------------------------------------------------------
+
+.\" Package: -mwww macro package of web-related functions
+.\"  note: -mwww package is part of GNU 'troff'.
+.\"        The '.g' register is only found in GNU 'troff'
+.\"        and is set to '1' (true).
+.\"        The '\n' escape returns the value of a register.
+.\"        So, this 'if' command ensures GNU 'troff' is
+.\"        running before attempting to load the -mwww
+.\"        macro package
+.if \n[.g] .mso www.tmac
+
+.\" Macro: Format URL
+.\"  usage:  .UR "http:\\www.gnu.org" "GNU Project" " of the"
+.\"  params: arg 1 = url ; arg 2 = link text/name ; arg 3 = postamble (optional)
+.de UR
+\\$2 \(laURL: \\$1 \(ra\\$3
+..
+
+.\" Macro: Ellipsis
+.\"  usage: .ellipsis
+.\"  note: only works at beginning of line
+.de ellipsis
+.cc ^
+...
+^cc
+..
+
+.\" String: Command name
+.ds self libdncommon-vars
+
+.\" -----------------------------------------------------------------
+.\" MANPAGE CONTENT
+.\" -----------------------------------------------------------------
+
+.TH "libdncommon-vars" "1" "2008-08-24" "" "Libdncommon-vars Manual"
+.SH "NAME"
+\*[self] \- commonly used variables
+.SH "DESCRIPTION"
+\*[self] provides useful variables for use by other libraries. The variable values are contained in a configuration file (@pkgconf_dir@/\*[self]rc) which can be read in by other applications.
+.PP
+Most values are supplied as key-value pairs. These are for variables with a single value, i.e., like Perl scalars. The key names are singular nouns. Values are enclosed in double quotes which are intended to be stripped off by the processing application.
+.PP
+Some variables have multiple values and are intended to be converted to arrays. These values are supplied in two ways. The first method is to supply a single key-value pair for each value, using the same key for each value supplied to a single variable. It is the responsibility of the processing application to ensure values are added to previous values rather than overwriting them. An example is:
+.RS 8
+ping_url "www.google.com"
+.br
+ping_url "www.debian.org"
+.RE
+.PP
+The second method is to supply all values on the same line, using syntax from the perl module Config::Simple. Values are separated with commas. If a value contains a comma, enclose the value in double quotes. If a value contains a literal quote ("), escape the quote with a backslash. The keys used for this method are plural nouns. This method is often used by perl-based applications. An example is:
+.RS 8
+ping_urls www.google.com, www.debian.org
+.RE
+.PP
+Some variables, such as bash formatting codes, are system-independent. Others, such as optical drive devices nodes, are system-dependent.
+.SH "VARIABLES"
+This section lists the keys that are provided. Unless otherwise indicated, the keys have a single value per key.
+.SS urls for internet connectivity
+.IP \[bu] 2
+ping_url
+ping_urls (multiple value per key)
+.SS sematic fragments
+.IP \[bu] 2
+query_prefix
+.IP \[bu]
+prompt_prefix
+.IP \[bu]
+divider
+.IP \[bu]
+divider_bottom
+.SS bash formatting: fonts
+.IP \[bu] 2
+reset
+.IP \[bu]
+fm_bold
+.IP \[bu]
+fm_bold_off
+.IP \[bu]
+fm_uline
+.IP \[bu]
+fm_uline_off
+.IP \[bu]
+fm_blink
+.IP \[bu]
+fm_blink_off
+.IP \[bu]
+fm_reverse
+.IP \[bu]
+fm_reverse_off
+.IP \[bu]
+fm_conceal
+.IP \[bu]
+fm_conceal_off
+.SS bash formatting: foreground colour
+.IP \[bu] 2
+fg_black
+.IP \[bu]
+fg_lt_gray
+.IP \[bu]
+fg_dk_gray
+.IP \[bu]
+fg_red
+.IP \[bu]
+fg_lt_red
+.IP \[bu]
+fg_green
+.IP \[bu]
+fg_lt_green
+.IP \[bu]
+fg_brown
+.IP \[bu]
+fg_yellow
+.IP \[bu]
+fg_blue
+.IP \[bu]
+fg_lt_blue
+.IP \[bu]
+fg_purple
+.IP \[bu]
+fg_lt_purple
+.IP \[bu]
+fg_cyan
+.IP \[bu]
+fg_lt_cyan
+.IP \[bu]
+fg_white
+.SS dialogs
+.IP \[bu] 2
+dlg_name
+.IP \[bu]
+dlg_names (multiple values per key)
+.IP \[bu]
+dlg_bin
+.IP \[bu]
+dlg_bins (multiple values per key)
+.IP \[bu]
+dlg_cmd_info
+.IP \[bu]
+dlg_cmds_info (multiple values per key)
+.IP \[bu]
+dlg_cmd_warn
+.IP \[bu]
+dlg_cmds_warn (multiple values per key)
+.IP \[bu]
+dlg_cmd_error
+.IP \[bu]
+dlg_cmds_error (multiple values per key)
+.IP \[bu]
+dlg_cmd_confirm
+.IP \[bu]
+dlg_cmds_confirm (multiple values per key)
+.IP \[bu]
+dlg_cmd_popup
+.IP \[bu]
+dlg_cmds_popup (multiple values per key)
+.IP \[bu]
+dlg_popup_does_newlines
+.IP \[bu]
+dlg_popups_doing_newlines (multiple values per key)
+.IP \[bu]
+dlg_popup_delay_multiplier
+.IP \[bu]
+dlg_popup_delay_multipliers (multiple values per key)
+.IP \[bu]
+dlg_preference
+.IP \[bu]
+dlg_desktops (multiple values per key)
+.IP \[bu]
+dlg_desktop
+.IP \[bu]
+dlg_preferences (multiple values per key)
+.SH "FILES"
+.I @pkgconf_dir@/\*[self]rc
+.IP 
+Configuration file. Provides variables (see VARIABLES).
+.PP
+.SH "AUTHOR"
+\*[self] was written by David Nebauer <david@nebauer.org>.
+.PP 
+This manual page was written by David Nebauer <david@nebauer.org>
+for the Debian project (but may be used by others).

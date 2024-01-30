@@ -1,0 +1,25 @@
+Format: 1.8
+Date: Sat, 30 Oct 2021 12:53:20 +0930
+Source: libcurses-widgets-listbox-dnlistbox-perl
+Binary: libcurses-widgets-listbox-dnlistbox-perl
+Architecture: all
+Version: 1.2-2
+Distribution: UNRELEASED
+Urgency: low
+Maintainer: David Nebauer <david@nebauer.org>
+Changed-By: David Nebauer <david@nebauer.org>
+Description:
+ libcurses-widgets-listbox-dnlistbox-perl - Customised Curses::Widgets::ListBox widget
+Changes:
+ libcurses-widgets-listbox-dnlistbox-perl (1.2-2) UNRELEASED; urgency=low
+ .
+   * Build with dn-build-perl-module instead of dn-vuild-deb
+Checksums-Sha1:
+ 14a4b7414554d85adbd293d34b94b421de146af1 6588 libcurses-widgets-listbox-dnlistbox-perl_1.2-2_all.deb
+ f78e3f6195e9e068949440e7be6198e9aa2ea109 4896 libcurses-widgets-listbox-dnlistbox-perl_1.2-2_amd64.buildinfo
+Checksums-Sha256:
+ 04a537ee2de14b352be45e51491e4a89669d8b7cc7f94c680e36a7e5541d7a59 6588 libcurses-widgets-listbox-dnlistbox-perl_1.2-2_all.deb
+ 05fdb8dd5f753657c72f3f44af8ac65d6d3cba6ac2d51ef64ab0a299948b9603 4896 libcurses-widgets-listbox-dnlistbox-perl_1.2-2_amd64.buildinfo
+Files:
+ 354c307811e3ab457d8fc0db6065c84e 6588 perl optional libcurses-widgets-listbox-dnlistbox-perl_1.2-2_all.deb
+ d92a68103eceba213812aac1e79cf6b4 4896 perl optional libcurses-widgets-listbox-dnlistbox-perl_1.2-2_amd64.buildinfo

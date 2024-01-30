@@ -1,0 +1,142 @@
+#!/bin/bash
+
+# Suite: libdncommon-bash
+# File: libtime
+# Author: David Nebauer
+# Purpose: Useful bash functions for handling time values
+
+
+# Function: dnSecondsSinceEpoch                                      {{{1
+# Get time since epoch in seconds
+#   params: nil
+#   prints: seconds since epoch
+#   return: nil
+# fn_tag dnSecondsSinceEpoch purpose Get number of seconds since unix epoch
+# fn_tag dnSecondsSinceEpoch prints Seconds since epoch
+# fn_tag dnSecondsSinceEpoch returns NIL
+dnSecondsSinceEpoch () { echo "$( date '+%s' )"; }
+# Function: dnCalculateSeconds                                       {{{1
+# Calculate seconds
+#   params: 1 - hours
+#           2 - minutes
+#           3 - seconds
+#   prints: int (seconds)
+#   return: nil
+# fn_tag dnCalculateSeconds purpose Calculate total time in seconds from hours, minutes and seconds
+# fn_tag dnCalculateSeconds prints Total seconds (Integer)
+# fn_tag dnCalculateSeconds returns NIL
+# fn_tag dnCalculateSeconds param hours purpose Number of hours
+# fn_tag dnCalculateSeconds param hours required yes
+# fn_tag dnCalculateSeconds param hours multipart no
+# fn_tag dnCalculateSeconds param hours type integer
+# fn_tag dnCalculateSeconds param mins purpose Number of minutes
+# fn_tag dnCalculateSeconds param mins required yes
+# fn_tag dnCalculateSeconds param mins multipart no
+# fn_tag dnCalculateSeconds param mins type integer
+# fn_tag dnCalculateSeconds param secs purpose Number of seconds
+# fn_tag dnCalculateSeconds param secs required yes
+# fn_tag dnCalculateSeconds param secs multipart no
+# fn_tag dnCalculateSeconds param secs type integer
+dnCalculateSeconds () { echo "$(( ${1} * 3600 + ${2} * 60 + ${3} ))"; }
+# Function: dnFormatTime                                             {{{1
+# Format time (from seconds)
+#   params: 1 - time (in seconds)
+#           2 - format code (optional) (default=':')
+#   prints: string - formatted time ('hh:mm:ss')
+#   return: nil
+#   notes:  format code -- a = alpha ('5h 12m 3s')
+#                          : = colons ('05:12:03 ')
+# fn_tag dnFormatTime purpose Convert count in seconds to formatted time
+# fn_tag dnFormatTime prints Formatted time string
+# fn_tag dnFormatTime returns NIL
+# fn_tag dnFormatTime param time purpose Time in seconds
+# fn_tag dnFormatTime param time required yes
+# fn_tag dnFormatTime param time multipart no
+# fn_tag dnFormatTime param time type integer
+# fn_tag dnFormatTime param format-code purpose How to format time string
+# fn_tag dnFormatTime param format-code required no
+# fn_tag dnFormatTime param format-code multipart no
+# fn_tag dnFormatTime param format-code type string
+# fn_tag dnFormatTime param format-code value a
+# fn_tag dnFormatTime param format-code value :
+# fn_tag dnFormatTime param format-code default :
+# fn_tag dnFormatTime param format-code note 'a' = alpha (example is '5h 12m 3s')
+# fn_tag dnFormatTime param format-code note ':' = colons (example is '05:12:03')
+dnFormatTime () {
+	# set and check variables
+	local s="${1}" format="${2:-":"}"
+	# get hours
+	local h="$(( ${s} / 3600 ))"
+	s="$(( ${s} - ${h} * 3600 ))"
+	# get minutes
+	local m="$(( ${s} / 60 ))"
+	s="$(( ${s} - ${m} * 60 ))"
+	# two-digit times
+	local hh="$( echo ${h} | sed -e 's/^\([0-9]\)$/0\1/' )"
+	local mm="$( echo ${m} | sed -e 's/^\([0-9]\)$/0\1/' )"
+	local ss="$( echo ${s} | sed -e 's/^\([0-9]\)$/0\1/' )"
+	# format time
+	local retval=""
+	case ${format} in
+	'a' )
+		[ ${h} -gt 0 ] && retval="${h}h "
+		[ ${m} -gt 0 ] && retval="${retval}${m}m "
+		[ ${s} -gt 0 ] && retval="${retval}${s}s"
+		;;
+	*   )  # also ':' since that is default
+		[ ${hh} -gt 0 ] && retval="${retval}${hh}:"
+		[ ${mm} -gt 0 ] && retval="${retval}${mm}:"
+		retval="${retval}${ss}"
+		;;
+	esac
+	echo "${retval}"
+}
+# Function: dnTimeDifference                                         {{{1
+# Calculate difference between two times (as formatted string)
+#   params: 1 - time (in seconds)
+#           2 - time (in seconds)
+#           3 - format type (see dnFormatTime for format type codes)
+#   prints: time as formatted string
+#   return: boolean (0=valid result|1=error)
+#   usage:  start="$( dnSecondsSinceEpoch )"
+#           ...
+#           end="$( dnSecondsSinceEpoch )"
+#           dnInfo "Duration: $( dnTimeDifference "${start}" "${end}" 'a' )"
+# fn_tag dnTimeDifference purpose Convert time difference to formatted time
+# fn_tag dnTimeDifference prints Formatted time string
+# fn_tag dnTimeDifference returns Whether able to process inputs (Boolean)
+# fn_tag dnTimeDifference usage start="$( dnSecondsSinceEpoch )"
+# fn_tag dnTimeDifference usage ...
+# fn_tag dnTimeDifference usage end="$( dnSecondsSinceEpoch )"
+# fn_tag dnTimeDifference usage dnInfo "Duration: $( dnTimeDifference "${start}" "${end}" 'a' )"
+# fn_tag dnTimeDifference param begin purpose Start time in seconds
+# fn_tag dnTimeDifference param begin required yes
+# fn_tag dnTimeDifference param begin multipart no
+# fn_tag dnTimeDifference param begin type integer
+# fn_tag dnTimeDifference param begin note Most commonly use seconds since epoch
+# fn_tag dnTimeDifference param begin note Can obtain seconds since epoch using function 'dnSecondsSinceEpoch'
+# fn_tag dnTimeDifference param end purpose Finish time in seconds
+# fn_tag dnTimeDifference param end required yes
+# fn_tag dnTimeDifference param end multipart no
+# fn_tag dnTimeDifference param end type integer
+# fn_tag dnTimeDifference param format-code purpose How to format time string
+# fn_tag dnTimeDifference param format-code required yes
+# fn_tag dnTimeDifference param format-code multipart no
+# fn_tag dnTimeDifference param format-code type string
+# fn_tag dnTimeDifference param format-code value a
+# fn_tag dnTimeDifference param format-code value :
+# fn_tag dnTimeDifference param format-code default :
+# fn_tag dnTimeDifference param format-code note 'a' = alpha (example is '5h 12m 3s')
+# fn_tag dnTimeDifference param format-code note ':' = colons (example is '05:12:03')
+dnTimeDifference () {
+	# set and check variables
+	( dnValidPosInteger "${1}" && dnValidPosInteger "${2}" ) || return 1
+	# get time difference
+	local diff="$( dnRemoveLeadingMinus "$(( ${1} - ${2} ))" )"
+	# format it
+	echo "$( dnFormatTime "${diff}" "${3}" )"
+}
+
+# }}}1
+
+# vim: set foldmethod=marker :

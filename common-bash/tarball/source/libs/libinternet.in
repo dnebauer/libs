@@ -1,0 +1,134 @@
+#!/bin/bash
+
+# Suite: libdncommon-bash  # do not alter or delete -- required by vim plugin
+# File: libinternet
+# Author: David Nebauer
+# Purpose: Useful bash functions
+
+
+# Function: dnCheckInternet                                          {{{1
+# Checks internet connection (exits if none found)
+#   params: 1+ - urls to ping
+#   prints: nil
+#   return: 0|1 (ok|not ok)
+#   invoke: dnCheckInternet ${url_list} || ...
+# fn_tag dnCheckInternet purpose Determines whether the internet is accessible
+# fn_tag dnCheckInternet prints NIL
+# fn_tag dnCheckInternet returns Whether internet is accessible (Boolean)
+# fn_tag dnCheckInternet usage dnCheckInternet ${dn_ping_urls[@]} || ...
+# fn_tag dnCheckInternet note Pings a number of supplied URLs to determine internet accessibility
+# fn_tag dnCheckInternet param url purpose URL to ping
+# fn_tag dnCheckInternet param url required yes
+# fn_tag dnCheckInternet param url multipart yes
+# fn_tag dnCheckInternet param url type string
+dnCheckInternet () {
+	local url=
+	for url in ${dn_ping_urls} ; do
+		ping -c 1 ${url} &>/dev/null && return 0  # connected!
+	done
+	return 1  # not connected
+}
+# Function: dnConfigureSsh                                           {{{1
+# Configure ssh tools for password-less operation
+#   params: 1 - key file
+#   prints: feedback (not for capture)
+#   return: 0|1 (success|failure)
+#   invoke: dnConfigureSsh /home/david/.ssh/id_dsa_cvs.sf.net || ...
+#   notes:  Does no checking for validity of key file
+# fn_tag dnConfigureSsh purpose Configure ssh tools for password-less operation
+# fn_tag dnConfigureSsh prints Feedback
+# fn_tag dnConfigureSsh returns Whether ssh tools successfully configured (Boolean)
+# fn_tag dnConfigureSsh usage dnConfigureSsh /home/david/.ssh/id_dsa_cvs.sf.net || ...
+# fn_tag dnConfigureSsh note Does not check whether key file is valid
+# fn_tag dnConfigureSsh param key_file purpose Location of file containing cryptographic keys required by ssh tools
+# fn_tag dnConfigureSsh param key_file required yes
+# fn_tag dnConfigureSsh param key_file multipart no
+# fn_tag dnConfigureSsh param key_file type path
+dnConfigureSsh () {
+	# check parameters
+	local key_path="$( dnNormalisePath "${1}" )"
+	local key_file="$( dnExtractFilename "${key_path}" )"
+	if ! [ -n "${key_path}" ] ; then
+		dnError "No key file specified." && return 1
+	fi
+	# grepping 'ps' output for key_path fails if path begins with '/'
+	# (due to word boundary problems with '\b' marker)
+	key_grep="${key_path}"
+	while [ $( echo "${key_grep}" | grep -c -- "^\/" ) -gt 0 ] ; do
+		key_grep="$( echo "${key_grep}" | sed -e 's:^\/\(.*\)$:\1:' )"
+	done
+	# set cvs authentication mode
+	dnInfo "Set cvs authentication variable."
+	if ! export CVS_RSH=ssh ; then
+		dnError "Unable to set CVS_RSH=ssh" && return 1
+	fi
+	# start ssh-agent if not already running
+	if [ $( ps aux | grep -c -- "\bssh-agent\b" ) -lt 2 ] ; then
+		dnInfo "Starting 'ssh-agent'. "
+		if ! ssh-agent &> /dev/null ; then
+			dnError "Unable to start ssh-sgent." && return 1
+		fi
+	else dnInfo "Program 'ssh-agent' is already running."
+	fi
+	# add key file if not already added
+	if [ $( ssh-add -l | grep -c -- "\b${key_grep}\b" ) -gt 0 ] ; then
+		dnInfo "Key file '${key_file}' already added."
+	else
+		dnInfo "Adding key file '${key_file}'."
+		if ! ssh-add "${key_path}" ; then
+			dnError "Unable to add key." && return 1
+		fi
+	fi
+	# finished ok
+	return 0
+}
+# Function: dnReachableRepository                                    {{{1
+# Determine whether any internet repository is reachable
+#   params: 1 - package resource list file
+#           2 - silent mode (optional, boolean, default = false)
+#   prints: feedback (not for capture)
+#   return: 0|1 (success|failure)
+#   invoke: dnReachableRepository "\etc\apt\sources.list || ...
+#   notes:  searches only for lines beginning with 'deb http'
+# fn_tag dnReachableRepository purpose Determine whether at least one internet repository is reachable
+# fn_tag dnReachableRepository prints Feedback (not for capture)
+# fn_tag dnReachableRepository returns Whether any internet repository was reachable (Boolean)
+# fn_tag dnReachableRepository note Searches package resource list only for files beginning 'deb http'
+# fn_tag dnReachableRepository param file purpose File containing the package resource list, i.e., list of repositories
+# fn_tag dnReachableRepository param file note Usual value for Debian systems is '\etc\apt\sources.list'
+# fn_tag dnReachableRepository param file required yes
+# fn_tag dnReachableRepository param file multipart no
+# fn_tag dnReachableRepository param file type path
+# fn_tag dnReachableRepository param silent purpose whether to echo feedback to screen
+# fn_tag dnReachableRepository param silent required no
+# fn_tag dnReachableRepository param silent multipart no
+# fn_tag dnReachableRepository param silent type boolean
+dnReachableRepository () {
+	# define and check variables
+	local rep= source= exit_status= reached_repository=1 silent=1
+	[ ${#} -eq 0 ] && return 1  # must be one or two parameters
+	[ ${#} -ge 2 ] && return 1
+	  # check source file
+	source="${1}"
+	dnFileValid "${source}" || return 1
+	  # check mode
+	[ ${#} -eq 2 ] && silent=$( dnStandardiseBoolean "${2}" )
+	dnFlagTrue "${silent}" || dnInfo "using repository list in '${source}'"
+	dnFlagTrue "${silent}" \
+		|| dnInfo "checking that at least one repository is reachable:"
+	for rep in $( awk -F/ '/^deb http/ { print $3 }' ${source} ) ; do
+		# stop testing when have reached a repository
+		if ! dnFlagTrue "${reached_repository}" ; then
+			dnFlagTrue "${silent}" || dnInfon "  pinging ${rep}... "
+			ping -c 1 ${rep} &> /dev/null
+			exit_status=${?}
+			dnFlagTrue "${exit_status}" && reached_repository=0
+			dnFlagTrue "${silent}" || dnReport "${exit_status}"
+		fi
+	done
+	return ${reached_repository}
+}
+
+# }}}1
+
+# vim: set foldmethod=marker :

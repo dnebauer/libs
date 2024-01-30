@@ -1,0 +1,2 @@
+contrib/completion/zsh/_dn-images-resize /usr/share/zsh/vendor-completions
+contrib/completion/zsh/_dn-images-printerstudio-resize /usr/share/zsh/vendor-completions

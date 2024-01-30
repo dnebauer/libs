@@ -1,0 +1,16 @@
+Source: libtime-simple-perl
+Section: perl
+Priority: optional
+Maintainer: David Nebauer <david@nebauer.org>
+Build-Depends: debhelper-compat (= 13)
+Build-Depends-Indep: perl
+Standards-Version: 3.9.6
+Homepage: https://metacpan.org/release/Time-Simple
+
+Package: libtime-simple-perl
+Architecture: all
+Depends: ${misc:Depends}, ${perl:Depends}
+Description: Simple, light-weight ISO 8601 time object.
+ A simple, light-weight time object.
+ .
+ This version should be considered an alpha developer release.

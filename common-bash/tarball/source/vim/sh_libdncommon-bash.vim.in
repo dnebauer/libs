@@ -1,0 +1,783 @@
+" Function:    Vim filetype plugin for shellscript
+" Last Change: 2013-06-30
+" Maintainer:  David Nebauer <david@nebauer.org>
+" License:     Public domain
+
+" ========================================================================
+" TODO: Make clear that inconsistency is POTENTIAL
+" TODO: Have warning about inconsistencies in help/dn-bashcom-funcdata
+" TODO: Pause before options, params, and exit
+" ========================================================================
+
+" 1. CONTROL STATEMENTS                                              {{{1
+
+" Only do this when not done yet for this buffer
+if exists('b:do_not_load_libdncommon_bash') | finish | endif
+let b:do_not_load_libdncommon_bash = 1
+
+" Use default cpoptions to avoid unpleasantness from customised
+" 'compatible' settings
+let s:save_cpo = &cpoptions
+set cpoptions&vim
+
+" ========================================================================
+
+" 2. FUNCTIONS                                                       {{{1
+
+" Function:   s:checkLibData                                         {{{2
+" Purpose:    checks for library data in g:dnLibCommonBash
+" Parameters: nil
+" Prints:     feedback if errors
+" Returns:    boolean
+function! s:checkLibData()
+	" check library data
+	if ! exists( 'g:dnLibCommonBash' )
+		call dn#util#error( 'dnCommonBash library function data not loaded' )
+		return v:false
+	endif
+	if len( keys( g:dnLibCommonBash ) ) == 0
+		call dn#util#error( 'dnCommonBash library function data not loaded' )
+		return v:false
+	endif
+    return v:true
+endfunction
+" ------------------------------------------------------------------------
+" Function:   s:displayFnHelp                                        {{{2
+" Purpose:    displays function information in konsole window
+" Parameters: nil
+" Prints:     feedback if errors
+" Returns:    nil
+function! s:displayFnHelp()
+	echo '' | " clear command line
+	" check library data
+    if ! s:checkLibData() | return | endif
+	" get function name
+    let l:fn_name = s:getFnName()
+    if len( l:fn_name ) == 0 | return | endif
+	" get function display data
+    " = for maximum error-proofing:
+    "   1. wrap all but fn.name, opt.flag and par.name in 'has_key' calls
+    "   2. de-entitise all non-trivial values
+    let l:fd = []    " function data output
+    let l:fn = g:dnLibCommonBash[l:fn_name]
+    " - name [required]
+    call add( l:fd, '::title::*** Function = ' . l:fn_name . ' ***' )
+    " - purpose [required]
+    if has_key( l:fn, 'purpose' )
+        call add( l:fd, '    Use: ' . dn#util#deentitise( l:fn.purpose ) )
+    else
+        call add( l:fd, "::error::  Error: No 'purpose' attribute" )
+    endif
+    " - prints [required]
+    if has_key( l:fn, 'prints' )
+        call add( l:fd, ' Prints: ' . dn#util#deentitise( l:fn.prints ) )
+    else
+        call add( l:fd, "::error::  Error: No 'prints' attribute" )
+    endif
+    " - returns [required]
+    if has_key( l:fn, 'returns' )
+        call add( l:fd, ' Return: ' . dn#util#deentitise( l:fn.returns ) )
+    else
+        call add( l:fd, "::error::  Error: No 'returns' attribute" )
+    endif
+    " - notes [optional, multi-value]
+    if has_key( l:fn, 'notes' )
+        for l:note in l:fn.notes
+            call add( l:fd, '   Note: ' . dn#util#deentitise( l:note ) )
+        endfor
+    endif
+    " - usage [optional, multi-value]
+    if has_key( l:fn, 'usage' )
+        let l:first_pass = v:true
+        for l:usage in l:fn.usage  " header only on first row
+            let l:msg = dn#util#deentitise( l:usage )
+            if l:first_pass | call add( l:fd, '  Usage: ' . l:msg )
+            else            | call add( l:fd, '         ' . l:msg )
+            endif
+            let l:first_pass = v:false
+        endfor
+    endif
+    " - options [optional, multi-value]
+    if has_key( l:fn, 'options' )
+        for l:opt in l:fn['options']
+            call add( l:fd, '::prompt::Press [Enter] for option...' )
+            let l:hold = []
+            " . in one line have flag, type, required and multiple
+            " . flag [required]
+            let l:msg = ' OPTION: -' . l:opt.flag
+            " . type [required]
+            if has_key( l:opt, 'type' )
+                if l:opt.type !=? 'none'
+                    let l:msg .= " \"<" . l:opt.type . ">\""
+                endif
+            else
+                call add( l:hold, "::error::  Error: No 'type' attribute" )
+            endif
+            " . required [required]
+            let l:msg .= ' ['
+            if has_key( l:opt, 'required' )
+                let l:msg .= ( l:opt.required ) ? 'required' : 'optional'
+            else
+                call add( l:hold, "::error::  Error: No 'required' attribute" )
+            endif
+            " . multiple [required]
+            if has_key( l:opt, 'multiple' )
+                let l:msg .= ( l:opt.multiple ) ? ', multiple' : ''
+            else
+                call add( l:hold, "::error::  Error: No 'multiple' attribute" )
+            endif
+            let l:msg .= ']'
+            call add( l:fd, l:msg )
+            " * add held errors and warnings
+            for l:msg in l:hold | call add( l:fd, l:msg ) | endfor
+            " . purpose [required]
+            if has_key( l:opt, 'purpose' )
+                let l:msg = dn#util#deentitise( l:opt.purpose )
+                call add( l:fd, '    Use: ' . l:msg )
+            else
+                call add( l:fd, "::error::  Error: No 'purpose' attribute" )
+            endif
+            " . notes [optional, multi-part]
+            if has_key( l:opt, 'notes' )
+                for l:note in l:opt.notes
+                    call add( l:fd, '   Note: ' . dn#util#deentitise( l:note ) )
+                endfor
+            endif
+            " . values [optional, multi-part]
+            if has_key( l:opt, 'values' )
+                let l:msg = ' Values: '
+                for l:value in l:opt.values
+                    let l:msg .= dn#util#deentitise( l:value ) . ', '
+                endfor
+                let l:msg = strpart( l:msg, 0, strridx( l:msg, ', ' ) )
+                call add( l:fd, l:msg )
+            endif
+            " . default [optional]
+            if has_key( l:opt, 'default' )
+                let l:msg = dn#util#deentitise( l:opt.default )
+                call add(l:fd, 'Default: ' . l:msg )
+            endif
+            " * detect logical inconsistency of option with default value
+            " * that is nonetheless required
+            if has_key( l:opt, 'required' ) && l:opt.required
+                if has_key( l:opt, 'default' )
+                    let l:msg = 'Warning: Possible misconfiguration: Has'
+                    call add( l:fd, '::warn::' . l:msg )
+                    let l:msg = '         default value but also is required'
+                    call add( l:fd, '::warn::' . l:msg )
+                endif
+            endif
+        endfor  " option loop
+    endif  " function has options
+    " - parameters [optional, multi-value]
+    if has_key( l:fn, 'params' )
+        let l:param_count = 1
+        for l:par in l:fn.params
+            call add( l:fd, '::prompt::Press [Enter] for parameter...' )
+            let l:hold = []
+            " . in one line have count, name, required and multiple
+            " . count
+            let l:msg = 'PARAM ' . l:param_count . ': '
+            " . name [required]
+            let l:msg .= l:par.name
+            " . required [required]
+            let l:msg .= ' ['
+            if has_key( l:par, 'required' )
+                let l:msg .= ( l:par.required ) ? 'required' : 'optional'
+            else
+                call add( l:hold, "::error::  Error: No 'required' attribute" )
+            endif
+            " . multipart [required]
+            if has_key( l:par, 'multipart' )
+                let l:msg .= ( l:par.multipart ) ? ', multipart' : ''
+            else
+                call add( l:hold, "::error::  Error: No 'multipart' attribute" )
+            endif
+            let l:msg .= ']'
+            call add( l:fd, l:msg )
+            " * add held errors and warnings
+            for l:msg in l:hold | call add( l:fd, l:msg ) | endfor
+            " . purpose [required]
+            if has_key( l:par, 'purpose' )
+                let l:msg = dn#util#deentitise( l:par.purpose )
+                call add( l:fd, '    Use: ' . l:msg )
+            else
+                call add( l:fd, "::error::  Error: No 'purpose' attribute" )
+            endif
+            " . notes [optional, multi-part]
+            if has_key( l:par, 'notes' )
+                for l:note in l:par.notes
+                    call add( l:fd, '   Note: ' . dn#util#deentitise( l:note ) )
+                endfor
+            endif
+            " . type [required] (but treated as optional in Dn::CommonBash)
+            if has_key( l:par, 'type' )
+                call add( l:fd, '   Type: ' . dn#util#deentitise( l:par.type ) )
+            else
+                call add( l:fd, "::error::  Error: No 'type' attribute" )
+            endif
+            " . values [optional, multi-part]
+            if has_key( l:par, 'values' )
+                let l:msg = ' Values: '
+                for l:value in l:par.values
+                    let l:msg .= dn#util#deentitise( l:value ) . ', '
+                endfor
+                let l:msg = strpart( l:msg, 0, strridx( l:msg, ', ' ) )
+                call add( l:fd, l:msg )
+            endif
+            " . default [optional]
+            if has_key( l:par, 'default' )
+                let l:msg = dn#util#deentitise( l:par.default )
+                call add(l:fd, 'Default: ' . l:msg )
+            endif
+            " * detect logical inconsistency of parameter with default value
+            " * that is nonetheless required
+            if has_key( l:par, 'required' ) && l:par.required
+                if has_key( l:par, 'default' )
+                    let l:msg = 'Warning: Possible misconfiguration: Has'
+                    call add( l:fd, '::warn::' . l:msg )
+                    let l:msg = '         default value but also is required'
+                    call add( l:fd, '::warn::' . l:msg )
+                endif
+            endif
+            let l:param_count += 1
+        endfor  " parameter loop
+    endif  " function has parameters
+    " display function help
+    let l:more = &more
+    set nomore
+    " - show derived details, errors and warnings
+    for l:line in l:fd
+        if     l:line =~? '^::title::'
+            " title
+            let l:msg = strpart( l:line, 9 )
+            echohl Title | echo l:msg | echohl Normal
+        elseif l:line =~? '^::prompt::'
+            " prompt
+            let l:msg = strpart( l:line, 10 )
+            call dn#util#prompt( l:msg )
+        elseif l:line =~? '^::error::'
+            " error
+            let l:msg = strpart( l:line, 9 )
+            call dn#util#error( l:msg )
+        elseif l:line =~? '^::warn::'
+            " warning
+            let l:msg = strpart( l:line, 8 )
+            call dn#util#warn( l:msg )
+        else
+            " details
+            echo l:line . "\n"
+        endif
+    endfor
+    echohl MoreMsg
+    echo '****************************************'
+    echohl Normal
+    let &more = l:more
+endfunction
+" ------------------------------------------------------------------------
+" Function:   s:fnExists                                             {{{2
+" Purpose:    determine whether function name exists
+" Parameters: 1 - function name [string]
+" Prints:     nil
+" Returns:    whether function name exists [boolean]
+" Note:       could use 'return has_key( g:dnLibCommonBash, a:fn )'
+"             but that is case-sensitive
+function! s:fnExists( fn )
+	return s:fnMatchCount( a:fn, 'complete' ) > 0 ? 1 : 0
+endfunction
+" ------------------------------------------------------------------------
+" Function:   s:fnMatchCount                                         {{{2
+" Purpose:    determine number of matching function names (case-insensitive)
+" Parameters: 1 - function name [string]
+"             2 - match type ('complete'|* = partial) [optional, string]
+" Prints:     nil
+" Returns:    number of matches (empty string if error) [integer]
+function! s:fnMatchCount( fn, ... )
+	" check library data
+    if ! s:checkLibData() | return | endif
+	" set variables
+	let l:fn = ( a:0 > 0 && a:1 ==# 'complete' ) ?  '^' . a:fn . '$' : a:fn
+	let l:matches = []  " matching function names
+	" populate function array
+	for l:item in sort( keys( g:dnLibCommonBash ) )
+		if l:item =~? l:fn | call add( l:matches, l:item ) | endif
+	endfor
+	" done
+	return len( l:matches )
+endfunction
+" ------------------------------------------------------------------------
+" Function:   s:fnMatches                                            {{{2
+" Purpose:    return list of matching function names (case-insensitive)
+" Parameters: 1 - function name [string]
+"             2 - match type ('complete'|* = partial) [optional, string]
+" Prints:     nil
+" Returns:    list of matching function names [List]
+"             Empty string if error
+function! s:fnMatches( fn, ... )
+	" check library data
+    if ! s:checkLibData() | return | endif
+	" set variables
+	let l:fn = ( a:0 > 0 && a:1 ==# 'complete' ) ?  '^' . a:fn . '$' : a:fn
+	let l:matches = []  " matching function names
+	" populate function array
+	for l:item in sort( keys( g:dnLibCommonBash ) )
+		if l:item =~? l:fn | call add( l:matches, l:item ) | endif
+	endfor
+	" done
+	return l:matches
+endfunction
+" ------------------------------------------------------------------------
+" Function:   s:getFnName                                            {{{2
+" Purpose:    get function name
+" Parameters: nil
+" Prints:     feedback from user interaction
+" Returns:    nil
+" Notes:      tries first to match on word under cursor, then on user input
+function! s:getFnName()
+	echo '' | " clear command line
+	" get search fragment
+	let l:fragment = dn#util#selectWord()  " look for fragment under cursor
+	if l:fragment ==# ''  " no fragment under cursor
+		let l:msg = 'Supply some or all of the function name: '
+		let l:fragment = input( l:msg ) | echo "\n"
+		if l:fragment ==# ''
+			call dn#util#warn( 'With no partial name to filter on,' )
+			call dn#util#warn( 'all functions will be displayed' )
+			call dn#util#prompt()
+		endif
+	endif
+    " select match and return result
+	return s:selectFn( l:fragment )
+endfunction
+" ------------------------------------------------------------------------
+" Function:   s:insertFn                                             {{{2
+" Purpose:    insert function call
+" Parameters: 1 - whether called from insert mode [optional, boolean]
+" Prints:     feedback if errors
+" Returns:    nil
+function! s:insertFn( ... )
+	echo '' | " clear command line
+	" check library data
+    if ! s:checkLibData() | return | endif
+	" set variables
+	let l:fn = ''          " function name
+	let l:options = []     " function options -- each is a dictionary
+	let l:params = []      " function parameters -- each is a dictionary
+	let l:fn_call = ''     " function call to be inserted
+	let l:entered_val = 0  " whether value entered for parameter
+	let l:val = ''         " parameter value
+	let l:more = 0         " record state of 'more' option
+	let l:index = 0        " string index marker
+	let l:replace = 0      " whether function fragment visually selected
+	let l:insert = ( a:0 > 0 && a:1 ) ? 1 : 0
+	                       " whether called from insert mode
+	" get function name
+    let l:fn = s:getFnName()
+    if len( l:fn ) == 0 | return | endif
+	echo "Inserting function: '" . l:fn ."'"
+	" now cycle through options
+	let l:more = &more  " prevent 'more' messages
+	set nomore
+	if has_key( g:dnLibCommonBash[l:fn], 'options' )
+		let l:options = g:dnLibCommonBash[l:fn].options
+		for l:option in l:options  " for each option
+			" show 'option -flag (type if not none) ['
+			" if required
+			"   show 'required'
+			" else
+			"   show 'optional'
+			" endif
+			" if multiple
+			"   show ', multiple'
+			" endif
+			" show ']'
+			" show 'purpose'
+			" for note in notes
+			"   show 'note'
+			" endfor
+			" if default
+			"   show 'Default: default'
+			" endif
+            " set done_first false
+            " begin multiple loop
+            "   if done_first  # subsequent iterations
+            "     if multiple
+            "       if ! confirm add option
+            "         break
+            "       endif
+            "     else  # not multiple
+            "       break
+            "     endif
+            "   else  # first iteration
+            "     if ! required
+            "       if ! confirm add option
+            "         break
+            "       endif
+            "     endif
+            "   endif
+			"   if type == none
+            "     add ' -x' to function call
+            "   else  # must provide option value
+			"     if values
+			"       select val from list of values
+			"     endif
+			"     if no val
+			"       get val input  # uses default if present
+			"     endif
+			"     if val not empty
+			"       add ' -x "val"' to function_call
+			"     else  # val empty
+			"       show 'Value required -- adding placeholder (use Ctrl-j)'
+			"       add ' -x "<+option.name+>"' to function_call
+			"     endif
+            "     set done_first true
+			"   end multiple loop
+            " endif
+            "
+			" show in one line option name, whether required and whether multipart
+			let l:msg = 'OPTION -' . l:option.flag
+            if l:option.type !=? 'none'  " case-insensitive match
+                let l:msg .= ' (' . l:option.type . ')'
+            endif
+            if l:option.required | let l:msg .= ' [required'
+			else                 | let l:msg .= ' [optional'
+			endif
+			if l:option.multiple | let l:msg .= ', multiple' | endif
+			let l:msg .= ']'
+			echo l:msg
+			" show option purpose
+			if has_key( l:option, 'purpose' )
+				echo '      ' . dn#util#deentitise( l:option.purpose )
+			endif
+			" show option notes
+			if has_key( l:option, 'notes' )
+				for l:note in l:option.notes
+					echo '      ' . dn#util#deentitise( l:note )
+				endfor
+			endif
+			" show option default
+			if has_key( l:option, 'default' )
+				echo "      Default: '" . l:option.default . "'"
+                if l:option.required
+                    let l:msg = 'Warning: This option is required but has a'
+                                \ . " default value\nThat is logically"
+                                \ . " inconsistent\nConsider reviewing this"
+                                \ . ' function'
+                    call dn#util#warn( l:msg )
+                endif
+			endif
+			" select or enter option value
+			let l:done_first = 0
+			while 1  " obtaining option value loop
+                " decide whether to break out of loop
+                if l:done_first  " subsequent loop iterations
+                    if l:option.multiple
+                        let l:msg = "Add option '-" . l:option.flag . "' again?"
+                        if confirm( l:msg, "&Yes\n&No" ) == 2  " user aborted
+                            break
+                        endif
+                    else  " not multiple
+                        break  " second iteration and not multiple option
+                    endif  " multiple
+                else  " first loop iteration
+                    " add unless optional and user aborts
+                    if ! l:option.required
+                        let l:msg = "Add optional option '-"
+                                    \ . l:option.flag . "'?"
+                        if confirm( l:msg, "&Yes\n&No" ) == 2  " user aborted
+                            break
+                        endif
+                    endif  " not required
+                endif
+                " if here then user must/wants to add option
+                if tolower( l:option.type ) ==# 'none'
+					let l:fn_call .= ' -' . l:option.flag
+                else  " type requires option value
+    				let l:val = ''
+    				" if values present then select from list
+    				if has_key( l:option, 'values' )
+    					let l:msg = 'Select option value:'
+    					let l:val = dn#util#menuSelect( l:option.values, l:msg )
+                        let l:warn = 'No value selected -- '
+                                    \ . 'please enter value manually'
+                        if l:val ==# '' | call dn#util#warn( l:warn ) | endif
+    				endif
+    				" if no values or user does not want one, enter manually
+    				let l:msg = 'Enter option value: ' | let l:default = ''
+    				if has_key( l:option, 'default' )
+    					let l:default = l:option.default
+    				endif
+    				if l:val ==# ''
+    					let l:val = input( l:msg, l:default ) | echo ' '
+    				endif
+    				if l:val !=# ''  " val not empty
+    					let l:val = ' -' . l:option.flag . ' "' . l:val . '"'
+    					let l:fn_call .= l:val
+    				else  " no value selected or entered
+                        let l:msg = 'Required option -- '
+                                    \ . 'adding placeholder (use Ctrl-J)'
+                        call dn#util#warn( l:msg )
+                        let l:val = ' -' . l:option.flag . ' "<+'
+                                    \    . l:option.type . '+>"'
+                        let l:fn_call .= l:val
+                    endif
+                endif  " l:option.type == 'none'
+                let l:done_first = 1
+			endwhile  " obtaining option value loop
+		endfor  " each option
+	endif
+	" now cycle through parameters
+	if has_key( g:dnLibCommonBash[l:fn], 'params' )
+		let l:params = g:dnLibCommonBash[l:fn].params
+		for l:param in l:params  " for each parameter
+			" show 'PARAM name (type) ['
+			" if required
+			"   show 'required'
+			" else
+			"   show 'optional'
+			" endif
+			" if multipart
+			"   show ', multipart'
+			" endif
+			" show ']'
+			" show 'purpose'
+			" for note in notes
+			"   show 'note'
+			" endfor
+			" if default
+			"   show 'Default: default'
+			" endif
+			" set done_first flag false
+			" begin multipart loop
+            "   if done_first  # subsequent iterations
+            "     if multipart
+            "       if ! confirm add option
+            "         break
+            "       endif
+            "     else  # not multipart
+            "       break
+            "     endif
+            "   else  # first iteration
+            "     if ! required
+            "       if ! confirm add option
+            "         break
+            "       endif
+            "     endif
+            "   endif
+			"   if values
+			"     select val from list of values
+			"   endif
+			"   if no val
+			"     get val input  # uses default if present
+			"   endif
+			"   if val not empty
+			"     add ' "val"' to function_call
+			"   else  # val empty
+			"     show 'Required -- adding placeholder (use Ctrl-j)'
+			"     add ' "<+param.name+>"' to function_call
+			"   endif
+            "   set done_first flag true
+			" end multipart loop
+			"
+			" show in one line param name, whether required and whether multipart
+			let l:msg = 'PARAM ' . l:param.name . ' (' . l:param.type . ') ['
+			if l:param.required | let l:msg .= 'required'
+			else                | let l:msg .= 'optional'
+			endif
+			if l:param.multipart | let l:msg .= ', multipart' | endif
+			let l:msg .= ']'
+			echo l:msg
+			" show param purpose
+			if has_key( l:param, 'purpose' )
+				echo '      ' . dn#util#deentitise( l:param.purpose )
+			endif
+			" show param notes
+			if has_key( l:param, 'notes' )
+				for l:note in l:param.notes
+					echo '      ' . dn#util#deentitise( l:note )
+				endfor
+			endif
+			" show param default
+			if has_key( l:param, 'default' )
+				echo "      Default: '" . l:param.default . "'"
+                if l:param.required
+                    let l:msg = 'Warning: This parameter is required but has a'
+                                \ . " default value\nThat is logically"
+                                \ . " inconsistent\nConsider reviewing this"
+                                \ . ' function'
+                    call dn#util#warn( l:msg )
+                endif
+			endif
+			" select or enter parameter value
+			let l:done_first = 0
+			while 1  " obtaining parameter value loop
+                " decide whether to break out of loop
+                if l:done_first  " subsequent loop iterations
+                    if l:param.multipart
+                        let l:msg = "Add parameter '"
+                                    \ . l:param.name . "' again?"
+                        if confirm( l:msg, "&Yes\n&No" ) == 2  " user aborted
+                            break
+                        endif
+                    else  " not multipart
+                        break  " because on second iteration and not multipart
+                    endif  " multipart
+                else  " first loop iteration
+                    " add unless optional and user aborts
+                    if ! l:param.required
+                        let l:msg = "Add optional parameter '"
+                                    \ . l:param.name . "'?"
+                        if confirm( l:msg, "&Yes\n&No" ) == 2  " user aborted
+                            break
+                        endif
+                    endif  " not required
+                endif
+                " if here then user must/wants to add option
+				let l:val = ''
+				" if values present then select from list
+				if has_key( l:param, 'values' )
+					let l:msg = 'Select parameter value:'
+					let l:val = dn#util#menuSelect( l:param.values, l:msg )
+                    let l:warn = 'No value selected -- please '
+                                \ . 'enter value manually'
+                    if l:val ==# '' | call dn#util#warn( l:warn ) | endif
+				endif
+				" if no values or user does not want one, enter manually
+				let l:msg = 'Enter parameter value: ' | let l:default = ''
+				if has_key( l:param, 'default' )
+					let l:default = l:param.default
+				endif
+				if l:val ==# ''
+					let l:val = input( l:msg, l:default ) | echo ' '
+				endif
+				" take action based on whether param required and/or multipart
+				if l:val !=# ''  " val not empty
+					let l:val = ' "' . l:val . '"'
+					let l:fn_call .= l:val
+				else  " no value selected or entered
+                    let l:msg = 'No parameter provided -- '
+                                \ . 'adding placeholder (use Ctrl-J)'
+                    call dn#util#warn( l:msg )
+                    let l:fn_call .= ' "<+' . l:param.name . '+>"'
+				endif
+                let l:done_first = 1
+			endwhile  " obtaining parameter value loop
+		endfor  " each parameter
+	endif
+	let &more = l:more  " reset more
+	" tidy up function call
+	while 1
+		let l:index = match( l:fn_call, ' ""$' )
+		if   l:index == -1 | break
+		else               | let l:fn_call = strpart( l:fn_call, 0, l:index )
+		endif
+	endwhile
+	let l:fn_call = l:fn . l:fn_call
+	" output function call
+	if l:replace | execute 'normal d' | endif
+	call dn#util#insertString( l:fn_call )
+	if l:insert | call dn#util#insertMode() | endif
+endfunction
+" ------------------------------------------------------------------------
+" Function:   s:selectFn                                             {{{2
+" Purpose:    choose function name from list
+" Parameters: 1 - function name fragment [optional, string]
+" Prints:     feedback if errors
+" Returns:    function name [string]
+function! s:selectFn( ... )
+	" check library data
+    if ! s:checkLibData() | return | endif
+	" set variables
+	let l:fragment = ( a:0 > 0 ) ? a:1 : ''  " fragment of function name
+	let l:fns = []         " function names containing fragment
+	let l:fn = ''          " function name
+	let l:matches = ''     " number of matching fns
+	" populate function array
+	let l:fns = s:fnMatches( l:fragment )
+	" deal with special cases
+	let l:matches = len( l:fns )
+	if l:matches == 0  " no match
+		call dn#util#error( "No function matches '" . l:fragment . "'" )
+        call dn#util#prompt()
+		return ''
+	elseif l:matches == 1 | let l:fn = l:fns[0]  " only one match
+	elseif l:fragment !=# ''  " check for full match in partial matches
+		for l:item in l:fns
+			if l:item ==? l:fragment | let l:fn = l:item | endif
+		endfor
+	endif
+	" if haven't yet got function, select from list
+	if l:fn ==# ''
+		let l:fn = dn#util#menuSelect( l:fns, 'Select function:' )
+	endif
+	" if still no fn name is because user did not select one
+	if l:fn ==# '' | call dn#util#error( 'No function selected' ) | endif
+	" return result
+	return l:fn
+endfunction
+
+" ========================================================================
+
+" 3. DICTIONARIES                                                    {{{1
+
+" libdncommon-bash functions
+set dictionary+=@vim_libdncb@/funcdict
+set dictionary-=/usr/share/dict/words
+
+" ========================================================================
+
+" 4. LOAD PLUGIN FILES                                               {{{1
+
+" libdncommon-bash variable loader file                              {{{2
+source @vim_libdncb@/funcload.vim
+
+" functions specific to libdncommon-bash library files               {{{2
+" - relies on library files containing header line 'Suite: libdncommon-bash'
+" - provides mapping ("\a") and function to add function tags
+let s:line = 1
+let s:max = 10
+while s:line <= s:max
+	if getline( s:line ) =~? 'Suite: libdncommon-bash'
+		source @vim_libdncb@/libfile-functions.vim
+		break
+	endif
+	let s:line += 1
+endwhile
+
+" ========================================================================
+
+" 5. CONTROL STATEMENTS                                              {{{1
+
+" restore user's cpoptions                                           {{{2
+let &cpoptions = s:save_cpo
+
+" ========================================================================
+
+" 6. MAPPINGS AND MENUS                                              {{{1
+
+" \hf -> displayFnHelp                                               {{{2
+" display function help
+imap <buffer> <unique> <Plug>DnDF <Esc>:call <SID>displayFnHelp()<CR>
+nmap <buffer> <unique> <Plug>DnDF :call <SID>displayFnHelp()<CR>
+if !hasmapto( '<Plug>DnDF', 'i' )
+	imap <buffer> <unique> <LocalLeader>hf <Plug>DnDF
+endif
+if !hasmapto( '<Plug>DnDF', 'n' )
+	nmap <buffer> <unique> <LocalLeader>hf <Plug>DnDF
+endif
+
+" \if -> insertFn                                                    {{{2
+" insert function call
+imap <buffer> <unique> <Plug>DnIF <Esc>:call <SID>insertFn( 1 )<CR>
+nmap <buffer> <unique> <Plug>DnIF :call <SID>insertFn()<CR>
+if !hasmapto( '<Plug>DnIF', 'i' )
+	imap <buffer> <unique> <LocalLeader>if <Plug>DnIF
+endif
+if !hasmapto( '<Plug>DnIF', 'n' )
+	nmap <buffer> <unique> <LocalLeader>if <Plug>DnIF
+endif
+
+
+" }}}1
+
+" vim: set foldmethod=marker :

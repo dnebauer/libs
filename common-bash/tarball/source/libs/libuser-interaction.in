@@ -1,0 +1,1703 @@
+#!/bin/bash
+
+# Suite: libdncommon-bash
+# File: libuser-interaction
+# Author: David Nebauer
+# Purpose: Useful bash functions for interacting with users
+
+# TODO
+#
+# dnDlg function:
+# - ensure support for dnList[Tag]Dlg and snSelect[Tag]Dlg
+# - ensure support for input box
+
+# Function: dnReport                                                 {{{1
+# Report success or failure of operation
+#   params: 1 - exit status of operation ('0' = success)
+#   prints: 'OK.'|'Failed.'
+#   return: nil
+# fn_tag dnReport purpose Report success or failure of operation
+# fn_tag dnReport prints Feedback: 'OK.' or 'Failed.'
+# fn_tag dnReport returns NIL
+# fn_tag dnReport param exit_status purpose Exit status of operation ('0'=success)
+# fn_tag dnReport param exit_status required yes
+# fn_tag dnReport param exit_status multipart no
+# fn_tag dnReport param exit_status type boolean
+dnReport () {
+	case ${1} in
+		0 ) echo "OK.";;
+		* ) echo "Failed.";;
+	esac
+}
+# Function: dnOpOk                                                   {{{1
+# Report whether operation succeeded
+#   params: 1 - exit status of operation ('0' = success)
+#   prints: nil
+#   return: exit status of operation ('0' = success) 
+# fn_tag dnOpOk purpose Report whether operation succeeded
+# fn_tag dnOpOk prints NIL
+# fn_tag dnOpOk returns Exit status of operation (Boolean)
+# fn_tag dnOpOk param exit_status purpose Exit status of operation
+# fn_tag dnOpOk param exit_status required yes
+# fn_tag dnOpOk param exit_status multipart no
+# fn_tag dnOpOk param exit_status type boolean
+dnOpOk () { return ${1}; }
+# Function: dnOpFail                                                 {{{1
+# Report whether operation failed
+#   params: 1 - exit status of operation ('0' = success)
+#   prints: nil
+#   return: inverted exit status of operation ('0' = success) 
+# fn_tag dnOpFail purpose Report whether operation failed
+# fn_tag dnOpFail prints NIL
+# fn_tag dnOpFail returns Inverted exit status of operation
+# fn_tag dnOpFail param exit_status purpose Exit status of operation ('0'=success)
+# fn_tag dnOpFail param exit_status required yes
+# fn_tag dnOpFail param exit_status multipart no
+# fn_tag dnOpFail param exit_status type boolean
+dnOpFail () { [ ${1} -eq 0 ] && return 1 || return 0; }
+# Function: dnCritRep                                                {{{1
+# Critical report - exit if failed operation
+#   params: 1 - exit status of operation ('0' = success)
+#           2 - error message if failed
+#   prints: 'OK'|'Failed'
+#   return: nil
+# fn_tag dnCritRep purpose Report operation outcome and exit  with message if it failed
+# fn_tag dnCritRep prints Feedback: 'OK.' or 'Failed.'
+# fn_tag dnCritRep returns NIL
+# fn_tag dnCritRep param exit_status purpose Exit status of operation ('0'=success)
+# fn_tag dnCritRep param exit_status required yes
+# fn_tag dnCritRep param exit_status multipart no
+# fn_tag dnCritRep param exit_status type boolean
+# fn_tag dnCritRep param error_message purpose Error message to display on exit
+# fn_tag dnCritRep param error_message required no
+# fn_tag dnCritRep param error_message multipart no
+# fn_tag dnCritRep param error_message type string
+dnCritRep () {
+	# checking for necessary components
+	local fn_funcs="dnReport dnEndScript" fn_missing=1
+	dnFunctionsAvailable "${fn_funcs}" || fn_missing=0
+	if dnFlagTrue "${fn_missing}" ; then
+		echo "Fatal error: Missing essential component(s)... Aborting"
+		exit 1
+	fi
+	unset fn_missing fn_funcs
+	# display result of operation
+	dnReport ${1}
+	# exit with error message if operation failed
+	test ${1} -eq 0 || dnEndScript 1 "${2:-""}"
+}
+# Function: dnAudibleAlert                                           {{{1
+# Sound audible alert
+#   params: 1 - alert sound [optional]
+#   prints: nil
+#   return: nil
+#   sounds: available sounds ['three'|'dramatic'|'bell' (default)]
+#   needs:  tools [play]
+#           sound files [see function code]
+# fn_tag dnAudibleAlert purpose Sound audible alert
+# fn_tag dnAudibleAlert prints NIL
+# fn_tag dnAudibleAlert returns NIL
+# fn_tag dnAudibleAlert note Requires play utility
+# fn_tag dnAudibleAlert note DELETE both function notes
+# fn_tag dnAudibleAlert param sound purpose Sound type
+# fn_tag dnAudibleAlert param sound required no
+# fn_tag dnAudibleAlert param sound multipart no
+# fn_tag dnAudibleAlert param sound type string
+# fn_tag dnAudibleAlert param sound value three
+# fn_tag dnAudibleAlert param sound value dramatic
+# fn_tag dnAudibleAlert param sound value bell
+# fn_tag dnAudibleAlert param sound default bell
+dnAudibleAlert () {
+	# checking for necessary components
+	local fn_tools=""
+	local fn_funcs=""
+	local fn_vars=""
+	local fn_missing=1
+	dnToolsAvailable "${fn_tools}"     || fn_missing=0
+	dnFunctionsAvailable "${fn_funcs}" || fn_missing=0
+	dnVariablesAvailable "${fn_vars}"  || fn_missing=0
+	if dnFlagTrue "${fn_missing}" ; then
+		echo "Fatal error: Missing essential component(s)... Aborting"
+		exit 1
+	fi
+	unset fn_missing fn_tools fn_funcs fn_vars
+	# choose tone
+	local play='play' libdata='@pkgdata_dir@' tone=
+    local sound="${1:-""}"
+	case ${sound} in
+		'three'    ) tone="${libdata}/alert-tone-3-pulses.wav";;
+		'dramatic' ) tone="${libdata}/dramatic_chord.wav";;
+		*          ) tone='bell';;
+	esac
+	# use system bell if sound file missing
+	[ "${tone}" != 'bell' ] && [ ! -r "${tone}" ] && tone='bell'
+	# use system bell if sound file player missing
+	which "${play}" &>/dev/null || tone='bell'
+	# play tone
+	case "${tone}" in
+		'bell' ) echo -e "\a";;
+		*      ) play "${tone}" &> /dev/null;;
+	esac
+}
+# Function: dnMessage                                                {{{1
+# Print message
+#   params: 1  - message type (e.g. 'Info'|'Warning'|'Error' etc.)
+#           2  - suppress newline (0|1 = suppress|don't suppress)
+#           3+ - message part(s)
+#   prints: formatted message
+#   return: nil
+# fn_tag dnMessage purpose Print message to standard output
+# fn_tag dnMessage prints Formatted message
+# fn_tag dnMessage returns NIL
+# fn_tag dnMessage param type purpose Message type
+# fn_tag dnMessage param type required yes
+# fn_tag dnMessage param type multipart no
+# fn_tag dnMessage param type type string
+# fn_tag dnMessage param suppress_newline purpose Whether to suppress terminal newline
+# fn_tag dnMessage param suppress_newline required yes
+# fn_tag dnMessage param suppress_newline multipart no
+# fn_tag dnMessage param suppress_newline type boolean
+# fn_tag dnMessage param part purpose Message part
+# fn_tag dnMessage param part required yes
+# fn_tag dnMessage param part multipart yes
+# fn_tag dnMessage param part type string
+dnMessage () {
+	# checking for necessary components
+	local fn_funcs="dnToolsAvailable dnVariablesAvailable dnFlagTrue"
+	local fn_missing=1
+	dnFunctionsAvailable "${fn_funcs}" || fn_missing=0
+	if dnFlagTrue "${fn_missing}" ; then
+		echo "Fatal error: Missing essential component(s)... Aborting"
+		exit 1
+	fi
+	unset fn_missing fn_funcs
+	# set message type
+    dnPushIFS   # need space in IFS
+    dnResetIFS  # else $echo_cmd is interpreted as single token
+	local type="${1}" echo_cmd=
+	shift
+	# set echo command
+	case ${1} in
+		0 ) echo_cmd="echo -e -n";;
+		* ) echo_cmd="echo -e";;
+	esac
+	shift
+	# display messages
+	while [[ ${#} -gt 0 ]] ; do
+		${echo_cmd} "${type}: ${1}"
+		shift
+	done
+    dnPopIFS
+}
+# Function: dnMessageStderr                                          {{{1
+# Print message to stderr
+#   params: 1  - message type (e.g. 'Info'|'Warning'|'Error' etc.)
+#           2  - suppress newline (0|1 = suppress|don't suppress)
+#           3+ - message part(s)
+#   prints: formatted message
+#   return: nil
+# fn_tag dnMessageStderr purpose Print message to standard error
+# fn_tag dnMessageStderr prints Formatted message
+# fn_tag dnMessageStderr returns NIL
+# fn_tag dnMessageStderr param type purpose Message type
+# fn_tag dnMessageStderr param type required yes
+# fn_tag dnMessageStderr param type multipart no
+# fn_tag dnMessageStderr param type type string
+# fn_tag dnMessageStderr param suppress_newline purpose Whether to suppress terminal newline
+# fn_tag dnMessageStderr param suppress_newline required yes
+# fn_tag dnMessageStderr param suppress_newline multipart no
+# fn_tag dnMessageStderr param suppress_newline type boolean
+# fn_tag dnMessageStderr param part purpose Message part
+# fn_tag dnMessageStderr param part required yes
+# fn_tag dnMessageStderr param part multipart yes
+# fn_tag dnMessageStderr param part type string
+dnMessageStderr () {
+	# set message type
+    dnPushIFS   # need space in IFS
+    dnResetIFS  # else $echo_cmd is interpreted as single token
+	local type="${1}" echo_cmd=
+	shift
+	# set echo command
+	case ${1} in
+		0 ) echo_cmd="echo -e -n";;
+		* ) echo_cmd="echo -e";;
+	esac
+	shift
+	# display messages
+	while [ ${#} -gt 0 ] ; do
+		${echo_cmd} "${type}: ${1}" > /dev/stderr
+		shift
+	done
+    dnPopIFS
+}
+# Function: dnDialogType                                             {{{1
+# Determine best dialog type available on system
+#   params: 1 - must dialog honour newline token '\n' (Boolean, default=false)
+#   prints: dialog type
+#   return: boolean (0=found utility|1=didn't)
+# fn_tag dnDialogType purpose Selects best available dialog type
+# fn_tag dnDialogType prints Selected dialog type (dialog name)
+# fn_tag dnDialogType returns Whether dialog type selected (Boolean)
+# fn_tag dnDialogType note Relies on dialog variables supplied by libdncommon-vars
+# fn_tag dnDialogType param honours_newlines purpose Indicate whether dialog must honour newline tokens -- \n
+# fn_tag dnDialogType param honours_newlines required no
+# fn_tag dnDialogType param honours_newlines multipart no
+# fn_tag dnDialogType param honours_newlines type boolean
+# fn_tag dnDialogType param honours_newlines default 1
+dnDialogType () {
+	# logic followed:
+	#   1. get list of candidate dialogs (i.e., on system), either from:
+	#      - all possible dialogs, or
+	#      - those dialogs honouring newlines
+	#   2. sort list by preference,
+	#   3. check whether a candidate dialog is associated with current desktop:
+	#      - if so, return that dialog, otherwise
+	#      - return most preferred (i.e., first in list) dialog
+	# set variables
+	local honour_newlines=${1:-1} desktop="${DESKTOP_SESSION}" name="" add=1
+	local -a names=() preferences=() desktops=()
+	# 1. get list of candidate dialogs
+	for (( i=0 ; i<${#dn_dlg_names[*]} ; i++ )); do
+		# must be on system to be considered
+		if dnToolAvailable "${dn_dlg_bins[${i}]}" ; then
+			add=0  # true
+			if dnFlagTrue "${honour_newlines}" ; then  # dlg must do newlines
+				dnFlagTrue "${dn_dlg_popups_doing_newlines[${i}]}" || add=1
+			fi
+			if dnFlagTrue "${add}" ; then  # add name and preference
+				names[${#names[*]}]="${dn_dlg_names[${i}]}"
+				preferences[${#preferences[*]}]="${dn_dlg_preferences[${i}]}"
+				desktops[${#desktops[*]}]="${dn_dlg_desktops[${i}]}"
+			fi
+		fi
+	done
+	[ ${#names[*]} -eq 0 ] && return 1  # exit if no candidate dialogs
+	# 2. sort list -- also sort desktops because used in next step
+	eval names=( $( dnAlphaSortDualArrays "${preferences[@]}" '^' "${names[@]}" ) )
+	eval desktops=( $( dnAlphaSortDualArrays "${preferences[@]}" '^' "${desktops[@]}" ) )
+	# 3. return desktop match if found, otherwise first in list
+	for (( i=0 ; i<${#names[*]} ; i++ )); do  # search for desktop dialog
+		if [ "${desktop}" = "${desktops[${i}]}" ] ; then
+			name="${names[${i}]}"
+			break
+		fi
+	done
+	# return most preferable available dialog if no desktop dialog found
+	[ -z "${name}" ] && name="${names[0]}"
+	# all done
+	echo "${name}"
+#	# set and check variables
+#	local dialog_cmds=(  zenity kdialog Xdialog dialog )
+#	local dialog_types=( zenity kdialog xdialog dialog )  # lowercase
+#	local dialog= dialog_cmd= dialog_type= i=
+#	local kde_dlg='kdialog' gnome_dlg='zenity'
+#	# determine available dialog command
+#	for dialog in ${dialog_cmds[*]} ; do
+#		which "${dialog}" &>/dev/null && dialog_cmd="${dialog}" && break
+#	done
+#	[ -n "${dialog_cmd}" ] || return 1
+#	# override if native desktop widget available
+#	case ${DESKTOP_SESSION} in
+#	'kde'   ) which "${kde_dlg}" &>/dev/null && dialog_cmd="${kde_dlg}";;
+#	'gnome' ) which "${gnome_dlg}" &>/dev/null && dialog_cmd="${gnome_dlg}";;
+#	   *    ) dialog_cmd="${dialog_cmd}";;
+#	esac
+#	# determine dialog type from dialog command
+#	for (( i=0 ; i<${#dialog_cmds[*]} ; i++ )); do
+#		[ "${dialog_cmd}" = "${dialog_cmds[${i}]}" ] \
+#			&& dialog_type="${dialog_types[${i}]}" \
+#			&& break
+#	done
+#	[ -n "${dialog_type}" ] || return 1
+#	echo "${dialog_type}"
+}
+# Function: dnInfo                                                   {{{1
+# Print informational message
+# - with or without trailing newline
+# - to stdout or stderr
+#   params: 1+ - message part(s)
+#   prints: formatted message to stdout or stderr
+#   return: nil
+#   needs:  functions [dnMessage]
+# fn_tag dnInfo purpose Print informational message to standard output
+# fn_tag dnInfo prints Formatted message
+# fn_tag dnInfo returns NIL
+# fn_tag dnInfo param part purpose Message part
+# fn_tag dnInfo param part required yes
+# fn_tag dnInfo param part multipart yes
+# fn_tag dnInfo param part type string
+dnInfo () { dnMessage "Info" 1 "${@}"; }
+# Function: dnInfoStderr                                             {{{1
+# fn_tag dnInfoStderr purpose Print informational message to standard error
+# fn_tag dnInfoStderr prints Formatted message
+# fn_tag dnInfoStderr returns NIL
+# fn_tag dnInfoStderr param part purpose Message part
+# fn_tag dnInfoStderr param part required yes
+# fn_tag dnInfoStderr param part multipart yes
+# fn_tag dnInfoStderr param part type string
+dnInfoStderr () { dnMessageStderr "Info" 1 "${@}"; }
+# Function: dnInfon                                                  {{{1
+# fn_tag dnInfon purpose Print informational message to standard output
+# fn_tag dnInfon prints Formatted message
+# fn_tag dnInfon returns NIL
+# fn_tag dnInfon param part purpose Message part
+# fn_tag dnInfon param part required yes
+# fn_tag dnInfon param part multipart yes
+# fn_tag dnInfon param part type string
+# fn_tag dnInfon param part note No terminal newline is printed
+dnInfon () { dnMessage "Info" 0 "${@}"; }
+# Function: dnInfonStderr                                             {{{1
+# fn_tag dnInfonStderr purpose Print informational message to standard error
+# fn_tag dnInfonStderr prints Formatted message
+# fn_tag dnInfonStderr returns NIL
+# fn_tag dnInfonStderr param part purpose Message part
+# fn_tag dnInfonStderr param part required yes
+# fn_tag dnInfonStderr param part multipart yes
+# fn_tag dnInfonStderr param part type string
+dnInfonStderr () { dnMessageStderr "Info" 0 "${@}"; }
+# Function: dnWarn                                                   {{{1
+# Print warning message to stdout or stderr
+#   params: 1+ - message part(s)
+#   prints: formatted message
+#   return: nil
+#   needs:  functions [dnMessage]
+# fn_tag dnWarn purpose Print warning message to standard output
+# fn_tag dnWarn prints Formatted message
+# fn_tag dnWarn returns NIL
+# fn_tag dnWarn param part purpose Message part
+# fn_tag dnWarn param part required yes
+# fn_tag dnWarn param part multipart yes
+# fn_tag dnWarn param part type string
+dnWarn () { dnMessage "Warning" 1 "${@}"; }
+# Function: dnWarnStderr                                             {{{1
+# fn_tag dnWarnStderr purpose Print warning message to standard error
+# fn_tag dnWarnStderr prints Formatted message
+# fn_tag dnWarnStderr returns NIL
+# fn_tag dnWarnStderr param part purpose Message part
+# fn_tag dnWarnStderr param part required yes
+# fn_tag dnWarnStderr param part multipart yes
+# fn_tag dnWarnStderr param part type string
+dnWarnStderr () { dnMessageStderr "Warning" 1 "${@}"; }
+# Function: dnQuery                                                  {{{1
+# Print query
+#   params: 1+ - message part(s)
+#   prints: formatted message to stdout or stderr
+#   return: nil
+#   needs:  functions [dnMessage]
+# fn_tag dnQuery purpose Print query message to standard output
+# fn_tag dnQuery prints Formatted message
+# fn_tag dnQuery returns NIL
+# fn_tag dnQuery param part purpose Message part
+# fn_tag dnQuery param part required yes
+# fn_tag dnQuery param part multipart yes
+# fn_tag dnQuery param part type string
+dnQuery () { dnMessage "Query" 1 "${@}"; }
+# Function: dnQueryStderr                                            {{{1
+# fn_tag dnQueryStderr purpose Print query message to standard error
+# fn_tag dnQueryStderr prints Formatted message
+# fn_tag dnQueryStderr returns NIL
+# fn_tag dnQueryStderr param part purpose Message part
+# fn_tag dnQueryStderr param part required yes
+# fn_tag dnQueryStderr param part multipart yes
+# fn_tag dnQueryStderr param part type string
+dnQueryStderr () { dnMessageStderr "Query" 1 "${@}"; }
+# Function: dnError                                                  {{{1
+# Print error message to stdout or stderr
+#   params: 1+ - message part(s)
+#   prints: formatted message
+#   return: nil
+#   needs:  functions [dnMessage]
+# fn_tag dnError purpose Print informational message to standard output
+# fn_tag dnError prints Formatted message
+# fn_tag dnError returns NIL
+# fn_tag dnError param part purpose Message part
+# fn_tag dnError param part required yes
+# fn_tag dnError param part multipart yes
+# fn_tag dnError param part type string
+dnError () { dnMessage "Error" 1 "${@}"; }
+# Function: dnErrorStderr                                            {{{1
+# fn_tag dnErrorStderr purpose Print error message to standard error
+# fn_tag dnErrorStderr prints Formatted message
+# fn_tag dnErrorStderr returns NIL
+# fn_tag dnErrorStderr param part purpose Message part
+# fn_tag dnErrorStderr param part required yes
+# fn_tag dnErrorStderr param part multipart yes
+# fn_tag dnErrorStderr param part type string
+dnErrorStderr () { dnMessageStderr 'Error' 1 "${@}"; }
+# Function: dnFatal                                                  {{{1
+# Print fatal error message to stdout or stderr
+#   params: 1+ - message part(s)
+#   prints: formatted message
+#   return: nil
+#   needs:  functions [dnMessage]
+# fn_tag dnFatal purpose Print fatal error message to standard output
+# fn_tag dnFatal prints Formatted message
+# fn_tag dnFatal returns NIL
+# fn_tag dnFatal param part purpose Message part
+# fn_tag dnFatal param part required yes
+# fn_tag dnFatal param part multipart yes
+# fn_tag dnFatal param part type string
+dnFatal () { dnMessage "Fatal error" 1 "${@}"; }
+# Function: dnFatalStderr                                            {{{1
+# fn_tag dnFatalStderr purpose Print fatal error message to standard error
+# fn_tag dnFatalStderr prints Formatted message
+# fn_tag dnFatalStderr returns NIL
+# fn_tag dnFatalStderr param part purpose Message part
+# fn_tag dnFatalStderr param part required yes
+# fn_tag dnFatalStderr param part multipart yes
+# fn_tag dnFatalStderr param part type string
+dnFatalStderr () { dnMessageStderr "Fatal error" 1 "${@}"; }
+# Function: dnFailDlg                                                {{{1
+#   params: 1  - title (if ''|'-' than use script name)
+#           2+ - message(s) (if last part == '0' then run dialog detached)
+#   prints: nil (displays dialog)
+#   return: nil
+# fn_tag dnFailDlg purpose Exit with failure notice
+# fn_tag dnFailDlg prints NIL
+# fn_tag dnFailDlg returns Boolean fail
+# fn_tag dnFailDlg note If variable dn_app_icon exists will use it for info dialog icon
+# fn_tag dnFailDlg note If variable dn_app_icon_all_dialogs true then also use for warn|error dlgs
+# fn_tag dnFailDlg param title purpose Dialog title
+# fn_tag dnFailDlg param title required yes
+# fn_tag dnFailDlg param title multipart no
+# fn_tag dnFailDlg param title type string
+# fn_tag dnFailDlg param title note If ''|'-' use script name
+# fn_tag dnFailDlg param part purpose Message part
+# fn_tag dnFailDlg param part required no
+# fn_tag dnFailDlg param part multipart yes
+# fn_tag dnFailDlg param part type string
+# fn_tag dnFailDlg param part default Script failed.[CR]Aborting.
+dnFailDlg () {
+	local msg= title="${1:-"${dn_self}"}"
+	[[ "${title}" = '-' ]] && title="${dn_self}"
+	shift
+	# set message
+	[ ${#} -eq 0 ] && msg="Script failed.\nAborting."
+	while [ ${#} -ne 0 ] ; do
+		[ -n "${msg}" ] && msg="${msg}\n"
+		msg="${msg}${1}"
+		shift
+	done
+	# display dialog
+	dnErrorDlg "${msg}" "${title}"
+	# exit
+	exit ${dn_false}
+}
+
+# Function: dnDebug                                                  {{{1
+# Print debugging message to stdout or stderr
+#   params: 1+ - message part(s)
+#   prints: formatted message
+#   return: nil
+#   needs:  functions [dnMessage]
+# fn_tag dnDebug purpose Print informational message to standard output
+# fn_tag dnDebug prints Formatted message
+# fn_tag dnDebug returns NIL
+# fn_tag dnDebug param part purpose Message part
+# fn_tag dnDebug param part required yes
+# fn_tag dnDebug param part multipart yes
+# fn_tag dnDebug param part type string
+dnDebug () { dnMessage "Debug" 1 "${@}"; }
+# Function: dnDebugStderr                                            {{{1
+# fn_tag dnDebugStderr purpose Print debugging message to standard error
+# fn_tag dnDebugStderr prints Formatted message
+# fn_tag dnDebugStderr returns NIL
+# fn_tag dnDebugStderr param part purpose Message part
+# fn_tag dnDebugStderr param part required yes
+# fn_tag dnDebugStderr param part multipart yes
+# fn_tag dnDebugStderr param part type string
+dnDebugStderr () { dnMessageStderr "Debug" 1 "${@}"; }
+# Function: dnCountdownDelay                                         {{{1
+# fn_tag dnCountdownDelay purpose Displays countdown message in console
+# fn_tag dnCountdownDelay prints Countdown message
+# fn_tag dnCountdownDelay returns NIL
+# fn_tag dnCountdownDelay note Takes integer 'x' and message 'msg' and initially displays
+# fn_tag dnCountdownDelay note 'msg in x...'
+# fn_tag dnCountdownDelay note then counts down from 'x' and finally displays
+# fn_tag dnCountdownDelay note 'msg now'
+# fn_tag dnCountdownDelay param prefix purpose Message prefixed to countdown
+# fn_tag dnCountdownDelay param prefix required yes
+# fn_tag dnCountdownDelay param prefix multipart no
+# fn_tag dnCountdownDelay param prefix type string
+# fn_tag dnCountdownDelay param prefix note Must make sense when suffixed with ' in 1...' and 'now'
+# fn_tag dnCountdownDelay param prefix note Example: 'exiting'
+# fn_tag dnCountdownDelay param delay purpose Time of countdown in seconds (integer)
+# fn_tag dnCountdownDelay param delay required yes
+# fn_tag dnCountdownDelay param delay multipart no
+# fn_tag dnCountdownDelay param delay type integer
+dnCountdownDelay () {
+	# set variables
+	local count=${2}
+	local msg="${1} in ${count}..."
+	# display countdown message
+	dnInfon "${msg}"
+	# do countdown
+	sleep 1
+	count=$( dnDecrement ${count} )
+	while [ ${count} -gt 0 ] ; do
+		echo -ne "\b\b\b\b${count}..."
+		sleep 1
+		count=$( dnDecrement ${count} )
+	done
+	# display final message
+	echo -e "\b\b\b\b\b\b\bnow    "
+	sleep 1
+}
+# Function: dnPrompt                                                 {{{1
+# Prompt user
+#   params: 1+ - message(s)
+#   prints: feedback (not for capture)
+#   return: nil
+# fn_tag dnPrompt purpose Print prompt message to standard output
+# fn_tag dnPrompt prints Formatted message
+# fn_tag dnPrompt returns NIL
+# fn_tag dnPrompt note prints default message in addition to param messages
+# fn_tag dnPrompt param part purpose Message part
+# fn_tag dnPrompt param part required no
+# fn_tag dnPrompt param part multipart yes
+# fn_tag dnPrompt param part type string
+dnPrompt () {
+	local -a preamble=( "${@}" ) prompt='Press any key to proceed... '
+	dnMessage 'Prompt' 1 "${preamble[@]}"
+	dnMessage 'Prompt' 0 "${prompt}"
+	read -s -n 1
+	echo
+}
+
+# Function: dnPromptStderr                                           {{{1
+# Prompt user using stderr
+#   params: 1+ - message(s)
+#   prints: feedback (not for capture)
+#   return: nil
+# fn_tag dnPromptStderr purpose Print prompt message to standard error
+# fn_tag dnPromptStderr prints Formatted message
+# fn_tag dnPromptStderr returns NIL
+# fn_tag dnPromptStderr param part purpose Message part
+# fn_tag dnPromptStderr param part required yes
+# fn_tag dnPromptStderr param part multipart yes
+# fn_tag dnPromptStderr param part type string
+dnPromptStderr () {
+	local -a preamble=( "${@}" ) prompt='Press any key to proceed... '
+	dnMessageStderr 'Prompt' 1 "${preamble[@]}"
+	dnMessageStderr 'Prompt' 0 "${prompt}"
+	read -s -n 1
+	echo > /dev/stderr
+}
+# Function: dnConfirm                                                {{{1
+# Confirm (user enters y or n)
+#   params: prompt (include terminal punctuation mark, no additional spaces)
+#   prints: 'Yes'|'No'
+#   return: 0|1 ('y'|'n')
+#   invoke: if dnConfirm "Proceed?" ; then ...
+#   needs:  variables [dn_query_prefix]
+# fn_tag dnConfirm purpose Ask user yes|no question
+# fn_tag dnConfirm prints User choice: 'Yes' or 'No'
+# fn_tag dnConfirm returns Whether user chose 'yes' or 'no' (Boolean)
+# fn_tag dnConfirm param prompt purpose User prompt
+# fn_tag dnConfirm param prompt required yes
+# fn_tag dnConfirm param prompt multipart no
+# fn_tag dnConfirm param prompt type string
+# fn_tag dnConfirm param prompt note Include terminal punctuation (but no terminal spaces)
+dnConfirm () {
+	local input
+	echo -n "${dn_query_prefix}${1} [y/n] "  # print prompt
+	while [ 0 ] ; do
+		read -n 1 -s input  # get user input, break if y|Y|n|N
+		input="$( echo ${input} | tr '[:upper:]' '[:lower:]' )"
+		[ $( echo ${input} | grep -c -- "y\|n" ) -eq 1 ] && break
+	done
+	echo -en "\b\b\b\b\b\b"  # erase '[y/n] ', echo instead 'Yes'|'No'
+	if [ "${input}" = "y" ] ; then echo "Yes  " ; else echo "No   " ; fi
+	[ "${input}" = "y" ]
+	return ${?}
+}
+# Function: dnConfirmDlg                                             {{{1
+# Display query dialog asking user for a yes/no response
+#   params: 1 - message
+#           2 - title (optional)
+#   prints: nil
+#   return: nil
+# fn_tag dnConfirmDlg purpose Display confirmatory question in dialog
+# fn_tag dnConfirmDlg prints NIL
+# fn_tag dnConfirmDlg returns User response (Boolean)
+# fn_tag dnConfirmDlg note User can choose 'Yes' or 'No' button
+# fn_tag dnConfirmDlg usage if dnConfirmDlg "Proceed?" ; then ...
+# fn_tag dnConfirmDlg param message purpose Confirmatory question
+# fn_tag dnConfirmDlg param message required yes
+# fn_tag dnConfirmDlg param message multipart no
+# fn_tag dnConfirmDlg param message type string
+# fn_tag dnConfirmDlg param title purpose Dialog title
+# fn_tag dnConfirmDlg param title required no
+# fn_tag dnConfirmDlg param title multipart no
+# fn_tag dnConfirmDlg param title type string
+# fn_tag dnConfirmDlg param title note Empty title is converted by subsidiary function to script name
+dnConfirmDlg () {
+	# set variables and sanity checks
+	local type="confirm" title="${2:-${dn_self}}" message="${1}"
+	local honour_newlines=1 cmd= name= icon= exe= retval=
+	local duration=10  # duration is popup display time in seconds
+	####dnDlg "confirm" "${2}" "${1}";
+	# retrieve the following attributes for confirm dialog
+	name="$( dnDialogType ${honour_newlines} )"
+	cmd="${dn_dlg_cmds_confirm[${i}]}"
+	icon="@pkgdata_dir@/question.xpm"
+	duration="$(( duration * ${dn_dlg_popup_delay_multipliers[${i}]} ))"
+	# perform substitutions to execution command
+	# first, protect backslashes in substitution values
+	title="$(    echo "${title}"    | sed -e 's/\//\\\//g' )"
+	message="$(  echo "${message}"  | sed -e 's/\//\\\//g' )"
+	duration="$( echo "${duration}" | sed -e 's/\//\\\//g' )"
+	icon="$(     echo "${icon}"     | sed -e 's/\//\\\//g' )"
+	# do substitution: note the convention in libdncommon-vars is to use '<X>'
+	# placeholders where 'X' can be 'T' (title), 'M' (message), 'I' (icon)
+	# or 'D' (duration)
+	cmd="$( echo "${cmd}"               | \
+	        sed -e "s/<T>/${title}/"    | \
+	        sed -e "s/<M>/${message}/"  | \
+	        sed -e "s/<I>/${icon}/"     | \
+	        sed -e "s/<D>/${duration}/"  \
+	      )"
+	# now remove backslash protection
+	title="$(    echo "${title}"    | sed -e 's/\\\//\//g' )"
+	message="$(  echo "${message}"  | sed -e 's/\\\//\//g' )"
+	duration="$( echo "${duration}" | sed -e 's/\\\//\//g' )"
+	icon="$(     echo "${icon}"     | sed -e 's/\\\//\//g' )"
+	# execute command (via executable file to ensure newlines are honoured)
+	exe="$( dnTempFile )" || dnEndScriptDlg "1" "Can't make temporary file"
+	dnTempTrap "${exe}"
+	chmod u+x "${exe}"
+	echo "${cmd}" > "${exe}"
+	sh "${exe}"
+	retval=${?}
+	dnTempKill "${exe}"
+	rm -fr "${exe}" 2>/dev/null
+	return ${retval}
+}
+# Function: dnSelect                                                 {{{1
+# Select option from list
+#   params: 1 - resource file
+#   prints: selection -- option or index based on user preference
+#   return: boolean (0=selection made|1=no selection made)
+#           can also evaluate success on printed output
+#           -- any output=success, empty string=failure
+#   resource: file consists of name value pairs with whitespace delimiter
+#             names are --
+#               title:  menu title [optional] (default=script_name)
+#               prompt: menu prompt [optional] (default='Select option: ')
+#               return: 'option'|'index' [optional] (default='option')
+#               option: menu option [required]
+#   warning: quote marks will be stripped from options
+# fn_tag dnSelect purpose Select option from console list
+# fn_tag dnSelect prints User list selection -- option string or index depending on user preference
+# fn_tag dnSelect returns Whether selection made (Boolean)
+# fn_tag dnSelect param resource purpose Resource file
+# fn_tag dnSelect param resource required yes
+# fn_tag dnSelect param resource multipart no
+# fn_tag dnSelect param resource type path
+# fn_tag dnSelect param resource note File consists of name-value pairs with whitespace delimiter
+# fn_tag dnSelect param resource note Name 'title' = menu title [optional] (default=script_name)
+# fn_tag dnSelect param resource note Name 'prompt' = menu prompt [optional] (default='Select option: ')
+# fn_tag dnSelect param resource note Name 'return' = 'option'|'index' [optional] (default='option')
+# fn_tag dnSelect param resource note Name 'option' = a menu option [required, multiple]
+# fn_tag dnSelect param resource note Warning: quote marks will be stripped from options
+dnSelect () {
+	# set and check variables
+	local title="$( basename $0 )" prompt='Select option: ' msg=
+	local return_val='option' local valid_return_vals='index option'
+	local -a options=()
+	local resources="$( dnNormalisePath "${1}" )"
+	msg="Invalid resource filename passed to function '${FUNCNAME}'"
+	[ -r "${resources}" ] || dnEndScript 1 "${msg}"
+	local retval= name= val= option= pick_file=
+	msg="Unable to create temporary file in function '${FUNCNAME}'"
+	pick_file="$( dnTempFile )" || dnEndScript 1 "${msg}"
+	dnTempTrap "${pick_file}"
+	# process resources file
+	while read name val ; do
+		if [ -n "${val}" ] ; then
+			# option *may* have two values needing stripping
+			[ "${name}" != 'option' ] \
+				&& val="$( dnStripEnclosingQuotes "${val}" )"
+			# load vars depending on name
+			case ${name} in
+			'title'  ) title="${val}";;
+			'prompt' ) prompt="${val}";;
+			'return' ) 
+				dnElementInList "${val}" "${valid_return_vals}" \
+					&& return_val="${val}"
+					;;
+			'option' )
+				# internal possessive apostrophes can cause problems
+				options[${#options[*]}]="$( dnStripQuotes "${val}" )"
+				;;
+			esac
+		fi
+	done < "${resources}"
+	# prepare for selection
+	local old_PS3="${PS3}" err_msg="Invalid option number -- try again"
+	PS3="${prompt}: " REPLY=
+	title="$( dnUppercase "${title}" )"
+	prompt="$( dnStripEnclosingSpaces "${prompt}" )"
+	prompt="$( echo "${prompt}" | sed -e 's/:$//' )"
+	msg="\nError: Invalid option number.  Try again.\n"
+	# make selection
+	while [ -z "${option}" ] ; do
+		echo "${title}" > /dev/stderr
+		select option in "${options[@]}" ; do break ; done
+		[ -z "${option}" ] && dnErrorStderr "${err_msg}" > /dev/stderr
+	done
+	PS3="${old_PS3}"
+	index="$(( ${REPLY} - 1 ))"  # 'REPLY' set by 'select' command
+	[ -n "${option}" ] || return 1
+	# decide upon, and return, return value
+	case ${return_val} in
+	'index'  ) retval="${index}";;
+	'option' ) retval="${option}";;
+	esac
+	[ -n "${retval}" ] || return 1
+	echo "${retval}"
+}
+# Function: dnSelectDlg                                              {{{1
+# Select option from dialog
+#   params: 1 - resource file
+#   prints: selection -- option or index based on user preference
+#   return: boolean (0=selection made|1=no selection made)
+#           can also evaluate success on printed output
+#           -- any output=success, empty string=failure
+#   resource: file consists of name value pairs with whitespace delimiter
+#             names are --
+#               title:  menu title [optional] (default=script_name)
+#               prompt: menu prompt [optional] (default='Select option: ')
+#               return: 'option'|'index' [optional] (default='option')
+#               option: menu option [required]
+#   warning: quote marks will be stripped from options
+# fn_tag dnSelectDlg purpose Select option from GUI list
+# fn_tag dnSelectDlg prints User list selection -- option string or index depending on user preference
+# fn_tag dnSelectDlg returns Whether selection made (Boolean)
+# fn_tag dnSelectDlg param resource purpose Resource file
+# fn_tag dnSelectDlg param resource required yes
+# fn_tag dnSelectDlg param resource multipart no
+# fn_tag dnSelectDlg param resource type path
+# fn_tag dnSelectDlg param resource note File consists of name-value pairs with whitespace delimiter
+# fn_tag dnSelectDlg param resource note Name 'title' = menu title [optional] (default=script_name)
+# fn_tag dnSelectDlg param resource note Name 'prompt' = menu prompt [optional] (default='Select option: ')
+# fn_tag dnSelectDlg param resource note Name 'return' = 'option'|'index' [optional] (default='option')
+# fn_tag dnSelectDlg param resource note Name 'option' = a menu option [required, multiple]
+# fn_tag dnSelectDlg param resource note Warning: quote marks will be stripped from options
+dnSelectDlg () {
+	# set and check variables
+	local title="$( basename $0 )" prompt='Select option: ' msg=
+	local return_val='option' local valid_return_vals='index option'
+	local -a tags=() options=()
+	local resources="$( dnNormalisePath "${1}" )"
+	msg="Invalid resource filename passed to function '${FUNCNAME}'"
+	[ -r "${resources}" ] || dnEndScript 1 "${msg}"
+	local dlg_type= cmd= i= pick= retval=
+	local menu_count=0 menu_height=0 menu_width=0
+	local height_char_pixels=25 width_char_pixels=9  # char -> pixels
+	local option_length= option_length_max=0
+	local name= val= tag= option= pick_file=
+	msg="Unable to create temporary file in function '${FUNCNAME}'"
+	pick_file="$( dnTempFile )" || dnEndScript 1 "${msg}"
+	dnTempTrap "${pick_file}"
+	# process resources file
+	while read name val ; do
+		if [ -n "${val}" ] ; then
+			# option *may* have two values needing stripping
+			[ "${name}" != 'option' ] \
+				&& val="$( dnStripEnclosingQuotes "${val}" )"
+			# load vars depending on name
+			case ${name} in
+			'title'  ) title="${val}";;
+			'prompt' ) prompt="${val}";;
+			'return' ) 
+				dnElementInList "${val}" "${valid_return_vals}" \
+					&& return_val="${val}"
+					;;
+			'option' )
+				option="${val}"
+				# internal possessive apostrophes can cause problems
+				options[${#options[*]}]="$( dnStripQuotes "${option}" )"
+				tags[${#tags[*]}]="${#tags[*]}"
+				;;
+			esac
+		fi
+	done < "${resources}"
+	# get dialog type
+	dlg_type="$( dnLowercase "$( dnDialogType )" )" || dnEndScript 1 \
+		"Unable to locate dialog command in function '${FUNCNAME}'" \
+		"Perhaps this is a non-graphical environment?"
+	# set menu dimensions
+	for (( i=0 ; i<${#tags[*]} ; i++ )) ; do  # get max option length
+		option_length=$( dnStrLen "${options[${i}]}" )
+		[ ${option_length} -gt ${option_length_max} ] \
+			&& option_length_max=${option_length}
+	done
+	case ${dlg_type} in
+	'kdialog'|'zenity' )
+		# menu dimensions in pixels
+		menu_height=$(( ( ${#tags[*]} + 5 ) * height_char_pixels ))
+		menu_width=$(( ( ${option_length_max} + 5 ) * width_char_pixels ))
+		;;
+	'dialog')
+		# dialog uses sensible defaults so no changes necessary
+		;;
+	esac
+	# build dialog command
+	case ${dlg_type} in
+	'kdialog' )
+		cmd="kdialog --geometry ${menu_width}x${menu_height}"
+		cmd="${cmd} --title '${title}' --menu '${prompt}'"
+		;;
+	'zenity' )
+		cmd="zenity --list --text='${prompt}' --title='${title}'"
+		cmd="${cmd} --width=${menu_width} --height=${menu_height}"
+		cmd="${cmd} --hide-column=1 --column='Tags' --column='Options'"
+		;;
+	'dialog' )
+		cmd="dialog --stdout --title '${title}' --menu '${prompt}'"
+		cmd="${cmd} ${menu_height} ${menu_width} ${menu_count}"
+		;;
+	esac
+	for (( i=0 ; i<${#tags[*]} ; i++ )) ; do
+		cmd="${cmd} '${tags[${i}]}' '${options[${i}]}'"
+	done
+	cmd="${cmd} 1>${pick_file}"  # capture output in temporary file
+	# make selection
+	eval ${cmd}
+	pick="$( cat ${pick_file} )"
+	rm -f ${pick_file}
+	[ -n "${pick}" ] || return 1
+	# decide upon, and return, return value
+	# we have tag in variable 'pick'
+	# finds first match (if duplicate tags)
+	for (( i=0 ; i<${#tags[*]} ; i++ )) ; do
+		if [ "${tags[${i}]}" = "${pick}" ] ; then
+			case ${return_val} in
+			'index'  ) retval="${i}";;
+			'option' ) retval="${options[${i}]}";;
+			esac
+			break
+		fi
+	done
+	[ -n "${retval}" ] || return 1
+	echo "${retval}"
+}
+# Function: dnSelectTagDlg                                           {{{1
+# Select option from dialog
+#   params: 1 - resource file
+#   prints: selection -- tag, option or index based on user preference
+#   return: boolean (0=selection made|1=no selection made)
+#           can also evaluate success on printed output
+#           -- any output=success, empty string=failure
+#   resource: file consists of name value pairs with whitespace delimiter
+#             names are --
+#               title:  menu title [optional] (default=script_name)
+#               prompt: menu prompt [optional] (default='Select option: ')
+#               return: 'tag'|'option'|'index' [optional] (default='tag')
+#               option: menu option [required]
+#                       =tag[whitespace]option
+#   warning: quote marks will be stripped from tags and options
+#   warning: tags must not contain whitespace
+#   warning: tags must be unique or results may be unpredictable
+# fn_tag dnSelectTagDlg purpose Select option from GUI list
+# fn_tag dnSelectTagDlg prints User list selection -- option tag, string or index depending on user preference
+# fn_tag dnSelectTagDlg returns Whether selection made (Boolean)
+# fn_tag dnSelectTagDlg param resource purpose Resource file
+# fn_tag dnSelectTagDlg param resource required yes
+# fn_tag dnSelectTagDlg param resource multipart no
+# fn_tag dnSelectTagDlg param resource type path
+# fn_tag dnSelectTagDlg param resource note File consists of name-value pairs with whitespace delimiter
+# fn_tag dnSelectTagDlg param resource note Name 'title' = menu title [optional] (default=script_name)
+# fn_tag dnSelectTagDlg param resource note Name 'prompt' = menu prompt [optional] (default='Select option: ')
+# fn_tag dnSelectTagDlg param resource note Name 'return' = 'tag'|'option'|'index' [optional] (default='tag')
+# fn_tag dnSelectTagDlg param resource note Name 'option' = a menu option [required, multiple]
+# fn_tag dnSelectTagDlg param resource note Name 'option' format =tag[whitespace]option
+# fn_tag dnSelectTagDlg param resource note Warning: quote marks will be stripped from tags and options
+# fn_tag dnSelectTagDlg param resource note Warning: tags must not contain whitespace
+# fn_tag dnSelectTagDlg param resource note Warning: tags must be unique or results may be unpredictable
+dnSelectTagDlg () {
+	# set and check variables
+	local title="$( basename $0 )" prompt='Select option: ' msg=
+	local return_val='tag' local valid_return_vals='index tag option'
+	local -a tags=() options=()
+	local resources="$( dnNormalisePath "${1}" )"
+	msg="Invalid resource filename passed to function '${FUNCNAME}'"
+	[ -r "${resources}" ] || dnEndScript 1 "${msg}"
+	local dlg_type= cmd= i= pick= retval=
+	local menu_count=0 menu_height=0 menu_width=0
+	local height_char_pixels=25 width_char_pixels=9  # char -> pixels
+	local option_length= option_length_max=0
+	local name= val= tag= option= pick_file=
+	msg="Unable to create temporary file in function '${FUNCNAME}'"
+	pick_file="$( dnTempFile )" || dnEndScript 1 "${msg}"
+	dnTempTrap "${pick_file}"
+	# process resources file
+	while read name val ; do
+		if [ -n "${val}" ] ; then
+			# option *may* have two values needing stripping
+			[ "${name}" != 'option' ] \
+				&& val="$( dnStripEnclosingQuotes "${val}" )"
+			# load vars depending on name
+			case ${name} in
+			'title'  ) title="${val}";;
+			'prompt' ) prompt="${val}";;
+			'return' ) 
+				dnElementInList "${val}" "${valid_return_vals}" \
+					&& return_val="${val}"
+					;;
+			'option' )
+				tag="$( echo "${val}" | \
+						sed -e 's/^[ \t]*\([^ \t]\+\)[ \t]\+.\+$/\1/' )"
+				option="$( echo "${val}" | \
+						   sed -e 's/^[ \t]*[^ \t]\+[ \t]\+\(.\+\)$/\1/' )"
+				# internal possessive apostrophes can cause problems
+				tag="$( dnStripQuotes "${tag}" )"
+				tags[${#tags[*]}]="${tag}"
+				option="$( dnStripQuotes "${option}" )"
+				options[${#options[*]}]="${option}"
+				;;
+			esac
+		fi
+	done < "${resources}"
+	# get dialog type
+	dlg_type="$( dnLowercase "$( dnDialogType )" )" || dnEndScript 1 \
+		"Unable to locate dialog command in function '${FUNCNAME}'" \
+		"Perhaps this is a non-graphical environment?"
+	# set menu dimensions
+	for (( i=0 ; i<${#tags[*]} ; i++ )) ; do  # get max option length
+		option_length=$( dnStrLen "${options[${i}]}" )
+		[ ${option_length} -gt ${option_length_max} ] \
+			&& option_length_max=${option_length}
+	done
+	case ${dlg_type} in
+	'kdialog'|'zenity' )
+		# menu dimensions in pixels
+		menu_height=$(( ( ${#tags[*]} + 5 ) * height_char_pixels ))
+		menu_width=$(( ( ${option_length_max} + 5 ) * width_char_pixels ))
+		;;
+	'dialog')
+		# dialog uses sensible defaults so no changes necessary
+		;;
+	esac
+	# build dialog command
+	case ${dlg_type} in
+	'kdialog' )
+		cmd="kdialog --geometry ${menu_width}x${menu_height}"
+		cmd="${cmd} --title '${title}' --menu '${prompt}'"
+		;;
+	'zenity' )
+		cmd="zenity --list --text='${prompt}' --title='${title}'"
+		cmd="${cmd} --width=${menu_width} --height=${menu_height}"
+		cmd="${cmd} --hide-column=1 --column='Tags' --column='Options'"
+		;;
+	'dialog' )
+		cmd="dialog --stdout --title '${title}' --menu '${prompt}'"
+		cmd="${cmd} ${menu_height} ${menu_width} ${menu_count}"
+		;;
+	esac
+	for (( i=0 ; i<${#tags[*]} ; i++ )) ; do
+		cmd="${cmd} '${tags[${i}]}' '${options[${i}]}'"
+	done
+	cmd="${cmd} 1>${pick_file}"  # capture output in temporary file
+	# make selection
+	eval ${cmd}
+	pick="$( cat ${pick_file} )"
+	rm -f ${pick_file}
+	[ -n "${pick}" ] || return 1
+	# decide upon, and return, return value
+	# we have tag in variable 'pick'
+	# finds first match (if duplicate tags)
+	for (( i=0 ; i<${#tags[*]} ; i++ )) ; do
+		if [ "${tags[${i}]}" = "${pick}" ] ; then
+			case ${return_val} in
+			'tag'    ) retval="${pick}";;
+			'index'  ) retval="${i}";;
+			'option' ) retval="${options[${i}]}";;
+			esac
+			break
+		fi
+	done
+	[ -n "${retval}" ] || return 1
+	echo "${retval}"
+}
+# Function: dnListDlg                                                {{{1
+# Select options from checklist dialog
+#   params: 1 - resource file
+#   prints: selections -- options or indices, based on user preference
+#                         (space-separated list, options quote-enclosed)
+#   return: boolean (0=selection made|1=no selection made)
+#           can also evaluate success on printed output
+#           -- any output=success, empty string=failure
+#   resource: file consists of name value pairs with whitespace delimiter
+#             names are --
+#               title:  menu title [optional] (default=script_name)
+#               prompt: menu prompt [optional] (default='Select options: ')
+#               return: 'option'|'index' [optional] (default='option')
+#               option: menu option [required]
+#                       =default_status[whitespace]option
+#   warning: quote marks will be stripped from tags and options
+#   note:    options can be captured to array thus:
+#               declare -a opts
+#               eval opts=( $( dnListDlg "${tmp_file}" ) )
+#            if 'eval' not used all options collapsed into one array value
+# fn_tag dnListDlg purpose Select multiple options from GUI list
+# fn_tag dnListDlg prints User list selections -- option strings or indices depending on user preference (space-separated list, options are quote-enclosed)
+# fn_tag dnListDlg returns Whether selections made (Boolean)
+# fn_tag dnListDlg note Can capture options to array but must use 'eval'
+# fn_tag dnListDlg note Using 'eval' prevents all options collapsing into one array value
+# fn_tag dnListDlg usage declare -a opts
+# fn_tag dnListDlg usage eval opts=( $( dnListDlg "${tmp_file}" ) )
+# fn_tag dnListDlg param resource purpose Resource file
+# fn_tag dnListDlg param resource required yes
+# fn_tag dnListDlg param resource multipart no
+# fn_tag dnListDlg param resource type path
+# fn_tag dnListDlg purpose Select option from GUI list
+# fn_tag dnListDlg prints User list selection -- option tag, string or index depending on user preference
+# fn_tag dnListDlg returns Whether selection made (Boolean)
+# fn_tag dnListDlg param resource purpose Resource file
+# fn_tag dnListDlg param resource required yes
+# fn_tag dnListDlg param resource multipart no
+# fn_tag dnListDlg param resource type path
+# fn_tag dnListDlg param resource note File consists of name-value pairs with whitespace delimiter
+# fn_tag dnListDlg param resource note Name 'title' = menu title [optional] (default=script_name)
+# fn_tag dnListDlg param resource note Name 'prompt' = menu prompt [optional] (default='Select option: ')
+# fn_tag dnListDlg param resource note Name 'return' = 'option'|'index' [optional] (default='option')
+# fn_tag dnListDlg param resource note Name 'option' = a menu option [required, multiple]
+# fn_tag dnListDlg param resource note Name 'option' format =default_status[whitespace]option
+# fn_tag dnListDlg param resource note Warning: quote marks will be stripped from options
+dnListDlg () {
+	# set and check variables
+	local title="$( basename $0 )" prompt='Select options: '
+	local return_val='option' local valid_return_vals='index option'
+	local -a tags=() defaults=() options=() picks_array=()
+	local resources="$( dnNormalisePath "${1}" )"
+	local msg="Invalid resource filename passed to function '${FUNCNAME}'"
+	[ -r "${resources}" ] || dnEndScript 1 "${msg}"
+	local dlg_type= cmd= i= pick= picks= retval=
+	local menu_count=0 menu_height=0 menu_width=0
+	local height_char_pixels=25 width_char_pixels=9  # char -> pixels
+	local option_length= option_length_max=0
+	local name= val= tag= default= option= pick_file=
+	msg="Unable to create temporary file in function '${FUNCNAME}'"
+	pick_file="$( dnTempFile )" || dnEndScript 1 "${msg}"
+	# process resources file
+	while read name val ; do
+		if [ -n "${val}" ] ; then
+			# option *may* have two values needing stripping
+			[ "${name}" != 'option' ] \
+				&& val="$( dnStripEnclosingQuotes "${val}" )"
+			# load vars depending on name
+			case ${name} in
+			'title'  ) title="${val}";;
+			'prompt' ) prompt="${prompt}";;
+			'return' ) 
+				dnElementInList "${val}" "${valid_return_vals}" \
+					&& return_val="${val}"
+					;;
+			'option' )
+				default="$( echo "${val}" | \
+				sed -e 's/^[ \t]*\([^ \t]\+\)[ \t]\+.\+$/\1/' )"
+				option="$( echo "${val}" | \
+				sed -e 's/^[ \t]*[^ \t]\+[ \t]\+\(.\+\)$/\1/' )"
+				# standardise default status
+				default="$( dnStandardiseBoolean "${default}" )"
+				case ${default} in
+					'0' ) default='true';;
+					'1' ) default='false';;
+				esac
+				# internal possessive apostrophes can cause problems
+				# add to arrays
+				defaults[${#defaults[*]}]="$( dnStripQuotes "${default}" )"
+				options[${#options[*]}]="$( dnStripQuotes "${option}" )"
+				tags[${#tags[*]}]="${#tags[*]}"
+				;;
+			esac
+		fi
+	done < "${resources}"
+	# get dialog type
+	dlg_type="$( dnLowercase "$( dnDialogType )" )" || dnEndScript 1 \
+		"Unable to locate dialog command in function '${FUNCNAME}'" \
+		"Perhaps this is a non-graphical environment?"
+	# set menu dimensions
+	for (( i=0 ; i<${#tags[*]} ; i++ )) ; do  # get max option length
+		option_length=$( dnStrLen "${options[${i}]}" )
+		[ ${option_length} -gt ${option_length_max} ] \
+			&& option_length_max=${option_length}
+	done
+	case ${dlg_type} in
+	'kdialog' )
+		# menu dimensions in pixels
+		menu_height=$(( ( ${#tags[*]} + 5 ) * height_char_pixels ))
+		menu_width=$(( ( ${option_length_max} + 5 ) * width_char_pixels ))
+		;;
+	'dialog')
+		# dialog uses sensible defaults so no changes necessary
+		;;
+	esac
+	# build dialog command
+	case ${dlg_type} in
+	'kdialog' )
+		cmd="kdialog --geometry ${menu_width}x${menu_height}"
+		cmd="${cmd} --title '${title}' --separate-output"
+		cmd="${cmd} --checklist '${prompt}'"
+		;;
+	'zenity' )
+		cmd="zenity --list --text='${prompt}' --title '${title}'"
+		cmd="${cmd} --width=200 --height=300 --hide-column=2"
+		cmd="${cmd} --separator=' ' --checklist"
+		cmd="${cmd} --column='Picks' --column='Tags' --column='Options'"
+		;;
+	'dialog' )
+		cmd="dialog --stdout --title '${title}'"
+		cmd="${cmd} --separate-output --checklist '${prompt}'"
+		cmd="${cmd} ${menu_height} ${menu_width} ${menu_count}"
+		;;
+	esac
+	for (( i=0 ; i<${#tags[*]} ; i++ )) ; do
+		case ${dlg_type} in
+		'kdialog'|'dialog' )
+			cmd="${cmd} '${tags[${i}]}' '${options[${i}]}' '${defaults[${i}]}'"
+			;;
+		'zenity' )
+			cmd="${cmd} '${defaults[${i}]}' '${tags[${i}]}' '${options[${i}]}'"
+			;;
+		esac
+	done
+	cmd="${cmd} 1>${pick_file}"  # capture output in temporary file
+	# make selection
+	eval ${cmd}
+	picks="$( cat ${pick_file} )"
+	dnTempKill "${pick_file}"
+	[ -n "${picks}" ] || return 1
+	# process picks into array
+	for pick in ${picks[*]} ; do
+		picks_array[${#picks_array[*]}]="$( dnStripQuotes "${pick}" )"
+	done
+	# decide upon, and return, return value
+	# we have tags in variable 'picks_array'
+	# finds first match (if duplicate tags)
+	for (( i=0 ; i<${#tags[*]} ; i++ )) ; do
+		if dnElementInList "${tags[${i}]}" "${picks_array[*]}" ; then
+			case ${return_val} in
+			'option' ) retval="${retval} \"${options[${i}]}\"";;
+			'index'  ) retval="${retval} ${i}";;
+			esac
+		fi
+	done
+	retval="$( dnStripEnclosingSpaces "${retval}" )"
+	[ -n "${retval}" ] || return 1
+	echo "${retval}"
+}
+# Function: dnListTagDlg                                             {{{1
+# Select options from checklist dialog
+#   params: 1 - resource file
+#   prints: selections -- tags, options or indices, based on user preference
+#                         (space-separated list)
+#   return: boolean (0=selection made|1=no selection made)
+#           can also evaluate success on printed output
+#           -- any output=success, empty string=failure
+#   resource: file consists of name value pairs with whitespace delimiter
+#             names are --
+#               title:  menu title [optional] (default=script_name)
+#               prompt: menu prompt [optional] (default='Select options: ')
+#               return: 'tag'|'index'|'option' [optional] (default='tag')
+#               option: menu option [required]
+#                       =tag[whitespace]default_status[whitespace]option
+#   warning: quote marks will be stripped from tags and options
+#   warning: tags must not contain whitespace
+#   warning: tags must be unique or results may be unpredictable
+#   note:    options can be captured to array thus:
+#               declare -a opts
+#               eval opts=( $( dnListTagDlg "${tmp_file}" ) )
+#            if 'eval' not used all options collapsed into one array value
+#   note:    if return value is options list each option is quote-enclosed 
+# fn_tag dnListTagDlg purpose Select multiple options from GUI list
+# fn_tag dnListTagDlg prints User list selections -- option tags, strings or indices depending on user preference (space-separated list, options are quote-enclosed)
+# fn_tag dnListTagDlg returns Whether selections made (Boolean)
+# fn_tag dnListTagDlg note Can capture options to array but must use 'eval'
+# fn_tag dnListTagDlg note Using 'eval' prevents all options collapsing into one array value
+# fn_tag dnListTagDlg usage declare -a opts
+# fn_tag dnListTagDlg usage eval opts=( $( dnListTagDlg "${tmp_file}" ) )
+# fn_tag dnListTagDlg param resource purpose Resource file
+# fn_tag dnListTagDlg param resource required yes
+# fn_tag dnListTagDlg param resource multipart no
+# fn_tag dnListTagDlg param resource type path
+# fn_tag dnListTagDlg param resource note Warning: tags must not contain whitespace
+# fn_tag dnListTagDlg param resource note Warning: tags must be unique or results may be unpredictable
+# fn_tag dnListTagDlg param resource note File consists of name-value pairs with whitespace delimiter
+# fn_tag dnListTagDlg param resource note Name 'title' = menu title [optional] (default=script_name)
+# fn_tag dnListTagDlg param resource note Name 'prompt' = menu prompt [optional] (default='Select option: ')
+# fn_tag dnListTagDlg param resource note Name 'return' = 'tag'|'option'|'index' [optional] (default='tag')
+# fn_tag dnListTagDlg param resource note Name 'option' = a menu option [required, multiple]
+# fn_tag dnListTagDlg param resource note Name 'option' format =tag[whitespace]default_status[whitespace]option
+# fn_tag dnListTagDlg param resource note Warning: quote marks will be stripped from options
+dnListTagDlg () {
+	# set and check variables
+	local title="$( basename $0 )" prompt='Select options: '
+	local return_val='tag' local valid_return_vals='index tag option'
+	local -a tags=() defaults=() options=() picks_array=()
+	local resources="$( dnNormalisePath "${1}" )"
+	local msg="Invalid resource filename passed to function '${FUNCNAME}'"
+	[ -r "${resources}" ] || dnEndScript 1 "${msg}"
+	local dlg_type= cmd= i= pick= picks= retval=
+	local menu_count=0 menu_height=0 menu_width=0
+	local height_char_pixels=25 width_char_pixels=9  # char -> pixels
+	local option_length= option_length_max=0
+	local name= val= tag= default= option= pick_file=
+	msg="Unable to create temporary file in function '${FUNCNAME}'"
+	pick_file="$( dnTempFile )" || dnEndScript 1 "${msg}"
+	# process resources file
+	while read name val ; do
+		if [ -n "${val}" ] ; then
+			# option *may* have two values needing stripping
+			[ "${name}" != 'option' ] \
+				&& val="$( dnStripEnclosingQuotes "${val}" )"
+			# load vars depending on name
+			case ${name} in
+			'title'  ) title="${val}";;
+			'prompt' ) prompt="${prompt}";;
+			'return' ) 
+				dnElementInList "${val}" "${valid_return_vals}" \
+					&& return_val="${val}"
+					;;
+			'option' )
+				tag="$( echo "${val}" | \
+				sed -e 's/^[ \t]*\([^ \t]\+\)[ \t]\+[^ \t]\+[ \t]\+.\+$/\1/' )"
+				default="$( echo "${val}" | \
+				sed -e 's/^[ \t]*[^ \t]\+[ \t]\+\([^ \t]\+\)[ \t]\+.\+$/\1/' )"
+				option="$( echo "${val}" | \
+				sed -e 's/^[ \t]*[^ \t]\+[ \t]\+[^ \t]\+[ \t]\+\(.\+\)$/\1/' )"
+				# standardise default status
+				default="$( dnStandardiseBoolean "${default}" )"
+				case ${default} in
+					'0' ) default='true';;
+					'1' ) default='false';;
+				esac
+				# internal possessive apostrophes can cause problems
+				# add to arrays
+				tags[${#tags[*]}]="$( dnStripQuotes "${tag}" )"
+				defaults[${#defaults[*]}]="$( dnStripQuotes "${default}" )"
+				options[${#options[*]}]="$( dnStripQuotes "${option}" )"
+				;;
+			esac
+		fi
+	done < "${resources}"
+	# get dialog type
+	dlg_type="$( dnLowercase "$( dnDialogType )" )" || dnEndScript 1 \
+		"Unable to locate dialog command in function '${FUNCNAME}'" \
+		"Perhaps this is a non-graphical environment?"
+	# set menu dimensions
+	for (( i=0 ; i<${#tags[*]} ; i++ )) ; do  # get max option length
+		option_length=$( dnStrLen "${options[${i}]}" )
+		[ ${option_length} -gt ${option_length_max} ] \
+			&& option_length_max=${option_length}
+	done
+	case ${dlg_type} in
+	'kdialog' )
+		# menu dimensions in pixels
+		menu_height=$(( ( ${#tags[*]} + 5 ) * height_char_pixels ))
+		menu_width=$(( ( ${option_length_max} + 5 ) * width_char_pixels ))
+		;;
+	'dialog')
+		# dialog uses sensible defaults so no changes necessary
+		;;
+	esac
+	# build dialog command
+	case ${dlg_type} in
+	'kdialog' )
+		cmd="kdialog --geometry ${menu_width}x${menu_height}"
+		cmd="${cmd} --title '${title}' --separate-output"
+		cmd="${cmd} --checklist '${prompt}'"
+		;;
+	'zenity' )
+		cmd="zenity --list --text='${prompt}' --title '${title}'"
+		cmd="${cmd} --width=200 --height=300 --hide-column=2"
+		cmd="${cmd} --separator=' ' --checklist"
+		cmd="${cmd} --column='Picks' --column='Tags' --column='Options'"
+		;;
+	'dialog' )
+		cmd="dialog --stdout --title '${title}'"
+		cmd="${cmd} --separate-output --checklist '${prompt}'"
+		cmd="${cmd} ${menu_height} ${menu_width} ${menu_count}"
+		;;
+	esac
+	for (( i=0 ; i<${#tags[*]} ; i++ )) ; do
+		case ${dlg_type} in
+		'kdialog'|'dialog' )
+			cmd="${cmd} '${tags[${i}]}' '${options[${i}]}' '${defaults[${i}]}'"
+			;;
+		'zenity' )
+			cmd="${cmd} '${defaults[${i}]}' '${tags[${i}]}' '${options[${i}]}'"
+			;;
+		esac
+	done
+	cmd="${cmd} 1>${pick_file}"  # capture output in temporary file
+	# make selection
+	eval ${cmd}
+	picks="$( cat ${pick_file} )"
+	dnTempKill "${pick_file}"
+	[ -n "${picks}" ] || return 1
+	# process picks into array
+	for pick in ${picks[*]} ; do
+		picks_array[${#picks_array[*]}]="$( dnStripQuotes "${pick}" )"
+	done
+	# decide upon, and return, return value
+	# we have tags in variable 'picks_array'
+	# finds first match (if duplicate tags)
+	for (( i=0 ; i<${#tags[*]} ; i++ )) ; do
+		if dnElementInList "${tags[${i}]}" "${picks_array[*]}" ; then
+			case ${return_val} in
+			'tag'    ) retval="${retval} ${tags[${i}]}";;
+			'option' ) retval="${retval} \"${options[${i}]}\"";;
+			'index'  ) retval="${retval} ${i}";;
+			esac
+		fi
+	done
+	retval="$( dnStripEnclosingSpaces "${retval}" )"
+	[ -n "${retval}" ] || return 1
+	echo "${retval}"
+}
+# Function: dnPopupDlg                                               {{{1
+# Display popup message
+#   params: 1 - message
+#           2 - title (optional)
+#   prints: nil
+#   return: nil
+# fn_tag dnPopupDlg purpose Display informational message in popup
+# fn_tag dnPopupDlg prints NIL
+# fn_tag dnPopupDlg returns NIL
+# fn_tag dnPopupDlg note This function does not guarantee that newlines tokens ('\n') in the message are honoured by the popup
+# fn_tag dnPopupDlg note If variable dn_app_icon exists will use it for info dialog icon
+# fn_tag dnPopupDlg param message purpose Popup message
+# fn_tag dnPopupDlg param message required yes
+# fn_tag dnPopupDlg param message multipart no
+# fn_tag dnPopupDlg param message type string
+# fn_tag dnPopupDlg param title purpose Popup title
+# fn_tag dnPopupDlg param title required no
+# fn_tag dnPopupDlg param title multipart no
+# fn_tag dnPopupDlg param title type string
+# fn_tag dnPopupDlg param title note Empty title is converted by subsidiary function to script name
+dnPopupDlg () { dnDlg "popup" "${2:-""}" "${1}" "1"; }
+
+# Function: dnPopupNlDlg                                             {{{1
+# Display popup message in popup that honours newlines
+#   params: 1 - message
+#           2 - title (optional)
+#   prints: nil
+#   return: nil
+# fn_tag dnPopupNlDlg purpose Display informational message in popup
+# fn_tag dnPopupNlDlg prints NIL
+# fn_tag dnPopupNlDlg returns NIL
+# fn_tag dnPopupNlDlg note This function attempts to use a popup that honours newlines tokens ('\n') in the message
+# fn_tag dnPopupNlDlg note If variable dn_app_icon exists will use it for info dialog icon
+# fn_tag dnPopupNlDlg param message purpose Popup message
+# fn_tag dnPopupNlDlg param message required yes
+# fn_tag dnPopupNlDlg param message multipart no
+# fn_tag dnPopupNlDlg param message type string
+# fn_tag dnPopupNlDlg param title purpose Popup title
+# fn_tag dnPopupNlDlg param title required no
+# fn_tag dnPopupNlDlg param title multipart no
+# fn_tag dnPopupNlDlg param title type string
+# fn_tag dnPopupNlDlg param title note Empty title is converted by subsidiary function to script name
+dnPopupNlDlg () { dnDlg "popup" "${2:-""}" "${1}" "0"; }
+# Function: dnDlg                                                    {{{1
+# Dialog engine
+#   params: 1 - type ('info', 'warn', 'error', 'popup')
+#           2 - title (''|'-' = script_name)
+#           3 - message
+#   prints: nil
+#   return: 0|1 (Boolean)
+# fn_tag dnDlg purpose Dialog/popup engine
+# fn_tag dnDlg prints NIL
+# fn_tag dnDlg returns Boolean
+# fn_tag dnDlg note All dialogs automatically return true boolean value
+# fn_tag dnDlg note If variable dn_app_icon exists will use it for info dialog icon
+# fn_tag dnDlg note If variable dn_app_icon_all_dialogs true then also use for warn|error dlgs
+# fn_tag dnDlg param dialog purpose Determines type of dialog displayed
+# fn_tag dnDlg param dialog required yes
+# fn_tag dnDlg param dialog multipart no
+# fn_tag dnDlg param dialog type string
+# fn_tag dnDlg param dialog value info
+# fn_tag dnDlg param dialog value warn
+# fn_tag dnDlg param dialog value error
+# fn_tag dnDlg param dialog value popup
+# fn_tag dnDlg param dialog default info
+# fn_tag dnDlg param title purpose Dialog title
+# fn_tag dnDlg param title required yes
+# fn_tag dnDlg param title multipart no
+# fn_tag dnDlg param title type string
+# fn_tag dnDlg param title default -
+# fn_tag dnDlg param title note If empty string or '-' then defaults to name of running script
+# fn_tag dnDlg param message purpose Dialog message
+# fn_tag dnDlg param message required yes
+# fn_tag dnDlg param message multipart no
+# fn_tag dnDlg param message type string
+# fn_tag dnDlg param message note Message can contain newline tokens ('\n').
+dnDlg () {
+	# set variables and sanity checks
+	local type="${1}" title="${2:-${dn_self}}" message="${3}"
+	local icon= x11user= valid_types="info warn error popup"
+	local duration=10000  # duration is popup display time in milliseconds
+	if [ -z "${type}" ] ; then
+		dnErrorStderr "no dialog type supplied"
+		return 1
+	fi
+	if ! dnElementInList "${type}" "${valid_types}" ; then
+		dnErrorStderr "invalid dialog type '${type}'"
+		return 1
+	fi
+	case "${type}" in
+	'info'|'popup' ) icon="@pkgdata_dir@/info.xpm" ;;
+	'warn'         ) icon="@pkgdata_dir@/warn.xpm";;
+	'error'        ) icon="@pkgdata_dir@/error.xpm";;
+	esac
+	if [ -n "${dn_app_icon}" -a -f "${dn_app_icon}" ] ; then
+		# user has overridden icon
+		case "${type}" in
+		'info'|'popup' ) icon="${dn_app_icon}" ;;
+		'warn'|'error' ) dnFlagTrue $( dnStandardiseBoolean \
+			"${dn_app_icon_all_dialogs}" ) && icon="${dn_app_icon}";;
+		esac
+	fi
+	# if root there are some difficulties sending notification
+	if test "${USER}" = 'root' ; then
+		# must have at least one user with active X session in order 
+		# to display GUI message
+		x11user="$( who | grep ":0" | cut -d ' ' -f 1 | sort | uniq | head -n 1 )"
+		if [ -z "${x11user}" ] ; then
+			dnLog "cannot display notification -- no active X session"
+			return
+		fi
+		su  - ${x11user} \
+			-c "DISPLAY=:0 notify-send \
+				-i \"${icon}\" \
+				-t ${duration} \
+				\"${title}\" \
+				\"${message}\"" 
+		dnFlagTrue "${?}" || dnErrorStderr "unable to send system notification"
+	else  # regular user
+		notify-send \
+			-i "${icon}" \
+			-t ${duration} \
+			"${title}" \
+			"${message}"
+		dnFlagTrue "${?}" || dnLog "unable to send system notification"
+	fi
+}
+
+
+# Function: dnInfoDlg                                                {{{1
+# Display info dialog message
+#   params: 1 - message
+#           2 - title (optional)
+#   prints: nil
+#   return: nil
+# fn_tag dnInfoDlg purpose Display informational message in dialog
+# fn_tag dnInfoDlg prints NIL
+# fn_tag dnInfoDlg returns NIL
+# fn_tag dnInfoDlg note If variable dn_app_icon exists will use it for info dialog icon
+# fn_tag dnInfoDlg param message purpose Dialog message
+# fn_tag dnInfoDlg param message required yes
+# fn_tag dnInfoDlg param message multipart no
+# fn_tag dnInfoDlg param message type string
+# fn_tag dnInfoDlg param title purpose Dialog title
+# fn_tag dnInfoDlg param title required no
+# fn_tag dnInfoDlg param title multipart no
+# fn_tag dnInfoDlg param title type string
+# fn_tag dnInfoDlg param title note Empty title is converted by subsidiary function to script name
+dnInfoDlg () { dnDlg "info" "${2:-""}" "${1}"; }
+# Function: dnWarnDlg                                                {{{1
+# Display warning dialog message
+#   params: 1 - message
+#           2 - title (optional)
+#   prints: nil
+#   return: nil
+# fn_tag dnWarnDlg purpose Display warning message in dialog
+# fn_tag dnWarnDlg prints NIL
+# fn_tag dnWarnDlg returns NIL
+# fn_tag dnWarnDlg note If variable dn_app_icon exists will use it for info dialog icon
+# fn_tag dnWarnDlg note If variable dn_app_icon_all_dialogs true then also use for warn|error dlgs
+# fn_tag dnWarnDlg param message purpose Dialog message
+# fn_tag dnWarnDlg param message required yes
+# fn_tag dnWarnDlg param message multipart no
+# fn_tag dnWarnDlg param message type string
+# fn_tag dnWarnDlg param title purpose Dialog title
+# fn_tag dnWarnDlg param title required no
+# fn_tag dnWarnDlg param title multipart no
+# fn_tag dnWarnDlg param title type string
+# fn_tag dnWarnDlg param title note Empty title is converted by subsidiary function to script name
+dnWarnDlg () { dnDlg "warn" "${2:-""}" "${1}"; }
+# Function: dnErrorDlg                                               {{{1
+# Display error dialog message
+#   params: 1 - message
+#           2 - title (optional)
+#   prints: nil
+#   return: nil
+# fn_tag dnErrorDlg purpose Display error message in dialog
+# fn_tag dnErrorDlg prints NIL
+# fn_tag dnErrorDlg returns NIL
+# fn_tag dnErrorDlg note If variable dn_app_icon exists will use it for info dialog icon
+# fn_tag dnErrorDlg note If variable dn_app_icon_all_dialogs true then also use for warn|error dlgs
+# fn_tag dnErrorDlg param message purpose Dialog message
+# fn_tag dnErrorDlg param message required yes
+# fn_tag dnErrorDlg param message multipart no
+# fn_tag dnErrorDlg param message type string
+# fn_tag dnErrorDlg param title purpose Dialog title
+# fn_tag dnErrorDlg param title required no
+# fn_tag dnErrorDlg param title multipart no
+# fn_tag dnErrorDlg param title type string
+# fn_tag dnErrorDlg param title note Empty title is converted by subsidiary function to script name
+dnErrorDlg () { dnDlg "error" "${2:-""}" "${1}"; }
+# Function: dnPromptDlg                                              {{{1
+# Prompt user with dialog
+#   params: 1 - message
+#           2 - title (optional)
+#   prints: nil
+#   return: nil
+# fn_tag dnPromptDlg purpose Display prompt in dialog
+# fn_tag dnPromptDlg prints NIL
+# fn_tag dnPromptDlg returns NIL
+# fn_tag dnPromptDlg note If variable dn_app_icon exists will use it for info dialog icon
+# fn_tag dnPromptDlg param message purpose Prompt message
+# fn_tag dnPromptDlg param message required yes
+# fn_tag dnPromptDlg param message multipart no
+# fn_tag dnPromptDlg param message type string
+# fn_tag dnPromptDlg param title purpose Dialog title
+# fn_tag dnPromptDlg param title required no
+# fn_tag dnPromptDlg param title multipart no
+# fn_tag dnPromptDlg param title type string
+# fn_tag dnPromptDlg param title note Empty title is converted by subsidiary function to script name
+dnPromptDlg () { dnDlg "info" "${2:-""}" "${1}"; }
+# Function: dnLog                                                    {{{1
+# Write log message to system log
+#   params: 1+ - message part
+#   prints: nil
+#   return: nil
+# fn_tag dnLog purpose Write message to system log
+# fn_tag dnLog prints NIL
+# fn_tag dnLog returns NIL
+# fn_tag dnLog note Log message will be tagged with name of calling script
+# fn_tag dnLog param message purpose Message part to be written to system log
+# fn_tag dnLog param message required yes
+# fn_tag dnLog param message multipart yes
+# fn_tag dnLog param message type string
+dnLog () {
+    local have_logger=
+
+	while [ ${#} -gt 0 ] ; do
+		logger -t "${dn_self}" "${1}"
+		shift
+	done
+}
+# Function: dnGetPosInteger                                          {{{1
+# User enters number
+#   params: 1 - prompt text (optional, default='Enter integer: ')
+#   prints: entered number
+#   return: boolean (0=success|1=error)
+# fn_tag dnGetPosInteger purpose User enter positive integer
+# fn_tag dnGetPosInteger prints Number entered by user
+# fn_tag dnGetPosInteger returns Whether number entered by user (Boolean)
+# fn_tag dnGetPosInteger param prompt purpose User prompt
+# fn_tag dnGetPosInteger param prompt required no
+# fn_tag dnGetPosInteger param prompt multipart no
+# fn_tag dnGetPosInteger param prompt type string
+# fn_tag dnGetPosInteger param prompt default Enter integer:
+dnGetPosInteger () {
+	local prompt="${1:-"${dn_query_prefix}Enter integer: "}" retval=""
+	# get input
+	until [ -n "${retval}" ] && dnValidNonZeroPosInt "${retval}" ; do
+		read -p "${prompt}" retval
+	done
+	echo "${retval}"
+}
+# Function: dnPickColour                                             {{{1
+# User selects colour
+# NOTE: All colours must also be in dnColourToRGB
+# NOTE: Arrays in dnColourToRGB and dnPickColour must be kept in synchrony
+#   params: 1 - prompt text (optional, default='Select colour')
+#   prints: selected colour
+#   return: boolean (0=success|1=error)
+# fn_tag dnPickColour purpose User selects colour name
+# fn_tag dnPickColour prints Selected colour
+# fn_tag dnPickColour returns Whether colour chosen (Boolean)
+# fn_tag dnPickColour note All colours must also be in function 'dnColourToRGB'
+# fn_tag dnPickColour note Arrays in functions 'dnColourToRGB' and 'dnPickColour' must be kept in synchrony
+# fn_tag dnPickColour param prompt purpose User prompt
+# fn_tag dnPickColour param prompt required no
+# fn_tag dnPickColour param prompt multipart no
+# fn_tag dnPickColour param prompt type string
+# fn_tag dnPickColour param prompt default Select colour: 
+dnPickColour () {
+	local prompt="${1:-"Select colour: "}" retval= index= options= colour= pick=
+	local -a colours=(	"black" "blue" "blue, midnight" "blue, royal" "cyan" \
+						"gold" "gray" "gray, dim" "gray, slate" "green" \
+						"green, dark" "green, forest" "green, pale" "magenta" \
+						"navy" "orange" "orange, dark" "peach" "pink" "purple" \
+						"red" "red, orange" "rose, misty" "slate, dark blue" \
+						"tan" "violet" "white" "yellow" )
+	# assemble list of colours
+	local menu_file= msg="Unable to make temp file in function '${FUNCNAME}'"
+	menu_file="$( dnTempFile )" || dnEndScript 1 "${msg}"
+	dnTempTrap "${menu_file}"
+	cat > ${menu_file} <<- EOF
+	title 'Pick Colour'
+	prompt '${prompt}'
+	return index
+	EOF
+	for (( index=0 ; index < ${#colours[*]} ; index++ )) ; do
+		echo "option '${colours[${index}]}'" >> ${menu_file}
+	done
+	# select colour
+	retval=0
+	pick="$( dnSelectDlg "${menu_file}" )"
+	dnTempKill "${menu_file}"
+	[ -z "${pick}" ] && retval=1
+	choice="${colours[${pick}]}"
+	# return choice and indicate success
+	echo "${choice}"
+	return ${retval}
+}
+# Function: dnGetInput                                               {{{1
+# User enters input
+#   params: -p - prompt text (optional, default='Enter input: ')
+#           -d - default input (optional)
+#   prints: entered text
+#   return: nil
+# fn_tag dnGetInput purpose Get user input
+# fn_tag dnGetInput prints User input
+# fn_tag dnGetInput returns NIL
+# fn_tag dnGetInput usage input="$( dnGetInput )"
+# fn_tag dnGetInput usage station="$( dnGetInput -p "Enter station: " -d "Central" )"
+# fn_tag dnGetInput usage dob="$( dnGetInput -p "Enter date of birth: " )"
+# fn_tag dnGetInput option p purpose User prompt
+# fn_tag dnGetInput option p required no
+# fn_tag dnGetInput option p multiple no
+# fn_tag dnGetInput option p type string
+# fn_tag dnGetInput option p default Enter input: 
+# fn_tag dnGetInput option d purpose Default input value
+# fn_tag dnGetInput option d required no
+# fn_tag dnGetInput option d multiple no
+# fn_tag dnGetInput option d type string
+dnGetInput () {
+    # set variables
+	local OPTIND
+    local prompt= default=
+    # process options
+	while getopts ":p:d:" opt ; do
+		case ${opt} in
+			'p' ) prompt="${OPTARG}";;
+			'd' ) default="${OPTARG}";;
+		esac
+	done
+	shift $(( ${OPTIND} - 1 ))
+    test -n "${prompt}" || prompt="Enter input: "
+    # get user input
+	read -e -i "${default}" -p "${prompt}" input
+    # return user input
+	echo "${input}"
+}
+
+# }}}1
+
+# vim: set foldmethod=marker :

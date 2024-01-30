@@ -1,0 +1,6 @@
+47f188c7aff883558f79c51a666499db  usr/share/doc/libmoosex-makeimmutable-perl/changelog.Debian.gz
+b8104acaede8010926abd7b1ec875539  usr/share/doc/libmoosex-makeimmutable-perl/changelog.gz
+ceb461df42c22783b4ce6820d7a5d448  usr/share/doc/libmoosex-makeimmutable-perl/copyright
+fb430e1771ff7068e90b543cc5e40a21  usr/share/man/man3/MooseX::MakeImmutable.3pm.gz
+fe6fea6483cea2d93164f179b0fc06bb  usr/share/perl5/MooseX/MakeImmutable.pm
+477b955019e66c4fc8a37c90644dc4e5  usr/share/perl5/MooseX/MakeImmutable/Finder.pm

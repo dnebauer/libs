@@ -1,0 +1,1123 @@
+#!/bin/bash
+
+# Suite: libdncommon-bash  # do not alter or delete -- required by vim plugin
+# File: libconvert
+# Author: David Nebauer
+# Purpose: Useful bash functions for converting files and values
+
+
+# Function: dnCreateSilentAc3                                        {{{1
+# Create silent AC3 audio track
+#   params: 1 - output filepath
+#           2 - length (seconds) (default=5) [optional]
+#   prints: nil
+#   return: boolean (0=success|1=failure)
+# fn_tag dnCreateSilentAc3 purpose Create silent AC3 audio file
+# fn_tag dnCreateSilentAc3 prints NIL
+# fn_tag dnCreateSilentAc3 returns Whether file created successfully (Boolean)
+# fn_tag dnCreateSilentAc3 param output-file purpose Output AC3 audio file
+# fn_tag dnCreateSilentAc3 param output-file required yes
+# fn_tag dnCreateSilentAc3 param output-file multipart no
+# fn_tag dnCreateSilentAc3 param output-file type path
+# fn_tag dnCreateSilentAc3 param duration purpose Length of audio track (seconds)
+# fn_tag dnCreateSilentAc3 param duration required no
+# fn_tag dnCreateSilentAc3 param duration multipart no
+# fn_tag dnCreateSilentAc3 param duration type integer
+# fn_tag dnCreateSilentAc3 param duration default 5
+dnCreateSilentAc3 () {
+	# create and set variables
+	local output="$( dnNormalisePath "${1}" )" length="${2:-"5"}"
+	local byte_count=$(( ${length} * 24000 )) retval=1  # default
+	# create silent file
+	# options:
+	#     dd: if = input file/device
+	#         bs = block size (bytes)
+	#         count = number of input blocks to copy
+	#    sox: -t  = filetype (raw = no header, wav = WAV)
+	#         -w  = unknown
+	#         -s  = unknown
+	#         -r  = sample rate (Hz)
+	#          -  = input on stdin, output on stdout
+	# ffmpeg: -i  = input (- = stdin)
+	#         -ab = audio bitrate (kbits/s)
+	#         -ar = sample rate (Hz)
+	#         -ac = audio channels
+	#         -y  = overwrite output file
+	dd \
+		if=/dev/zero \
+		bs=4 \
+		count=${byte_count} \
+		2>/dev/null \
+	| \
+	sox \
+		-t raw \
+		-wsr 48000 \
+		- \
+		-t wav \
+		-r 48000 \
+		- \
+		2>/dev/null \
+	| \
+	ffmpeg \
+		-i - \
+		-ab 224000 \
+		-ar 48000 \
+		-ac 2 \
+		-y \
+		"${output}" \
+		2>/dev/null
+	# determine and indicate outcome
+	dnPipeSucceeded "${PIPESTATUS[*]}" && dnFileValid "${output}" && retval=0
+	return ${retval}
+}
+# Function: dnConvertAudioToWav                                      {{{1
+# Convert audio file to WAV format
+#   params: 1 - input file
+#   prints: nil
+#   return: boolean (0=success|1=failure)
+#   assume: directory exists and is normalised
+# fn_tag dnConvertAudioToWav purpose Convert audio file to WAV format
+# fn_tag dnConvertAudioToWav prints NIL
+# fn_tag dnConvertAudioToWav returns Whether new WAV audio file created successfully (Boolean)
+# fn_tag dnConvertAudioToWav note Source file left in place
+# fn_tag dnConvertAudioToWav note Create output file in same directory with same basename and 'wav' extension
+# fn_tag dnConvertAudioToWav param input purpose Input audio file
+# fn_tag dnConvertAudioToWav param input required yes
+# fn_tag dnConvertAudioToWav param input multipart no
+# fn_tag dnConvertAudioToWav param input type path
+dnConvertAudioToWav () {
+	local source_file="$( dnNormalisePath "${1}" )"
+	dnFileValid "${source_file}" || return 1
+	# target file uses same basename as source with WAV extension
+	local wav_file="$( dnParentDir "${source_file}" )"
+	wav_file="${wav_file}/$( dnExtractFileBase "${source_file}" ).wav"
+	# convert file
+	# options: -i = input file, -f = target audio format
+	ffmpeg -i "${source_file}" -f wav "${wav_file}" &> /dev/null
+	# indicate whether successful
+	return ${?}
+}
+# Function: dnConvertWavToAc3                                        {{{1
+# Convert audio WAV file to AC3 format
+#   params: 1 - input filepath
+#           2 - output filepath
+#   prints: nil
+#   return: boolean (0=success|1=failure)
+# fn_tag dnConvertWavToAc3 purpose Convert audio WAV file to AC3 format
+# fn_tag dnConvertWavToAc3 prints NIL
+# fn_tag dnConvertWavToAc3 returns Whether conversion completed successfully (Boolean)
+# fn_tag dnConvertWavToAc3 param input purpose Input WAV audio file
+# fn_tag dnConvertWavToAc3 param input required yes
+# fn_tag dnConvertWavToAc3 param input multipart no
+# fn_tag dnConvertWavToAc3 param input type path
+# fn_tag dnConvertWavToAc3 param output purpose Output AC3 audio file
+# fn_tag dnConvertWavToAc3 param output required yes
+# fn_tag dnConvertWavToAc3 param output multipart no
+# fn_tag dnConvertWavToAc3 param output type path
+dnConvertWavToAc3 () {
+	local in_file="${1}" out_file="${2}"
+	# normalise
+	in_file="$( dnNormalisePath "${in_file}" )"
+	dnFileValid "${in_file}" || return 1
+	out_file="$( dnNormalisePath "${out_file}" )"
+	# perform conversion
+	# options: -i = input file, -ab = audio bitrate (kbit/s),
+	#          -ar = audio sampling frequency (Hz)
+	ffmpeg -i "${in_file}" -ab 224 -ar 48000 "${out_file}" &> /dev/null
+	# indicate whether successful
+	return ${?}
+}
+# Function: dnConvertNonPngToPng                                     {{{1
+# Convert non-PNG image to PNG format
+#   params: 1 - input filepath
+#           2 - output filepath
+#   prints: nil
+#   return: boolean (0=success|1=failure)
+#   assume: input pathname exists, output path exists but file does not
+# fn_tag dnConvertNonPngToPng purpose Convert non-PNG image file to PNG format
+# fn_tag dnConvertNonPngToPng prints NIL
+# fn_tag dnConvertNonPngToPng returns Whether conversion occurred successfully (Boolean)
+# fn_tag dnConvertNonPngToPng param input purpose Input image file
+# fn_tag dnConvertNonPngToPng param input required yes
+# fn_tag dnConvertNonPngToPng param input multipart no
+# fn_tag dnConvertNonPngToPng param input type path
+# fn_tag dnConvertNonPngToPng param output purpose Output PNG image file
+# fn_tag dnConvertNonPngToPng param output required yes
+# fn_tag dnConvertNonPngToPng param output multipart no
+# fn_tag dnConvertNonPngToPng param output type path
+dnConvertNonPngToPng () {
+	local in_file="${1}" out_file="${2}" retval=0
+	# normalise
+	in_file="$( dnNormalisePath "${in_file}" )"
+	out_file="$( dnNormalisePath "${out_file}" )"
+	# perform conversion
+	convert "${in_file}" "${out_file}" &> /dev/null || retval=1
+	# indicate whether successful
+	return ${retval}
+}
+# Function: dnConvertNonAviToAvi                                     {{{1
+# Convert non-AVI video to AVI format
+#   params: 1 - feedback mode (raw|progress|silent) [required]
+#           2 - input filepath
+#           3 - output filepath
+#           4 - video format ('pal'|'ntsc') (default='pal') [optional]
+#   prints: feedback unless suppressed
+#   return: boolean (0=success|1=failure)
+#   assume: input pathname exists, output path exists but file does not
+# NOTES FOR MKV CONVERSION
+#	can do mkv to avi translation using ffmpeg:
+#ffmpeg -y -i KAA.Full.Metal.Panic.TSR.01.mkv -target pal-dvd -b 6400 -aspect 16:9 -r 25 -ab 224 -vcodec mpeg2video -acodec ac3 test.avi
+#	but the quality is atrocious
+#	Can use mkvextract to extract video, audio and subtitles
+#	extract video to ____.h264; ac3 to _____.ac3 and subtitles to _____.ass
+#	is another way to extract audio (seems to give smaller file):
+#mplayer -hardframedrop -vc null -vo null -ao pcm:fast:waveheader:file="fullm.wav" KAA.Full.Metal.Panic.TSR.01.mkv
+#ffmpeg -i fullm.wav -ab 224 -ar 48000 fullm.ac3
+#	attempt to use 'ffmpeg' to create mpg from h264 video:
+#ffmpeg -i ____.h264 -y -target pal-dvd -b 6400 -aspect 16:9 -an
+#	implies -vcodec mpeg2video
+#	vframes=2000 will truncate
+#	mplex can't use resulting mpg file
+# 	also tried converting video to avi with ffmpeg using 2 passes:
+#ffmpeg -i KAA.Full.Metal.Panic.TSR.01.mkv -threads 1 -pass 1 -vcodec xvid -an  -s 720x400 -y Discard.avi
+#ffmpeg -i KAA.Full.Metal.Panic.TSR.01.mkv -threads 1 -pass 2 -vcodec xvid -minrate 1000 -b 2000 -maxrate 3000 -an -s 720x400 -y fullf.avi
+#rm Discard.avi
+#	resulting avi file too slow and blocky
+#	attempt all-in-one transcoding:
+#transcode -i full.h264 -x mplayer="-demuxer h264es",null -y ffmpeg,null -g 720x576 -f 29.970 --export_prof dvd-pal --export_asr 3 -o fullt -D 0 -b 224 -N 0x2000 -J modfps=clonetype=3 --export_fps 25
+#	this fails so instead use two stage process
+#	first, create yuv stream using mplayer import cmd:
+#mplayer -benchmark -noframedrop -nosound -vo yuv4mpeg -demuxer h264es "full.h264" -osdlevel 0
+#	which creates a 'stream.yuv' file and then transcode:
+#transcode -i stream.yuv -o fullt -x yuv4mpeg,null -y ffmpeg,null --export_prof dvd-pal --export_asr 3 --pre_clip off -D 0 -b 224 -N 0x2000 -J modfps=clonetype=3 --export_fps 25
+#	'--pre_clip off' needed to prevent top/bottom 25% of screen being cut off
+#	both export modules 'ffmpeg' and 'mpeg2enc' appear to work
+#	if use '-y ffmpeg' don't need '-F mpeg2video' -- is autodetected
+#	method fails since video files produced are too slow (? bad fps)
+#	the initial yuv file is affected this way
+# fn_tag dnConvertNonAviToAvi purpose Convert non-AVI video to AVI format
+# fn_tag dnConvertNonAviToAvi prints Feedback unless suppressed
+# fn_tag dnConvertNonAviToAvi returns Whether conversion occurred successfully (Boolean)
+# fn_tag dnConvertNonAviToAvi note Unable to convert MKV files
+# fn_tag dnConvertNonAviToAvi param feedback-mode purpose Whether and how screen feedback is displayed
+# fn_tag dnConvertNonAviToAvi param feedback-mode required yes
+# fn_tag dnConvertNonAviToAvi param feedback-mode multipart no
+# fn_tag dnConvertNonAviToAvi param feedback-mode type string
+# fn_tag dnConvertNonAviToAvi param feedback-mode value raw
+# fn_tag dnConvertNonAviToAvi param feedback-mode value progress
+# fn_tag dnConvertNonAviToAvi param feedback-mode value silent
+# fn_tag dnConvertNonAviToAvi param feedback-mode note Mode 'raw' = unfiltered feedback from conversion tools
+# fn_tag dnConvertNonAviToAvi param feedback-mode note Mode 'progress' = progress bar displaying percentage complete
+# fn_tag dnConvertNonAviToAvi param feedback-mode note mode 'silent' = all feedback suppressed
+# fn_tag dnConvertNonAviToAvi param input purpose Input video file
+# fn_tag dnConvertNonAviToAvi param input required yes
+# fn_tag dnConvertNonAviToAvi param input multipart no
+# fn_tag dnConvertNonAviToAvi param input type path
+# fn_tag dnConvertNonAviToAvi param output purpose Output AVI video file
+# fn_tag dnConvertNonAviToAvi param output required yes
+# fn_tag dnConvertNonAviToAvi param output multipart no
+# fn_tag dnConvertNonAviToAvi param output type path
+# fn_tag dnConvertNonAviToAvi param format purpose Output video format
+# fn_tag dnConvertNonAviToAvi param format required no
+# fn_tag dnConvertNonAviToAvi param format multipart no
+# fn_tag dnConvertNonAviToAvi param format type string
+# fn_tag dnConvertNonAviToAvi param format value pal
+# fn_tag dnConvertNonAviToAvi param format value ntsc
+# fn_tag dnConvertNonAviToAvi param format default pal
+dnConvertNonAviToAvi () {
+	# set and check variables
+	local feedback_mode="${1}" in_file="${2}" out_file="${3}"
+    local format="${4:-"pal"}"
+	local frame_rate= cmd=
+	feedback_mode="$( dnLowercase "${feedback_mode}" )"
+	local valid_feedback_modes="raw silent progress"
+	dnElementInList "${feedback_mode}" "${valid_feedback_modes}" \
+		|| dnFailScript "Invalid feedback mode"
+	in_file="$( dnNormalisePath "${in_file}" )"
+	out_file="$( dnNormalisePath "${out_file}" )"
+	format="$( dnLowercase "${format}" )"
+	[ "${format}" = 'ntsc' ] || format='pal'  # pal is default
+	case ${format} in
+	'pal'  ) frame_rate='25';;
+	'ntsc' ) frame_rate='29.97';;
+	esac
+	# perform conversion
+	# options: -o FILE.avi = output AVI file
+	#          -ovc lavc = encode with video codec = libavcodec
+	#          -lavcopts vbitrate=5000:vhq
+	#                 = libavcodec options:
+	#                   vbitrate = video bitrate,
+	#                   vhq = encode macro blocks using smallest size
+	#          -ffourcc DX50 = data stream format code
+	#                          (DX50 = DivX version 5,
+	#                           consider also DIVX = DivX version 4+)
+	#          -oac pcm = encode with audio codec = uncompressed PCM
+	#          -srate 48000 = output audio sample rate
+	#          -ofps 25 = output video frame rate (PAL: 25, NTSC: 29.97)
+	#          FILE.EXT  # input file
+	cmd="\
+		mencoder \
+			-o "${out_file}" \
+			-ovc lavc \
+			-lavcopts vbitrate=5000:vhq \
+			-ffourcc DX50 \
+			-oac pcm \
+			-srate 48000 \
+			-ofps ${frame_rate} \
+			"${in_file}" \
+		"
+	# perform conversion and capture exit status
+	case ${mode} in
+	'raw'      ) ${cmd} ; retval=${?} ;;
+	'silent'   ) ${cmd} &> /dev/null ; retval=${?} ;;
+	'progress' ) ${cmd} 2>&1 \
+	             	| sed -e 's/\o015/\o012/g' \
+				 	| dnProgressBarFilter 'mencoder' \
+				 	| progressbar
+				 # converted <CR> to <LF> to avoid passing concatenated
+				 # lines to filter
+                 retval=${PIPESTATUS[0]}
+                 echo  # progress bar sometimes ends with cursor on bar line
+                 ;;
+	* ) dnFatal "Case failure in function '${FUNCNAME}'" && exit 1 ;;
+	esac
+	# indicate whether successful
+	return ${?}
+}
+# Function: dnConvertAviToM2vAc3                                     {{{1
+# Convert AVI video to M2V and AC3 formats
+#   params: 1 - feedback mode (raw|progress|silent) [required]
+#           2 - input filepath [required]
+#           3 - output basepath (path+basename, no extension) [required]
+#           4 - video format ('pal'|'ntsc') (default='pal') [optional]
+#           5 - aspect ratio ('4:3'|'16:9') (default='4:3') [optional]
+#   prints: feedback depending on parameters
+#   return: boolean (0=success|1=failure)
+#   assume: input pathname exists, output path exists but files do not
+# fn_tag dnConvertAviToM2vAc3 purpose Convert AVI video file to M2V (video) and AC3 (audio) files
+# fn_tag dnConvertAviToM2vAc3 prints Feedback unless suppressed
+# fn_tag dnConvertAviToM2vAc3 returns Whether conversion successful (Boolean)
+# fn_tag dnConvertAviToM2vAc3 note Input file left in place
+# fn_tag dnConvertAviToM2vAc3 note Usually chained with 'dnConvertM2vAc3ToMpg'
+# fn_tag dnConvertAviToM2vAc3 note See 'dnConvertAviToMpgTM'
+# fn_tag dnConvertAviToM2vAc3 note See 'dnConvertAviToMpgF'
+# fn_tag dnConvertAviToM2vAc3 note See 'dnConvertAviToMpg'
+# fn_tag dnConvertAviToM2vAc3 param feedback-mode purpose Whether and how screen feedback is displayed
+# fn_tag dnConvertAviToM2vAc3 param feedback-mode required yes
+# fn_tag dnConvertAviToM2vAc3 param feedback-mode multipart no
+# fn_tag dnConvertAviToM2vAc3 param feedback-mode type string
+# fn_tag dnConvertAviToM2vAc3 param feedback-mode value raw
+# fn_tag dnConvertAviToM2vAc3 param feedback-mode value progress
+# fn_tag dnConvertAviToM2vAc3 param feedback-mode value silent
+# fn_tag dnConvertAviToM2vAc3 param feedback-mode note Mode 'raw' = unfiltered feedback from conversion tools
+# fn_tag dnConvertAviToM2vAc3 param feedback-mode note Mode 'progress' = progress bar displaying percentage complete
+# fn_tag dnConvertAviToM2vAc3 param feedback-mode note mode 'silent' = all feedback suppressed
+# fn_tag dnConvertAviToM2vAc3 param input purpose Input AVI video file
+# fn_tag dnConvertAviToM2vAc3 param input required yes
+# fn_tag dnConvertAviToM2vAc3 param input multipart no
+# fn_tag dnConvertAviToM2vAc3 param input type path
+# fn_tag dnConvertAviToM2vAc3 param output purpose Output basepath (see note)
+# fn_tag dnConvertAviToM2vAc3 param output required yes
+# fn_tag dnConvertAviToM2vAc3 param output multipart no
+# fn_tag dnConvertAviToM2vAc3 param output type path
+# fn_tag dnConvertAviToM2vAc3 param output note Supplies output directory path and basename (no file extension)
+# fn_tag dnConvertAviToM2vAc3 param video-format purpose Output video format
+# fn_tag dnConvertAviToM2vAc3 param video-format required no
+# fn_tag dnConvertAviToM2vAc3 param video-format multipart no
+# fn_tag dnConvertAviToM2vAc3 param video-format type string
+# fn_tag dnConvertAviToM2vAc3 param video-format value pal
+# fn_tag dnConvertAviToM2vAc3 param video-format value ntsc
+# fn_tag dnConvertAviToM2vAc3 param video-format default pal
+# fn_tag dnConvertAviToM2vAc3 param aspect-ratio purpose Output video aspect ratio
+# fn_tag dnConvertAviToM2vAc3 param aspect-ratio required no
+# fn_tag dnConvertAviToM2vAc3 param aspect-ratio multipart no
+# fn_tag dnConvertAviToM2vAc3 param aspect-ratio type string
+# fn_tag dnConvertAviToM2vAc3 param aspect-ratio value 4:3
+# fn_tag dnConvertAviToM2vAc3 param aspect-ratio value 16:9
+# fn_tag dnConvertAviToM2vAc3 param aspect-ratio default 4:3
+dnConvertAviToM2vAc3 () {
+	# set and check variables
+	local feedback_mode="${1}" in_file="${2}" out_base="${3}"
+	local format="${4:-"pal"}" aspect_ratio="${5:-"4:3"}"
+	local ffmpeg_cfg="ffmpeg.cfg" transcode_prof= transcode_asr=  cmd=
+	local retval= fc='framecount' fc_flags= frames=0
+	local clone_percent=5  # estimate of % of frames that will be cloned
+	case ${format} in
+	'pal'  ) transcode_prof='dvd-pal' ;;
+	'ntsc' ) transcode_prof='dvd-ntsc' ;;
+	*      ) dnFatal "Case mismatch '${format}' in fn '${FUNCNAME}'" ; exit 1;;
+	esac
+	case ${aspect_ratio} in
+	'4:3'  ) transcode_asr='2';;
+	'16:9' ) transcode_asr='3';;
+	*      ) dnFatal "Case mismatch '${aspect_ratio}' in fn '${FUNCNAME}'"
+	         exit 1;;
+	esac
+	ffmpeg_cfg="$( dnNormalisePath "${ffmpeg_cfg}" )"
+	# create ffmpeg configuration file
+	# options: vhq = flag for 'very high quality'
+	#          vqcomp = video quantizer scale compression
+	#          vqblur = video quantizer scale blur
+	cat > "${ffmpeg_cfg}" <<-EOF
+		[mpeg2video]
+		vhq = 1
+		vqcomp = 0.7
+		vqblur = 0.3
+	EOF
+	dnTempTrap "${ffmpeg_cfg}"
+	# assemble conversion command
+	# options: -i FILE.avi = input file
+	#          -x v,a = video and audio import modules (default=auto,auto)
+	#                   using mplayer is the most robust solution since
+	#                   mlpayer can read all kinds of malformed files
+	#          -y ffmpeg = video export module
+	#          --export_prof dvd-pal = video format: dvd-pal=PAL, dvd-ntsc=NTSC
+	#          --export_asr 2 \  # playback aspect ratio: 2=4:3, 3=16:9
+	#          -o FILE = video output file basename
+	#          -G 0.9 = gamma correction (remove if result too dark)
+	#          -D 0 = video to start at this audio frame number
+	#          -b 224 = audio encoder bitrate
+	#          -N 0x2000 = audio export format:
+	#                      0x2000=AC3, 0x50=MP2, 0x55=MP3, 0xfffe=OGG
+	#          -s 2 = increase volume of audio stream by 2 (2 what?)
+	#          -m FILE.ac3 = audio output file name
+	#          -J modfps=clonetype=3 = modify framerate
+	#          -J hqdn3d=7:7:5:5 = reduce image noise
+	#          -J pp=ha:128:7/va/dr = ffmpeg filters for horizontal
+	#                                 deblocking, vertical deblocking and
+	#                                 deringing, respectively
+	#          --export_fps 25 = export framerate
+	cmd="\
+		transcode \
+			-i "${in_file}" \
+			-x mplayer,mplayer \
+			-y ffmpeg \
+			--export_prof ${transcode_prof} \
+			--export_asr ${transcode_asr} \
+			-o "${out_base}" \
+			-G 0.9 \
+			-D 0 \
+			-b 224 \
+			-N 0x2000 \
+			-s 2 \
+			-m "${out_base}.ac3" \
+			--export_fps 25 \
+			-J hqdn3d=7:7:5:5 \
+			-J pp=ha:128:7/va/dr \
+			-J modfps=clonetype=3 \
+			"
+	# need frame count if showing progress
+	if [ "${feedback_mode}" = 'progress' ] ; then
+		if [ $( which "${fc}" 2> /dev/null ) ] ; then
+			[ -n "${fc_flags}" ] && fc="${fc} ${fc_flags}"
+			frames="$( ${fc} "${in_file}" 2>/dev/null )"
+		fi
+		if dnValidNonZeroPosInt "${frames}" ; then
+			# add proportion to frame count to allow for cloned frames
+			# if don't then progress bar will go above 100%
+			frames=$(( ${frames} + ( ${frames} * ${clone_percent} / 100 ) ))
+		else  # if no frame count change mode to default
+			dnWarn "Can't get frame count -- can't display progress meter"
+			dnWarn "Defaulting to show raw output"
+			feedback_mode='raw'
+		fi
+	fi
+	# perform conversion and capture exit status
+	case ${feedback_mode} in
+	'raw'      ) ${cmd} ; retval=${?} ;;
+	'silent'   ) ${cmd} &> /dev/null ; retval=${?} ;;
+	'progress' ) ${cmd} 2>&1 \
+	             | dnProgressBarFilter 'transcode' \
+				 | progressbar -t ${frames}
+                 retval=${PIPESTATUS[0]}
+                 echo  # progress bar sometimes ends with cursor on bar line
+                 ;;
+	* ) dnFatal "Case failure in function '${FUNCNAME}'" && exit 1 ;;
+	esac
+	# remove ffmpeg configuration file
+	dnTempKill "${ffmpeg_cfg}"
+	# indicate whether successful
+	return ${retval}
+}
+# Function: dnConvertM2vAc3ToMpg                                     {{{1
+# Convert working video files (M2V, AC3) to MPG
+#   params: 1 - input basepath (path+basename, no extension)
+#           2 - output filepath
+#   prints: nil
+#   return: boolean (0=success|1=failure)
+#   assume: input files exist, output path exists but file does not
+# fn_tag dnConvertM2vAc3ToMpg purpose Convert working video files (M2V and AC3) to MPG
+# fn_tag dnConvertM2vAc3ToMpg prints NIL
+# fn_tag dnConvertM2vAc3ToMpg returns Whether conversion successful (Boolean)
+# fn_tag dnConvertM2vAc3ToMpg note Usually chained with 'dnConvertAviToM2vAc3'
+# fn_tag dnConvertM2vAc3ToMpg note See 'dnConvertAviToMpgTM'
+# fn_tag dnConvertM2vAc3ToMpg note See 'dnConvertAviToMpgF'
+# fn_tag dnConvertM2vAc3ToMpg note See 'dnConvertAviToMpg'
+# fn_tag dnConvertM2vAc3ToMpg param input purpose Input files basepath (see note)
+# fn_tag dnConvertM2vAc3ToMpg param input required yes
+# fn_tag dnConvertM2vAc3ToMpg param input multipart no
+# fn_tag dnConvertM2vAc3ToMpg param input type path
+# fn_tag dnConvertM2vAc3ToMpg param input note Assumes both input files in same directory with same basename
+# fn_tag dnConvertM2vAc3ToMpg param input note Supplies input files directory and basename (no extension)
+# fn_tag dnConvertM2vAc3ToMpg param output purpose Output MPG video file
+# fn_tag dnConvertM2vAc3ToMpg param output required yes
+# fn_tag dnConvertM2vAc3ToMpg param output multipart no
+# fn_tag dnConvertM2vAc3ToMpg param output type path
+dnConvertM2vAc3ToMpg () {
+	local in_base="${1}" out_file="${2}"
+	# normalise
+	in_base="$( dnNormalisePath "${in_base}" )"
+	out_file="$( dnNormalisePath "${out_file}" )"
+	# perform conversion
+	# options: -f 8 = output format: 8=DVD with NAV sectors
+	#          -o FILE.mpg = output file name
+	#          FILE.m2v = input video file
+	#          FILE.ac3 = input audio file
+	mplex \
+		-f 8 \
+		-o "${out_file}" \
+		"${in_base}.m2v" \
+		"${in_base}.ac3" \
+		&> /dev/null
+	# indicate whether successful
+	return ${?}
+}
+# Function: dnConvertAviToMpgTM                                      {{{1
+# Convert AVI video to MPG format using transcode and mplex
+#   params: 1 - feedback mode ('raw'|'progress'|'silent') [required]
+#           2 - input filepath [required]
+#           3 - output filepath [required]
+#           4 - video format ('pal'|'ntsc') (default='pal') [optional]
+#           5 - aspect ratio ('4:3'|'16:9') (default='4:3') [optional]
+#   prints: nil
+#   return: boolean (0=success|1=failure)
+#   assume: input pathname exists, output pathname does not
+# fn_tag dnConvertAviToMpgTM purpose Convert AVI video to MPG video format 
+# fn_tag dnConvertAviToMpgTM prints Feedback unless suppressed
+# fn_tag dnConvertAviToMpgTM returns Whether converted successfully
+# fn_tag dnConvertAviToMpgTM note Does conversion in one step using 'transcode' and 'mplex'
+# fn_tag dnConvertAviToMpgTM note See 'dnConvertAviToM2vAc3' and 'dnConvertM2vAc3ToMpg'
+# fn_tag dnConvertAviToMpgTM note See 'dnConvertAviToMpgF'
+# fn_tag dnConvertAviToMpgTM note See 'dnConvertAviToMpg'
+# fn_tag dnConvertAviToMpgTM note Consider calling with 'dnConvertAviToMpg'
+# fn_tag dnConvertAviToMpgTM param feedback-mode purpose Whether and how screen feedback is displayed (Boolean)
+# fn_tag dnConvertAviToMpgTM param feedback-mode required yes
+# fn_tag dnConvertAviToMpgTM param feedback-mode multipart no
+# fn_tag dnConvertAviToMpgTM param feedback-mode type string
+# fn_tag dnConvertAviToMpgTM param feedback-mode value raw
+# fn_tag dnConvertAviToMpgTM param feedback-mode value progress
+# fn_tag dnConvertAviToMpgTM param feedback-mode value silent
+# fn_tag dnConvertAviToMpgTM param feedback-mode note Mode 'raw' = unfiltered feedback from conversion tools
+# fn_tag dnConvertAviToMpgTM param feedback-mode note Mode 'progress' = progress bar displaying percentage complete
+# fn_tag dnConvertAviToMpgTM param feedback-mode note mode 'silent' = all feedback suppressed
+# fn_tag dnConvertAviToMpgTM param input purpose Input AVI video file
+# fn_tag dnConvertAviToMpgTM param input required yes
+# fn_tag dnConvertAviToMpgTM param input multipart no
+# fn_tag dnConvertAviToMpgTM param input type path
+# fn_tag dnConvertAviToMpgTM param output purpose Output MPG video file
+# fn_tag dnConvertAviToMpgTM param output required yes
+# fn_tag dnConvertAviToMpgTM param output multipart no
+# fn_tag dnConvertAviToMpgTM param output type path
+# fn_tag dnConvertAviToMpgTM param video-format purpose Output video format
+# fn_tag dnConvertAviToMpgTM param video-format required no
+# fn_tag dnConvertAviToMpgTM param video-format multipart no
+# fn_tag dnConvertAviToMpgTM param video-format type string
+# fn_tag dnConvertAviToMpgTM param video-format value pal
+# fn_tag dnConvertAviToMpgTM param video-format value ntsc
+# fn_tag dnConvertAviToMpgTM param video-format default pal
+# fn_tag dnConvertAviToMpgTM param aspect-ratio purpose Output video aspect ratio
+# fn_tag dnConvertAviToMpgTM param aspect-ratio required no
+# fn_tag dnConvertAviToMpgTM param aspect-ratio multipart no
+# fn_tag dnConvertAviToMpgTM param aspect-ratio type string
+# fn_tag dnConvertAviToMpgTM param aspect-ratio value 4:3
+# fn_tag dnConvertAviToMpgTM param aspect-ratio value 16:9
+# fn_tag dnConvertAviToMpgTM param aspect-ratio default 4:3
+dnConvertAviToMpgTM () {
+	# set and check variables
+	local feedback_mode="${1}" in_file="${2}" out_file="${3}"
+	local format="${4:-"pal"}" aspect_ratio="${5:-"4:3"}"
+	local basepath= retval=1  # default
+	local tmp_dir="$( mktemp -d )" \
+		|| dnEndScript 1 "Unable to make temp directory"
+	dnTempTrap "${tmp_dir}"
+	basepath="${tmp_dir}/intermediate"
+	case ${format} in
+	'pal'  ) transcode_prof='dvd-pal' ;;
+	'ntsc' ) transcode_prof='dvd-ntsc' ;;
+	*      ) dnFatal "Case mismatch '${format}' in fn '${FUNCNAME}'" ; exit 1;;
+	esac
+	case ${aspect_ratio} in
+	'4:3'  ) transcode_asr='2';;
+	'16:9' ) transcode_asr='3';;
+	*      ) dnFatal "Case mismatch '${aspect_ratio}' in fn '${FUNCNAME}'"
+	         exit 1;;
+	esac
+	# convert to intermediate formats
+	dnConvertAviToM2vAc3 \
+		"${feedback_mode}" \
+		"${in_file}" \
+		"${basepath}" \
+		"${format}" \
+		"${aspect_ratio}"
+	# if successful convert to mpg
+	if dnFlagTrue ${?} ; then
+		dnConvertM2vAc3ToMpg "${basepath}" "${out_file}"
+		dnFlagTrue ${?} && retval=0  # only success condition
+	fi
+	dnTempKill "${tmp_dir}"
+	# indicate whether successful
+	return ${retval}
+}
+# Function: dnConvertAviToMpgF                                       {{{1
+# Convert AVI video to MPG format using 2-pass ffmpeg
+#   params: 1 - feedback mode ('raw'|'progress'|'silent') [required]
+#           2 - input filepath [required]
+#           3 - output filepath [required]
+#           4 - video format ('pal'|'ntsc') (default='pal') [optional]
+#           5 - aspect ratio ('4:3'|'16:9') (default='4:3') [optional]
+#   prints: nil
+#   return: boolean (0=success|1=failure)
+#   assume: input pathname exists, output pathname does not
+# fn_tag dnConvertAviToMpgF purpose Convert Avi video file to MPG format
+# fn_tag dnConvertAviToMpgF prints Feedback unless suppressed
+# fn_tag dnConvertAviToMpgF returns Whether converted successfully (Boolean)
+# fn_tag dnConvertAviToMpgF note Uses 2-pass ffmpeg conversion process
+# fn_tag dnConvertAviToMpgF note See 'dnConvertAviToM2vAc3' and 'dnConvertM2vAc3ToMpg'
+# fn_tag dnConvertAviToMpgF note See 'dnConvertAviToMpgTM'
+# fn_tag dnConvertAviToMpgF note See 'dnConvertAviToMpg'
+# fn_tag dnConvertAviToMpgF note Consider calling with 'dnConvertAviToMpg'
+# fn_tag dnConvertAviToMpgF param feedback-mode purpose Whether and how screen feedback is processed
+# fn_tag dnConvertAviToMpgF param feedback-mode required yes
+# fn_tag dnConvertAviToMpgF param feedback-mode multipart no
+# fn_tag dnConvertAviToMpgF param feedback-mode type string
+# fn_tag dnConvertAviToMpgF param feedback-mode value raw
+# fn_tag dnConvertAviToMpgF param feedback-mode value progress
+# fn_tag dnConvertAviToMpgF param feedback-mode value silent
+# fn_tag dnConvertAviToMpgF param feedback-mode note Mode 'raw' = unfiltered feedback from conversion tools
+# fn_tag dnConvertAviToMpgF param feedback-mode note Mode 'progress' = progress bar displaying percentage complete
+# fn_tag dnConvertAviToMpgF param feedback-mode note mode 'silent' = all feedback suppressed
+# fn_tag dnConvertAviToMpgF param input purpose Input AVI video file
+# fn_tag dnConvertAviToMpgF param input required yes
+# fn_tag dnConvertAviToMpgF param input multipart no
+# fn_tag dnConvertAviToMpgF param input type path
+# fn_tag dnConvertAviToMpgF param output purpose Output MPG video file
+# fn_tag dnConvertAviToMpgF param output required yes
+# fn_tag dnConvertAviToMpgF param output multipart no
+# fn_tag dnConvertAviToMpgF param output type path
+# fn_tag dnConvertAviToMpgF param video-format purpose Output video format
+# fn_tag dnConvertAviToMpgF param video-format required no
+# fn_tag dnConvertAviToMpgF param video-format multipart no
+# fn_tag dnConvertAviToMpgF param video-format type string
+# fn_tag dnConvertAviToMpgF param video-format value pal
+# fn_tag dnConvertAviToMpgF param video-format value ntsc
+# fn_tag dnConvertAviToMpgF param video-format default pal
+# fn_tag dnConvertAviToMpgF param aspect-ratio purpose Output video aspect ratio
+# fn_tag dnConvertAviToMpgF param aspect-ratio required no
+# fn_tag dnConvertAviToMpgF param aspect-ratio multipart no
+# fn_tag dnConvertAviToMpgF param aspect-ratio type string
+# fn_tag dnConvertAviToMpgF param aspect-ratio value 4:3
+# fn_tag dnConvertAviToMpgF param aspect-ratio value 16:9
+# fn_tag dnConvertAviToMpgF param aspect-ratio default 4:3
+dnConvertAviToMpgF () {
+	# set and check variables
+	local feedback_mode="${1}" in_file="${2}" out_file="${3}"
+	local format="${4:-"pal"}" aspect_ratio="${5:-"4:3"}"
+	local retval=1  # default
+	local ffmpeg_cfg="ffmpeg.cfg" target= aspect=  cmd=
+	local fc='framecount' fc_flags= frames=0
+	local pass= pass_log_file='ffmpeg_pass_log'
+	local frame_percent=84  # estimate of % of frames processed by ffmpeg
+	case ${format} in
+	'pal'  ) target='pal-dvd';;
+	'ntsc' ) target='ntsc-dvd';;
+	*      ) dnFatal "Case mismatch '${format}' in fn '${FUNCNAME}'" ; exit 1;;
+	esac
+	case ${aspect_ratio} in
+	'4:3'  ) aspect='4:3';;
+	'16:9' ) aspect='16:9';;
+	*      ) dnFatal "Case mismatch '${aspect_ratio}' in fn '${FUNCNAME}'"
+	         exit 1;;
+	esac
+	ffmpeg_cfg="$( dnNormalisePath "${ffmpeg_cfg}" )"
+	# create ffmpeg configuration file
+	# options: vhq = flag for 'very high quality'
+	#          vqcomp = video quantizer scale compression
+	#          vqblur = video quantizer scale blur
+	cat > "${ffmpeg_cfg}" <<-EOF
+		[mpeg2video]
+		vhq = 1
+		vqcomp = 0.7
+		vqblur = 0.3
+	EOF
+	dnTempTrap "${ffmpeg_cfg}"
+	dnTempTrap "${pass_log_file}*"
+	# assemble conversion command
+	# options: -pass        = pass number
+	#          -passlogfile = two pass log file name
+	#          -i FILE.avi  = input file
+	#          -target      = target file type ('pal-dvd', 'ntsc-dvd, ...)
+	#          -ab          = audio bitrate (kbits/s)
+	#          -y           = overwrite output file
+	#          FILE.mpg     = output file
+	for pass in 1 2 ; do
+		cmd="\
+			ffmpeg \
+				-pass ${pass} \
+				-passlogfile "${pass_log_file}" \
+				-i "${in_file}" \
+				-target "${target}" \
+				-aspect "${aspect}" \
+				-ab 224 \
+				-y \
+				"${out_file}" \
+				"
+		# need frame count if showing progress
+		if [ "${feedback_mode}" = 'progress' ] ; then
+			if [ $( which "${fc}" 2> /dev/null ) ] ; then
+				[ -n "${fc_flags}" ] && fc="${fc} ${fc_flags}"
+				frames="$( ${fc} "${in_file}" 2>/dev/null )"
+			fi
+			if dnValidNonZeroPosInt "${frames}" ; then
+				# ffmpeg does not process all frames in standard anime
+				frames=$(( ${frames} * ${frame_percent} / 100 ))
+			else  # if no frame count change mode to raw
+				dnWarn "Can't get frame count -- can't display progress meter"
+				dnWarn "Defaulting to show raw output"
+				feedback_mode='raw'
+			fi  # if dnValidNonZeroPosInt "${frames}" ...
+		fi  # if [ "${feedback_mode}" = 'progress' ] ...
+		# perform conversion and capture exit status
+		case ${feedback_mode} in
+		'raw'      ) ${cmd} ; retval=${?} ;;
+		'silent'   ) ${cmd} &> /dev/null ; retval=${?} ;;
+		'progress' ) ${cmd} 2>&1 \
+					 | sed -e 's/\o015/\o012/g' \
+					 | dnProgressBarFilter 'ffmpeg' \
+					 | progressbar -t ${frames} -p "Pass ${pass} of 2"
+					 retval=${PIPESTATUS[0]}
+					 echo  # progress bar sometimes ends with cursor on bar line
+					 ;;
+		* ) dnFatal "Case failure in function '${FUNCNAME}'" && exit 1 ;;
+		esac
+	done  # for pass in 1 2 ...
+	# remove ffmpeg configuration file and pass log files
+	dnTempKill "${pass_log_file}*"
+	dnTempKill "${ffmpeg_cfg}"
+	# indicate whether successful
+	return ${retval}
+}
+# Function: dnConvertAviToMpg                                        {{{1
+# Convert AVI video to MPG format
+#   params: 1 - conversion mode ('tm'|'2f') [required]
+#           2 - feedback mode ('raw'|'progress'|'silent') [required]
+#           3 - input filepath [required]
+#           4 - output filepath [required]
+#           5 - video format ('pal'|'ntsc') (default='pal') [optional]
+#           6 - aspect ratio ('4:3'|'16:9') (default='4:3') [optional]
+#   prints: nil
+#   return: boolean (0=success|1=failure)
+#   assume: input pathname exists, output pathname does not
+# fn_tag dnConvertAviToMpg purpose Convert AVI video file to MPG format
+# fn_tag dnConvertAviToMpg prints Feedback unless suppressed
+# fn_tag dnConvertAviToMpg returns Whether converted successfully (Boolean)
+# fn_tag dnConvertAviToMpg note Calls either of 'dnConvertAviToMpg[TM|F]'
+# fn_tag dnConvertAviToMpg note See 'dnConvertAviToM2vAc3' and 'dnConvertM2vAc3ToMpg'
+# fn_tag dnConvertAviToMpg note See 'dnConvertAviToMpgTM'
+# fn_tag dnConvertAviToMpg note See 'dnConvertAviToMpgF'
+# fn_tag dnConvertAviToMpg note See 'dnConvertAviToMpg'
+# fn_tag dnConvertAviToMpg param conversion-mode purpose Which conversion method to use
+# fn_tag dnConvertAviToMpg param conversion-mode required yes
+# fn_tag dnConvertAviToMpg param conversion-mode multipart no
+# fn_tag dnConvertAviToMpg param conversion-mode type string
+# fn_tag dnConvertAviToMpg param conversion-mode value tm
+# fn_tag dnConvertAviToMpg param conversion-mode value 2f
+# fn_tag dnConvertAviToMpg param conversion-mode note Mode 'tm' calls 'dnConvertAviToMpgTM'
+# fn_tag dnConvertAviToMpg param conversion-mode note Mode 'tm' converts with transcode and mplex
+# fn_tag dnConvertAviToMpg param conversion-mode note Mode '2f' calls 'dnConvertAviToMpgF'
+# fn_tag dnConvertAviToMpg param conversion-mode note Mode '2f' converts with ffmpeg
+# fn_tag dnConvertAviToMpg param feedback-mode purpose Whether and how screen feedback is processed
+# fn_tag dnConvertAviToMpg param feedback-mode required yes
+# fn_tag dnConvertAviToMpg param feedback-mode multipart no
+# fn_tag dnConvertAviToMpg param feedback-mode type string
+# fn_tag dnConvertAviToMpg param feedback-mode value raw
+# fn_tag dnConvertAviToMpg param feedback-mode value progress
+# fn_tag dnConvertAviToMpg param feedback-mode value silent
+# fn_tag dnConvertAviToMpg param feedback-mode note Mode 'raw' = unfiltered feedback from conversion tools
+# fn_tag dnConvertAviToMpg param feedback-mode note Mode 'progress' = progress bar displaying percentage complete
+# fn_tag dnConvertAviToMpg param feedback-mode note mode 'silent' = all feedback suppressed
+# fn_tag dnConvertAviToMpg param input purpose Input AVI video file
+# fn_tag dnConvertAviToMpg param input required yes
+# fn_tag dnConvertAviToMpg param input multipart no
+# fn_tag dnConvertAviToMpg param input type path
+# fn_tag dnConvertAviToMpg param output purpose Output MPG video file
+# fn_tag dnConvertAviToMpg param output required yes
+# fn_tag dnConvertAviToMpg param output multipart no
+# fn_tag dnConvertAviToMpg param output type path
+# fn_tag dnConvertAviToMpg param video-format purpose Output video format
+# fn_tag dnConvertAviToMpg param video-format required no
+# fn_tag dnConvertAviToMpg param video-format multipart no
+# fn_tag dnConvertAviToMpg param video-format type string
+# fn_tag dnConvertAviToMpg param video-format value pal
+# fn_tag dnConvertAviToMpg param video-format value ntsc
+# fn_tag dnConvertAviToMpg param video-format default pal
+# fn_tag dnConvertAviToMpg param aspect-ratio purpose Output video aspect ratio
+# fn_tag dnConvertAviToMpg param aspect-ratio required no
+# fn_tag dnConvertAviToMpg param aspect-ratio multipart no
+# fn_tag dnConvertAviToMpg param aspect-ratio type string
+# fn_tag dnConvertAviToMpg param aspect-ratio value 4:3
+# fn_tag dnConvertAviToMpg param aspect-ratio value 16:9
+# fn_tag dnConvertAviToMpg param aspect-ratio default 4:3
+dnConvertAviToMpg () {
+	# set and check variables
+	local conversion_mode="${1}" feedback_mode="${2}"
+	local in_file="${3}" out_file="${4}"
+	local format="${5:-"pal"}" aspect_ratio="${6:-"4:3"}"
+	local retval=1  # default
+	conversion_mode="$( dnLowercase "${conversion_mode}" )"
+	local valid_conversion_modes="tm 2f"  # tm: transcode + mplex
+	                                      # 2f: 2-pass ffmpeg
+	dnElementInList "${conversion_mode}" "${valid_conversion_modes}" \
+		|| dnFailScript "Invalid conversion mode"
+	feedback_mode="$( dnLowercase "${feedback_mode}" )"
+	local valid_feedback_modes="raw silent progress"
+	dnElementInList "${feedback_mode}" "${valid_feedback_modes}" \
+		|| dnFailScript "Invalid feedback mode"
+	in_file="$( dnNormalisePath "${in_file}" )"
+	out_file="$( dnNormalisePath "${out_file}" )"
+	format="$( dnLowercase "${format}" )"
+	[ "${format}" = 'ntsc' ] || format='pal'  # pal is default
+	[ "${aspect_ratio}" = '16:9' ] || aspect_ratio='4:3'  # 4:3 is default
+	# convert
+	case ${conversion_mode} in
+	'tm' ) cmd="dnConvertAviToMpgTM";;
+	'2f'  ) cmd="dnConvertAviToMpgF";;
+	*    ) dnFatal "Case mismatch '${conversion_mode}' in fn '${FUNCNAME}'"
+		   exit 1;;
+	esac
+	cmd="${cmd} \
+		"${feedback_mode}" \
+		"${in_file}" \
+		"${out_file}" \
+		"${format}" \
+		"${aspect_ratio}" \
+		"
+	${cmd} && retval=0
+	# indicate whether successful
+	return ${retval}
+}
+# Function: dnConvertVobToMpg                                        {{{1
+# Convert VOB video format to MPG format
+#   params: 1 - input filepath
+#   prints: feedback
+#   return: boolean (0=success|1=failure)
+#   assume: input pathname exists, output pathname does not
+# fn_tag dnConvertVobToMpg purpose Convert VOB video file to MPG format
+# fn_tag dnConvertVobToMpg prints Feedback
+# fn_tag dnConvertVobToMpg returns Whether conversion successful (Boolean)
+# fn_tag dnConvertVobToMpg note Output MPG file created in same directory as input file with same basename
+# fn_tag dnConvertVobToMpg param input purpose Input VOB video file
+# fn_tag dnConvertVobToMpg param input required yes
+# fn_tag dnConvertVobToMpg param input multipart no
+# fn_tag dnConvertVobToMpg param input type path
+dnConvertVobToMpg () {
+	# set and check variables
+	local in_file="$( dnNormalisePath "${1}" )"
+	local in_file_basename="$( basename "${in_file}" )"
+	local file_base="$( dnExtractFileBase "${in_file}" )"
+	local out_file="$( dnStripExtension "${in_file}" ).mpg"
+	local tmp_dir="$( mktemp -d )" \
+		|| dnEndScript 1 "Unable to make temp directory"
+	dnTempTrap "${tmp_dir}"
+	local m2v="${tmp_dir}/${file_base}.m2v"
+	local ac3="${tmp_dir}/${file_base}.ac3"
+	local in_base="${tmp_dir}/${file_base}"
+	# convert to intermediate formats
+	dnInfon "Extracting video stream from vob... "
+	dnExtractM2vFromVob "${in_file}" "${m2v}"
+	dnCritRep ${?} "Unable to extract video stream from vob"
+	dnInfon "Extracting audio stream from vob... "
+	dnExtractAc3FromVob "${in_file}" "${ac3}"
+	dnCritRep ${?} "Unable to extract audio stream from vob"
+	# recombine into mpg
+	dnInfon "Multiplexing video and audio streams... "
+	dnConvertM2vAc3ToMpg "${in_base}" "${out_file}" &> /dev/null
+	dnCritRep ${?} "Unable to multiplex"
+	# clean up
+	dnTempKill "${tmp_dir}"
+}
+# Function: dnConvertNonAviToMpg                                     {{{1
+# Convert any video format to MPG format
+#   params: 1 - avi conversion mode ('tm'|'2f') [required]
+#           2 - feedback mode (raw|progress|silent) [required]
+#           3 - input filepath
+#           4 - output filepath
+#           5 - video format ('pal'|'ntsc') (default='pal') [optional]
+#           6 - aspect ratio ('4:3'|'16:9') (default='4:3') [optional]
+#   prints: nil
+#   return: boolean (0=success|1=failure)
+#   assume: input pathname exists, output pathname does not
+# fn_tag dnConvertNonAviToMpg purpose Convert any video format to MPG format
+# fn_tag dnConvertNonAviToMpg prints Feedback unless suppressed
+# fn_tag dnConvertNonAviToMpg returns Whether converted successfully (Boolean)
+# fn_tag dnConvertNonAviToMpg note Calls 'dnConvertNonAviToAvi' and 'DnConvertAviToMpg'
+# fn_tag dnConvertNonAviToMpg note See 'dnConvertAviToM2vAc3' and 'dnConvertM2vAc3ToMpg'
+# fn_tag dnConvertNonAviToMpg note See 'dnConvertAviToMpgTM'
+# fn_tag dnConvertNonAviToMpg note See 'dnConvertAviToMpgF'
+# fn_tag dnConvertNonAviToMpg param conversion-mode purpose Which AVI-to-MPG conversion method to use
+# fn_tag dnConvertNonAviToMpg param conversion-mode required yes
+# fn_tag dnConvertNonAviToMpg param conversion-mode multipart no
+# fn_tag dnConvertNonAviToMpg param conversion-mode type string
+# fn_tag dnConvertNonAviToMpg param conversion-mode value tm
+# fn_tag dnConvertNonAviToMpg param conversion-mode value 2f
+# fn_tag dnConvertNonAviToMpg param conversion-mode note Mode 'tm' calls 'dnConvertAviToMpgTM'
+# fn_tag dnConvertNonAviToMpg param conversion-mode note Mode 'tm' converts with transcode and mplex
+# fn_tag dnConvertNonAviToMpg param conversion-mode note Mode '2f' calls 'dnConvertAviToMpgF'
+# fn_tag dnConvertNonAviToMpg param conversion-mode note Mode '2f' converts with ffmpeg
+# fn_tag dnConvertNonAviToMpg param feedback-mode purpose Whether and how screen feedback is processed
+# fn_tag dnConvertNonAviToMpg param feedback-mode required yes
+# fn_tag dnConvertNonAviToMpg param feedback-mode multipart no
+# fn_tag dnConvertNonAviToMpg param feedback-mode type string
+# fn_tag dnConvertNonAviToMpg param feedback-mode value raw
+# fn_tag dnConvertNonAviToMpg param feedback-mode value progress
+# fn_tag dnConvertNonAviToMpg param feedback-mode value silent
+# fn_tag dnConvertNonAviToMpg param feedback-mode note Mode 'raw' = unfiltered feedback from conversion tools
+# fn_tag dnConvertNonAviToMpg param feedback-mode note Mode 'progress' = progress bar displaying percentage complete
+# fn_tag dnConvertNonAviToMpg param feedback-mode note mode 'silent' = all feedback suppressed
+# fn_tag dnConvertNonAviToMpg param input purpose Input AVI video file
+# fn_tag dnConvertNonAviToMpg param input required yes
+# fn_tag dnConvertNonAviToMpg param input multipart no
+# fn_tag dnConvertNonAviToMpg param input type path
+# fn_tag dnConvertNonAviToMpg param output purpose Output MPG video file
+# fn_tag dnConvertNonAviToMpg param output required yes
+# fn_tag dnConvertNonAviToMpg param output multipart no
+# fn_tag dnConvertNonAviToMpg param output type path
+# fn_tag dnConvertNonAviToMpg param video-format purpose Output video format
+# fn_tag dnConvertNonAviToMpg param video-format required no
+# fn_tag dnConvertNonAviToMpg param video-format multipart no
+# fn_tag dnConvertNonAviToMpg param video-format type string
+# fn_tag dnConvertNonAviToMpg param video-format value pal
+# fn_tag dnConvertNonAviToMpg param video-format value ntsc
+# fn_tag dnConvertNonAviToMpg param video-format default pal
+# fn_tag dnConvertNonAviToMpg param aspect-ratio purpose Output video aspect ratio
+# fn_tag dnConvertNonAviToMpg param aspect-ratio required no
+# fn_tag dnConvertNonAviToMpg param aspect-ratio multipart no
+# fn_tag dnConvertNonAviToMpg param aspect-ratio type string
+# fn_tag dnConvertNonAviToMpg param aspect-ratio value 4:3
+# fn_tag dnConvertNonAviToMpg param aspect-ratio value 16:9
+# fn_tag dnConvertNonAviToMpg param aspect-ratio default 4:3
+dnConvertNonAviToMpg () {
+	# set and check variables
+	local avi_mode="${1}" feedback_mode="${2}"
+	local in_file="${3}" out_file="${4}"
+	local format="${5:-"pal"}" aspect_ratio="${6:-"4:3"}"
+	local basepath= avi_file= retval=1  # default
+	avi_mode="$( dnLowercase "${avi_mode}" )"
+	local valid_avi_modes="tm 2f"  # tm: transcode + mplex, 2f: 2-pass ffmpeg
+	dnElementInList "${avi_mode}" "${valid_avi_modes}" \
+		|| dnFailScript "Invalid AVI conversion mode"
+	feedback_mode="$( dnLowercase "${feedback_mode}" )"
+	local valid_feedback_modes="raw silent progress"
+	dnElementInList "${feedback_mode}" "${valid_feedback_modes}" \
+		|| dnFailScript "Invalid feedback mode"
+	format="$( dnLowercase "${format}" )"
+	[ "${format}" = 'ntsc' ] || format='pal'  # pal is default
+	[ "${aspect_ratio}" = '16:9' ] || aspect_ratio='4:3'  # 4:3 is default
+	in_file="$( dnNormalisePath "${in_file}" )"
+	out_file="$( dnNormalisePath "${out_file}" )"
+	basepath="$( dnExtractFileBase "${in_file}" )"
+	avi_file="${basepath}.avi"
+	# convert to avi
+	dnConvertNonAviToAvi \
+		"${feedback_mode}"\
+		"${in_file}" \
+		"${avi_file}" \
+		"${format}"
+	# if successful convert avi to intermediate formats
+	if dnFlagTrue ${?} ; then
+		dnConvertAviToMpg \
+			"${avi_mode}" \
+			"${feedback_mode}" \
+			"${in_file}" \
+			"${out_file}" \
+			"${format}" \
+			"${aspect_ratio}"
+		dnFlagTrue ${?} && retval=0  # only success condition
+	fi
+	dnTempKill "${tmp_dir}"
+	# indicate whether successful
+	return ${retval}
+}
+# Function: dnColourToRGB                                            {{{1
+# Convert colour name to RGB value
+# NOTE: Colour must be from dnPickColour
+# NOTE: Arrays in dnColourToRGB and dnPickColour must be kept in synchrony
+#   params: 1 - colour
+#   prints: RGB value
+#   return: boolean (0=success|1=error)
+# fn_tag dnColourToRGB purpose Convert colour name to RGB value
+# fn_tag dnColourToRGB prints RGB value
+# fn_tag dnColourToRGB returns Whether converted successfully (Boolean)
+# fn_tag dnColourToRGB note All colours must also be in function 'dnPickColour'
+# fn_tag dnColourToRGB note Arrays in functions 'dnColourToRGB' and 'dnPickColour' must be kept in synchrony
+# fn_tag dnColourToRGB param colour purpose Colour name to be converted to RDB value
+# fn_tag dnColourToRGB param colour required yes
+# fn_tag dnColourToRGB param colour multipart no
+# fn_tag dnColourToRGB param colour type string
+# fn_tag dnColourToRGB param colour note Colour usually selected by calling 'dnPickColour'
+dnColourToRGB () {
+	local colour="${1}" retval= index= rgb= element=
+	# note: following two arrays match on element
+	local -a colours=(	"black" "blue" "blue, midnight" "blue, royal" "cyan" \
+						"gold" "gray" "gray, dim" "gray, slate" \
+						"green" "green, dark" "green, forest" "green, pale" \
+						"magenta" "navy" "orange" "orange, dark" \
+						"peach" "pink" "purple" "red" \
+						"red, orange" "rose, misty" "slate, dark blue" "tan" \
+						"violet" "white" "yellow" )
+	local -a rgbs=( 	"0,0,0" "0,0,255" "25,25,112" "65,105,225" "0,255,255" \
+						"255,215,0" "190,190,190" "105,105,105" "112,128,144" \
+						"0,255,0" "0,100,0" "34,139,34" "152,251,152" \
+						"255,0,255" "0,0,128" "255,165,0" "255,140,0" \
+						"255,218,185" "255,192,203" "160,32,240" "255,0,0" \
+						"255,69,0" "255,228,225" "72,61,139" "210,180,140" \
+						"238,130,238" "255,255,255" "255,255,0" )
+	# get element match on colour
+	for (( index=0 ; index < ${#colours[*]} ; index++ )) ; do
+		[ "${colours[${index}]}" = "${colour}" ] && element=${index} && break
+	done
+	# get rgb equivalent
+	if [ -n "${element}" ] && [ ${element} -ge 0 ] ; then
+		rgb="${rgbs[${element}]}"
+		retval=0
+	else retval=1
+	fi
+	# return rgb and indicate success
+	echo "${rgb}"
+	return ${retval}
+}
+# Function: dnNumberToWords                                          {{{1
+# Convert number from sequence of digits to sequence of words
+#   params: 1 - number
+#   prints: if conversion succeeds:
+#               - number in words to stdout
+#           if conversion fails:
+#               - original input to stdout
+#               - error message to stderr
+#   return: 0|1 (conversion succeeds|conversion fails)
+#   note:   any failure results in return of original number parameter
+#   credit: based on script by Chris F.A. Johnson at
+#           <http://cfajohnson.com/shell/scripts/num2word-sh>
+# fn_tag dnNumberToWords purpose Convert number from sequence of digits to sequence of words
+# fn_tag dnNumberToWords prints On success prints word sequence; on failure prints original input, and error message to stderr
+# fn_tag dnNumberToWords returns NIL
+# fn_tag dnNumberToWords note Based on a script by Chris F.A. Johnson at <http://cfajohnson.com/shell/scripts/num2word-sh>
+# fn_tag dnNumberToWords param number purpose Number to be converted to words
+# fn_tag dnNumberToWords param number required yes
+# fn_tag dnNumberToWords param number multipart no
+# fn_tag dnNumberToWords param number type number
+# fn_tag dnNumberToWords param number note Must be standard base 10 integer or decimal, e.g., -23.67, 34, -.09
+dnNumberToWords () {
+    # INTERNAL FUNCTIONS
+    # process triplet of numbers
+    w3 () {
+        num=${1}
+        case ${num} in
+            ????*|*[!0-9]* ) return 5      ;;
+            00*            ) num=${num#00} ;;
+            0*             ) num=${num#0}  ;;
+        esac
+        case ${num#0} in
+            [1-9]|[0-9]0|[1-9]00|1[0-9] )
+                echo ${numwords[$num]}
+                ;;
+            [2-9][1-9] )
+                echo ${numwords[${num%?}0]}-${numwords[${num#?}]}
+                ;;
+            [1-9][0-9][0-9] )
+                hword=${numwords[${num%??}00]}
+                echo "${hword}${and} $( w3 ${num#?} )"
+                ;;
+        esac
+    }
+
+    # VARIABLES
+    local numwords=( zero one two three four five six seven eight nine ten
+                     eleven twelve thirteen fourteen fifteen sixteen seventeen
+                     eighteen nineteen twenty )
+    numwords[30]="thirty"
+    numwords[40]="forty"
+    numwords[50]="fifty"
+    numwords[60]="sixty"
+    numwords[70]="seventy"
+    numwords[80]="eighty"
+    numwords[90]="ninety"
+    numwords[100]="one hundred"
+    numwords[200]="two hundred"
+    numwords[300]="three hundred"
+    numwords[400]="four hundred"
+    numwords[500]="five hundred"
+    numwords[600]="six hundred"
+    numwords[700]="seven hundred"
+    numwords[800]="eight hundred"
+    numwords[900]="nine hundred"
+    local thou=( "" thousand million billion trillion quadrillion quintillion )
+    local words= minus= decimal= left= and=" and"
+    local amount=${1} level=0
+    
+    # MAIN
+    # check format of input
+    if [ $( echo "${amount}" | grep -c \
+            '^[-]\?\(\([0-9]\+\)\|\([0-9]*\.[0-9]\+\)\)$' \
+            ) -ne 1 ] ; then
+        echo "${amount}"
+        dnErrorStderr "Input '${amount}' has invalid format" \
+                      "Input must be standard base 10 integer or decimal number"
+        return 1
+    fi
+    # deal with possible minus sign in front of number
+    if [ "${amount:0:1}" = "-" ] ; then
+        minus=minus
+        amount=${amount#?}
+    fi
+    # strip any leading zeroes
+    amount="$( dnStripLeadingZeroes "${amount}" )"
+    # split into integer and decimal fraction
+    case ${amount} in
+        *.* ) decimal=${amount#*.}
+              amount=${amount%.*}
+              ;;
+    esac
+    # process number in triplets to convert into words
+    while : ; do
+        case ${amount} in
+            [0-9][0-9][0-9]* )
+                # process next triplet in number
+                left=${amount%???}
+                words="$( w3 ${amount#${left}} )${thou[${level}]:+ ${thou[${level}]}} ${words}"
+                amount=${left}
+                ((level++))
+                ;;
+            "" )
+                # last iteration because number has been fully converted
+                break
+                ;;
+            * )
+                # last iteration to process remainder (<1,000)
+                words="$( w3 ${amount} )${thou[${level}]:+ ${thou[${level}]}} ${words}"
+                break
+                ;;
+        esac
+    done
+    # add decimal part of number
+    [ -n "${decimal}" ] && words+=" point"
+    while [ -n "${decimal}" ] ; do
+        words+=" ${numwords[${decimal:0:1}]}"
+        decimal=${decimal#?}
+    done
+    # return converted number
+    echo ${minus:+${minus} }${words}
+}
+
+# }}}1
+
+# vim: set foldmethod=marker :

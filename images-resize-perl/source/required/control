@@ -1,0 +1,44 @@
+Source: libdn-images-resize-perl
+Section: perl
+Priority: optional
+Maintainer: David Nebauer <david@nebauer.org>
+Build-Depends: debhelper-compat (= 13),
+               libmodule-build-perl,
+               perl
+Build-Depends-Indep: librole-utils-dn-perl (>= 0.1-1),
+                     libfunction-parameters-perl (>= 1.0705),
+                     liblist-moreutils-perl (>= 0.416),
+                     libmodule-build-tiny-perl (>= 0.034),
+                     libmoo-perl (>= 2.002005),
+                     libmoox-handlesvia-perl (>= 0.001008),
+                     libmoox-options-perl (>= 4.023),
+                     libnamespace-clean-perl (>= 0.27),
+                     libreadonly-perl (>= 2.05),
+                     libstrictures-perl (>= 2.000003),
+                     libterm-progressbar-simple-perl (>= 0.03),
+                     libtype-tiny-perl (>= 1.000005)
+Standards-Version: 3.9.8
+Homepage: https://metacpan.org/release/Dn-Images-Resize
+
+Package: libdn-images-resize-perl
+Architecture: all
+Depends: ${misc:Depends}, ${perl:Depends},
+         librole-utils-dn-perl (>= 0.1-1),
+         libfunction-parameters-perl (>= 1.0705),
+         liblist-moreutils-perl (>= 0.416),
+         libmoo-perl (>= 2.002005),
+         libmoox-handlesvia-perl (>= 0.001008),
+         libmoox-options-perl (>= 4.023),
+         libnamespace-clean-perl (>= 0.27),
+         libreadonly-perl (>= 2.05),
+         libstrictures-perl (>= 2.000003),
+         libterm-progressbar-simple-perl (>= 0.03),
+         libtype-tiny-perl (>= 1.000005),
+         perl (>= 5.24.1)
+Description: resize images, optionally adding borders
+ Dn::Images::Resize resizes image files, optionally adding borders, and saves
+ them to the current directory, overwriting any existing files with the same
+ name.
+ .
+ Width and height, and additional side and top/bottom borders, can be
+ specified explicitly using the appropriate module attributes.

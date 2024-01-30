@@ -1,0 +1,30 @@
+requires 'perl', '5.014002';
+requires 'Carp';
+requires 'charnames';
+requires 'Curses';
+requires 'Curses::Widgets';
+requires 'Curses::Widgets::Label';
+requires 'Curses::Widgets::ListBox';
+requires 'Dn::Common';
+requires 'English';
+requires 'experimental';
+requires 'File::Which';
+requires 'Function::Parameters';
+requires 'List::MoreUtils';
+requires 'List::Util';
+requires 'Moo';
+requires 'MooX::HandlesVia';
+requires 'namespace::clean';
+requires 'Readonly';
+requires 'strictures';
+requires 'Term::ReadKey';
+requires 'Type::Library';
+requires 'Type::Utils';
+requires 'Types::Standard';
+requires 'UI::Dialog';
+requires 'version';
+# requires 'Some::Module', 'VERSION';
+
+on test => sub {
+    requires 'Test::More', '0.96';
+};

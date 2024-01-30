@@ -1,0 +1,49 @@
+Source: libdn-menu-perl
+Section: perl
+Priority: optional
+Maintainer: David Nebauer <david@nebauer.org>
+Build-Depends: debhelper-compat (= 13),
+               libmodule-build-perl,
+               perl
+Build-Depends-Indep: libcurses-perl,
+                     libcurses-widgets-perl,
+                     libdn-common-perl,
+                     libfile-which-perl,
+                     libfunction-parameters-perl,
+                     liblist-moreutils-perl,
+                     libmodule-build-tiny-perl (>= 0.039),
+                     libmoo-perl,
+                     libmoox-handlesvia-perl,
+                     libnamespace-clean-perl,
+                     libreadonly-perl,
+                     libstrictures-perl,
+                     libterm-readkey-perl,
+                     libtype-tiny-perl,
+                     libui-dialog-perl
+Standards-Version: 3.9.8
+Homepage: https://metacpan.org/release/Dn-Menu
+
+Package: libdn-menu-perl
+Architecture: all
+Depends: ${misc:Depends},
+         ${perl:Depends},
+         libcurses-perl,
+         libcurses-widgets-listbox-dnlistbox-perl,
+         libcurses-widgets-perl,
+         libdn-common-perl,
+         libfile-which-perl,
+         libfunction-parameters-perl,
+         liblist-moreutils-perl,
+         libmoo-perl,
+         libmoox-handlesvia-perl,
+         libnamespace-clean-perl,
+         libreadonly-perl,
+         libstrictures-perl,
+         libterm-readkey-perl,
+         libtype-tiny-perl,
+         libui-dialog-perl,
+         perl (>= 5.19.11)
+Description: menus for use by perl scripts
+ Curses::Widgets::ListBox::DnListBox is an extension of the standard
+ Curses::Widgets::ListBox that allows the same key to be used for TOGGLE and
+ FOCUSSWITCH, i.e., select item and exit with same key.

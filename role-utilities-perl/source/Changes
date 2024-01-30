@@ -1,0 +1,7 @@
+Revision history for Perl module Role-Utils-Dn
+
+0.2  2024-01-30
+  * Remove when() (deprecated)
+
+0.1  2021-10-10
+  * Initial release

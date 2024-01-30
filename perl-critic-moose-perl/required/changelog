@@ -1,0 +1,13 @@
+libperl-critic-moose-perl (1.05-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@hezmana.cogito.loc>  Mon, 09 Nov 2020 18:59:14 +0930
+
+libperl-critic-moose-perl (1.02-1) unstable; urgency=low
+
+  * Local package
+  * Initial release
+  * Closes: 101
+
+ -- David Nebauer <david@hezmana.cogito.loc>  Thu, 23 Apr 2015 18:33:11 +0930

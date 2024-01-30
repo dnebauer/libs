@@ -1,0 +1,429 @@
+#!/bin/bash
+
+# Suite: libdncommon-bash  # do not alter or delete -- required by vim plugin
+# File: libarrays
+# Author: David Nebauer
+# Purpose: Useful bash functions for dealing with arrays
+
+
+# Function: dnPrintArray                                             {{{1
+# Print array
+#   params: 1 - array
+#   prints: formatted list (newline-delimited)
+#   return: nil
+#   invoke: dnPrintArray "${foo[@]}"
+# fn_tag dnPrintArray purpose Displays formatted array on STDOUT
+# fn_tag dnPrintArray prints Formatted array
+# fn_tag dnPrintArray returns NIL
+# fn_tag dnPrintArray note Array items are numbered with one per line
+# fn_tag dnPrintArray usage dnPrintArray "${foo[@]}"
+# fn_tag dnPrintArray param array purpose Array to format
+# fn_tag dnPrintArray param array required yes
+# fn_tag dnPrintArray param array multipart yes
+# fn_tag dnPrintArray param array type string
+dnPrintArray () {
+	local index=0 spacer= output=
+	while [ ${#} -gt 0 ] ; do
+		# prepend space if index < 10 to right justify up to 99
+		[ $( dnStrLen "${index}" ) -eq 1 ] && spacer=' ' || spacer=''
+		# faster output if load variable and output once
+		output="${output} \"${spacer}${index}: '${1}'\""
+		shift
+		index=$( dnIncrement "${index}" )
+	done
+	eval dnInfo ${output}  # need eval to avoid problems with single quotes
+}
+# Function: dnPrintArrayStderr                                       {{{1
+# Print array to stderr
+#   params: 1 - array
+#   prints: formatted list (newline-delimited)
+#   return: nil
+#   invoke: dnPrintArrayStderr "${foo[@]}"
+# fn_tag dnPrintArrayStderr purpose Displays formatted array on STDERR
+# fn_tag dnPrintArrayStderr prints Formatted array
+# fn_tag dnPrintArrayStderr returns NIL
+# fn_tag dnPrintArrayStderr note Array items are numbered with one per line
+# fn_tag dnPrintArrayStderr usage dnPrintArray "${foo[@]}"
+# fn_tag dnPrintArrayStderr param array purpose Array to format
+# fn_tag dnPrintArrayStderr param array required yes
+# fn_tag dnPrintArrayStderr param array multipart yes
+# fn_tag dnPrintArrayStderr param array type string
+dnPrintArrayStderr () {
+	local index=0 spacer= output=
+	while [ ${#} -gt 0 ] ; do
+		# prepend space if index < 10 to right justify up to 99
+		[ $( dnStrLen "${index}" ) -eq 1 ] && spacer=' ' || spacer=''
+		# faster output if load variable and output once
+		output="${output} \"${spacer}${index}: '${1}'\""
+		shift
+		index=$( dnIncrement "${index}" )
+	done
+	eval dnInfoStderr ${output}  # need eval to avoid single quotes problems
+}
+# Function: dnOutputArray                                            {{{1
+# Output array for capture into receiving array
+#   params: 1+ - array elements
+#   prints: single-quote-delimited array elements
+#   return: nil
+#   usage:  eval new_array=( dnOutputArray "${old_array[@]}" )
+#   notes:  any quote marks, including apostrophes ('), will be stripped out
+#           this function is rarely called directly but used by other fns
+#           it is vital to use 'eval' for line
+# fn_tag dnOutputArray purpose Output array in form suitable for capture into another array
+# fn_tag dnOutputArray prints Altered array
+# fn_tag dnOutputArray returns NIL
+# fn_tag dnOutputArray note All quote marks in array items, including apostrophes (') will be stripped
+# fn_tag dnOutputArray note It is vital that 'eval' be used when calling function
+# fn_tag dnOutputArray usage eval new_array=( dnOutputArray "${old_array[@]}" )
+# fn_tag dnOutputArray param array purpose Input array to be altered and output
+# fn_tag dnOutputArray param array required yes
+# fn_tag dnOutputArray param array multipart yes
+# fn_tag dnOutputArray param array type string
+dnOutputArray () {
+	local output=
+	while [ ${#} -gt 0 ]; do
+		output="${output} '$( dnStripQuotes "${1}" )'"
+		shift
+	done
+	echo ${output}
+}
+# Function: dnArrayToNullDelimitedString                             {{{1
+# Output array contents as a null-delimited string
+#   params: 1+ - array elements
+#   prints: null-delimited array elements
+#   return: nil
+#   usage:  eval string=( dnArrayToNullDelimitedString "${array[@]}" )
+#   notes:  it is vital to use 'eval' for line
+# fn_tag dnArrayToNullDelimitedString purpose Output array contents as a null-delimited string
+# fn_tag dnArrayToNullDelimitedString prints Null-delimited array elements
+# fn_tag dnArrayToNullDelimitedString returns NIL
+# fn_tag dnArrayToNullDelimitedString usage eval string=( dnArrayToNullDelimitedString "${array[@]}" )
+# fn_tag dnArrayToNullDelimitedString note It is vital to use 'eval' when setting variable using this function
+# fn_tag dnArrayToNullDelimitedString param elements purpose Array elements to concatenate
+# fn_tag dnArrayToNullDelimitedString param elements required yes
+# fn_tag dnArrayToNullDelimitedString param elements multipart yes
+# fn_tag dnArrayToNullDelimitedString param elements type string
+dnArrayToNullDelimitedString () {
+	local output=
+	while [ ${#} -gt 0 ]; do
+		output="${output} '$( dnStripQuotes "${1}" )'"
+		shift
+	done
+	echo ${output}
+}
+# Function: dnElementInArray                                         {{{1
+# Determine whether string present in array
+#   params: 1  - element
+#           2+ - array elements
+#   prints: nil
+#   return: boolean (0=present|1=not present)
+#   usage:  if dnElementInArray "${element}" "${array[@]}" ; then ...
+# fn_tag dnElementInArray purpose Determine whether element present in array
+# fn_tag dnElementInArray prints NIL
+# fn_tag dnElementInArray returns Whether element in array (Boolean)
+# fn_tag dnElementInArray usage if dnElementInArray "${element}" "${array[@]}" ; then ...
+# fn_tag dnElementInArray param element purpose Array element to search for
+# fn_tag dnElementInArray param element required yes
+# fn_tag dnElementInArray param element multipart no
+# fn_tag dnElementInArray param element type string
+# fn_tag dnElementInArray param array purpose Array to search
+# fn_tag dnElementInArray param array required yes
+# fn_tag dnElementInArray param array multipart yes
+# fn_tag dnElementInArray param array type string
+dnElementInArray () {
+	[ ${#} -gt 0 ] || return 1  # sanity check
+	local element="${1}"
+	shift
+	while [ "${#}" -gt 0 ] ; do  # loop through array elements
+		[ "${1}" = "${element}" ] && return 0
+		shift
+	done
+	return 1
+}
+# Function: dnPositionInArray                                        {{{1
+# Find first matching element in array and return element index
+#   params: 1  - element (raw element, NOT regex or wildcards)
+#           2+ - array elements
+#   prints: array index of first matching element
+#   return: boolean (0=found position|1=position not found)
+#   usage:  index=$( dnElementInArray "${element}" "${array[@]}" )
+# fn_tag dnPositionInArray purpose Determine index of first matching array element
+# fn_tag dnPositionInArray prints Index of first matching array element, empty string if no match
+# fn_tag dnPositionInArray returns Whether matching element found (Boolean)
+# fn_tag dnPositionInArray usage index=$( dnElementInArray "${element}" "${array[@]}" )
+# fn_tag dnPositionInArray param element purpose Element to search for
+# fn_tag dnPositionInArray param element required yes
+# fn_tag dnPositionInArray param element multipart no
+# fn_tag dnPositionInArray param element type string
+# fn_tag dnPositionInArray param element note Raw text, no regex or wildcards
+# fn_tag dnPositionInArray param array purpose Array to search
+# fn_tag dnPositionInArray param array required yes
+# fn_tag dnPositionInArray param array multipart yes
+# fn_tag dnPositionInArray param array type string
+dnPositionInArray () {
+	# set and check variables
+	# - process args
+	[ ${#} -gt 0 ] || return 1
+	local match_value="${1}"
+	shift
+	# - vars
+	local retval=1 loop=0 match_position=
+	# loop through array looking for match
+	for element in "${@}"; do
+        ((loop++))
+		if [ "${match_value}" = "${element}" ] ; then
+            match_position=$loop
+			retval=0
+			break
+		fi
+	done
+	# report results
+	echo "${match_position}"
+	return ${retval}
+}
+# Function: dnMakeUniqueArrayElement                                 {{{1
+# Return unique element by appending '_(x)' where 'x' is an integer
+#   params: 1  - element (raw element, NOT regex or wildcards)
+#           2+ - array elements
+#   prints: unique element
+#   return: nil
+#   usage:  array[${#array[*]}]="$( dnMakeUniqueArrayElement \
+#                                   "${element}" "${array[@]}" )"
+# fn_tag dnMakeUniqueArrayElement purpose Ensure element would be unique in array
+# fn_tag dnMakeUniqueArrayElement prints Unique element
+# fn_tag dnMakeUniqueArrayElement returns NIL
+# fn_tag dnMakeUniqueArrayElement usage array[${#array[*]}]="$( dnMakeUniqueArrayElement \
+# fn_tag dnMakeUniqueArrayElement usage \t\t\t\t\t\t"${element}" "${array[@]}" )"
+# fn_tag dnMakeUniqueArrayElement note Makes unique by appending '_(x)' where 'x' is lowest possible integer
+# fn_tag dnMakeUniqueArrayElement param element purpose Element to make unique
+# fn_tag dnMakeUniqueArrayElement param element required yes
+# fn_tag dnMakeUniqueArrayElement param element multipart no
+# fn_tag dnMakeUniqueArrayElement param element type string
+# fn_tag dnMakeUniqueArrayElement param array purpose Array within which element would have to be unique
+# fn_tag dnMakeUniqueArrayElement param array required yes
+# fn_tag dnMakeUniqueArrayElement param array multipart yes
+# fn_tag dnMakeUniqueArrayElement param array type string
+dnMakeUniqueArrayElement () {
+	# set and check variables
+	# - sanity checks
+	[ ${#} -gt 0 ] || return 1
+	local element="${1}"
+	shift
+	if ! dnElementInArray "${element}" "${@}" ; then
+		echo "${element}"
+		return
+	fi
+	# - array
+	local -a array
+    #array=( "${@}" )
+    for item in "${@}" ; do
+        array+=( "${item}" )
+        #array=( "${array[@]}" "${item}" )
+    done
+	# - miscellaneous
+	local got_unique=1 unique_element= index=1  # after increment starts at 2
+	# append incrementing number until get a match
+	while ! dnFlagTrue "${got_unique}" ; do
+		index=$( dnIncrement ${index} )
+		unique_element="${element}_(${index})"
+		dnElementInArray "${unique_element}" "${array[@]}" || got_unique=0
+	done
+	# report results
+	echo "${unique_element}"
+}
+# Function: dnAlphaSortArray                                         {{{1
+# Return sorted array (ascending alpha-sort)
+#   params: 1+ - array elements
+#   prints: sorted array elements
+#   return: nil
+#   usage:  eval sorted=( $( dnAlphaSortArray "${unsorted[@]}" ) )
+#   notes:  any quote marks, including apostrophes ('), will be stripped out
+#           it is vital to use 'eval' when calling function
+# fn_tag dnAlphaSortArray purpose Sort arrays elements on ascending alpha sort
+# fn_tag dnAlphaSortArray prints Sorted array
+# fn_tag dnAlphaSortArray returns NIL
+# fn_tag dnAlphaSortArray note It is vital that 'eval' be used when calling function
+# fn_tag dnAlphaSortArray note Any quote marks in array elements will be stripped
+# fn_tag dnAlphaSortArray usage eval sorted=( $( dnAlphaSortArray "${unsorted[@]}" ) )
+# fn_tag dnAlphaSortArray param array purpose Array to be sorted
+# fn_tag dnAlphaSortArray param array required yes
+# fn_tag dnAlphaSortArray param array multipart yes
+# fn_tag dnAlphaSortArray param array type string
+dnAlphaSortArray () {
+	# set and check variables
+	# - sanity checks
+	[ ${#} -le 1 ] && echo "${@}" && return
+	# - other
+	local -a array=( "${@}" )
+	local temp= sorted= i= j=
+	# bubble sort until no swaps
+	while ! dnFlagTrue ${sorted} ; do
+		sorted=0
+		for (( j=1 ; j<${#array[*]} ; j++ )) ; do
+			i=$( dnDecrement ${j} )
+			if dnStringGreaterThan "${array[${i}]}" "${array[${j}]}" ; then
+				sorted=1
+				temp="${array[${j}]}"
+				array[${j}]="${array[${i}]}"
+				array[${i}]="${temp}"
+			fi
+		done
+	done
+	# report results
+	dnOutputArray "${array[@]}"
+}
+# Function: dnAlphaSortDualArrays                                    {{{1
+# Return sorted secondary array (ascending alpha-sort)
+#   params: 1+ - primary (sorting) array elements
+#           n  - '^' -- caret demarcates between arrays
+#           n+ - secondary array elements
+#   prints: secondary array (sorted on primary array)
+#   return: boolean (0=able to sort|1=unable to sort)
+#   usage:  eval sorted=( $( dnAlphaSortDualArrays "${primary[@]}" '^' "${secondary[@]}" ) )
+#   notes:  any quote marks, including apostrophes ('), will be stripped out
+#           singleton caret element is reserved
+#           it is vital to use 'eval' when calling function
+#           when sorting multiple arrays make sure to sort primary key last
+# fn_tag dnAlphaSortDualArrays purpose Sort one array based on values in another array
+# fn_tag dnAlphaSortDualArrays prints Reordered secondary array
+# fn_tag dnAlphaSortDualArrays returns Whether able to sort secondary array (Boolean)
+# fn_tag dnAlphaSortDualArrays note Primary array elements are sorted by ascending alpha sort
+# fn_tag dnAlphaSortDualArrays note Secondary array elements are reordered in same index sequence as sorted primary array elements
+# fn_tag dnAlphaSortDualArrays note Unpredictable results can occur if arrays are of different lengths
+# fn_tag dnAlphaSortDualArrays note Caret character is reserved and cannot be used in either array
+# fn_tag dnAlphaSortDualArrays note All quote marks will be stripped from array elements
+# fn_tag dnAlphaSortDualArrays note It is vital to use 'eval' when calling function
+# fn_tag dnAlphaSortDualArrays usage eval sorted=( $( dnAlphaSortDualArrays "${primary[@]}" '^' "${secondary[@]}" ) )
+# fn_tag dnAlphaSortDualArrays param primary purpose Primary array (to provide sort order)
+# fn_tag dnAlphaSortDualArrays param primary required yes
+# fn_tag dnAlphaSortDualArrays param primary multipart yes
+# fn_tag dnAlphaSortDualArrays param primary type string
+# fn_tag dnAlphaSortDualArrays param separator purpose Marker separating primary and secondary arrays
+# fn_tag dnAlphaSortDualArrays param separator required yes
+# fn_tag dnAlphaSortDualArrays param separator multipart no
+# fn_tag dnAlphaSortDualArrays param separator type string
+# fn_tag dnAlphaSortDualArrays param separator value ^
+# fn_tag dnAlphaSortDualArrays param separator default ^
+# fn_tag dnAlphaSortDualArrays param separator note Must be = '^'
+# fn_tag dnAlphaSortDualArrays param secondary purpose Secondary array (to be reordered)
+# fn_tag dnAlphaSortDualArrays param secondary required yes
+# fn_tag dnAlphaSortDualArrays param secondary multipart yes
+# fn_tag dnAlphaSortDualArrays param secondary type string
+#dnAlphaSortDualArrays () {
+#	# set and check variables
+#	# - sanity checks
+#	dnElementInArray '^' "${@}" || return 1
+#	# - load arrays (caret separates arrays)
+#	local -a key
+#	local -a sort
+#	# - key array first
+#	while [ "${1}" != '^' ] ; do key[${#key[*]}]="${1}" ; shift ; done
+#	shift
+#	# - then sort array
+#	while [ ${#} -gt 0 ] ; do sort[${#sort[*]}]="${1}" ; shift ; done
+#	# - deal with small arrays and error check
+#	[ ${#key[*]} -eq ${#sort[*]} ] || return 1
+#	[ ${#key[*]} -eq 1 ] && echo "'${key[0]}'" && return 0
+#	[ ${#key[*]} -eq 0 ] && return 1
+#	# - other variables
+#	local temp= sorted= i= j= output=
+#	# bubble sort until no swaps
+#	while ! dnFlagTrue ${sorted} ; do
+#		sorted=0
+#		for (( j=1 ; j<${#key[*]} ; j++ )) ; do
+#			i=$( dnDecrement ${j} )
+#			if dnStringGreaterThan "${key[${i}]}" "${key[${j}]}" ; then
+#				sorted=1
+#				# swap in key array
+#				temp="${key[${j}]}"
+#				key[${j}]="${key[${i}]}"
+#				key[${i}]="${temp}"
+#				# swap in sort array
+#				temp="${sort[${j}]}"
+#				sort[${j}]="${sort[${i}]}"
+#				sort[${i}]="${temp}"
+#			fi
+#		done
+#	done
+#	# report results
+#	dnOutputArray "${sort[@]}"
+#}
+# Function: dnUseArray                                               {{{1
+# Utility array assisting in passing arrays from functions
+#   params: 1 - name of array variable
+#   prints: array definition
+#   return: nil
+#   usage:  returnsArray () {
+#               local -a my_array=( "first item" "second item" )
+#               dnUseArray my_array
+#           }
+#           eval declare -a array_var="$( returnsArray )"
+#   note:   cannot use to append arrays like `a1+=$( use_array a2 )`
+#           because values at matching array indices merge instead of
+#           pushing them all on the array; so just use for returning
+#           arrays
+#   note:   technique taken from user smhmic, who based his answer on
+#           that of Dennis Williamson, at internet site stackoverflow:
+#           http://stackoverflow.com/questions/10582763/\
+#           how-to-return-an-array-in-bash-without-using-globals
+# fn_tag dnUseArray purpose Assist in passing/returning arrays from function
+# fn_tag dnUseArray prints Array contents
+# fn_tag dnUseArray returns NIL
+# fn_tag dnUseArray usage returnsArray () {
+# fn_tag dnUseArray usage     local -a my_array=( "first item" "second item" )
+# fn_tag dnUseArray usage     dnUseArray my_array
+# fn_tag dnUseArray usage }
+# fn_tag dnUseArray usage eval declare -a array_var="$( returnsArray )"
+# fn_tag dnUseArray note Cannot use to append arrays like `a1+=$( use_array a2 )`
+# fn_tag dnUseArray note Use only for returning arrays
+# fn_tag dnUseArray param varname purpose Name of array variable being passed
+# fn_tag dnUseArray param varname required yes
+# fn_tag dnUseArray param varname multipart no
+# fn_tag dnUseArray param varname type string
+# fn_tag dnUseArray param varname note Variable NAME, rather than value, is passed
+dnUseArray () {
+    local r=$( declare -p $1 )
+    r=${r#declare\ -a\ *=}
+    echo ${r//\[[0-9]\]=}
+}
+# Function: dnSplitStringIntoArray                                   {{{1
+# Utility array splitting string into an array
+#   params: 1 - string [string]
+#           2 - delimiter <optional> <default=_> [string]
+#   prints: array definition
+#   return: nil
+#   usage:  eval declare -a array_var="$( dnSplitStringIntoArray "my_data" )"
+# fn_tag dnSplitStringIntoArray purpose Split a string into an array
+# fn_tag dnSplitStringIntoArray prints array definition
+# fn_tag dnSplitStringIntoArray returns NIL
+# fn_tag dnSplitStringIntoArray usage eval declare -a array_var="$( dnSplitStringIntoArray "my_data" )"
+# fn_tag dnSplitStringIntoArray note Requires function 'dnUseArray'
+# fn_tag dnSplitStringIntoArray param string purpose String to be split into array elements
+# fn_tag dnSplitStringIntoArray param string required yes
+# fn_tag dnSplitStringIntoArray param string multipart no
+# fn_tag dnSplitStringIntoArray param string type string
+# fn_tag dnSplitStringIntoArray param delimiter purpose Character(s) separating elements
+# fn_tag dnSplitStringIntoArray param delimiter required no
+# fn_tag dnSplitStringIntoArray param delimiter multipart no
+# fn_tag dnSplitStringIntoArray param delimiter type string
+# fn_tag dnSplitStringIntoArray param delimiter default _
+dnSplitStringIntoArray () {
+    # variables
+    local string="${1}" local delim="${2:-"_"}" count=0 i=
+    local -a array
+    # loop through string
+	count=$( echo "${string}" | awk -F "${delim}" '{ print NF }' )
+	for (( i=1 ; i <= ${count} ; i++ )) ; do
+		array[${#array[@]}]="$( echo "${string}" \
+                                | awk -v EN=${i} \
+                                      -F "${delim}" \
+                                      '{ print $EN }' \
+        )"
+	done
+    # return array
+    dnUseArray array
+}
+
+# }}}1
+
+# vim: set foldmethod=marker :

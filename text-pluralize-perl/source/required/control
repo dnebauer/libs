@@ -1,0 +1,17 @@
+Source: libtext-pluralize-perl
+Section: perl
+Priority: optional
+Maintainer: David Nebauer <david@hezmana.cogito.loc>
+Build-Depends: debhelper-compat (= 13)
+Build-Depends-Indep: perl
+Standards-Version: 3.9.7
+Homepage: https://metacpan.org/release/Text-Pluralize
+
+Package: libtext-pluralize-perl
+Architecture: all
+Depends: ${misc:Depends}, ${perl:Depends}
+Description: simple pluralization routine
+ Text::Pluralize provides a lightweight routine to produce the proper form,
+ singular or plural, of a word or phrase. Its intended purpose is to produce
+ messages for the user, whether error messages or informational messages,
+ without the awkward "1 file(s) copied" appearance.

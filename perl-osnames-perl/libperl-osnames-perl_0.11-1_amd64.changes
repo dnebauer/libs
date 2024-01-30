@@ -1,0 +1,31 @@
+Format: 1.8
+Date: Thu, 16 Apr 2015 23:17:11 +0930
+Source: libperl-osnames-perl
+Binary: libperl-osnames-perl
+Architecture: source all
+Version: 0.11-1
+Distribution: unstable
+Urgency: low
+Maintainer: David Nebauer <david@hezmana.cogito.loc>
+Changed-By: David Nebauer <david@hezmana.cogito.loc>
+Description:
+ libperl-osnames-perl - List possible $^O ($OSNAME) values, with description
+Changes:
+ libperl-osnames-perl (0.11-1) unstable; urgency=low
+ .
+   * Initial Release.
+Checksums-Sha1:
+ 2eb46fdf3f53097444ee9352181b1286ba5dd31f 974 libperl-osnames-perl_0.11-1.dsc
+ 372b5003ff78e8cba485f09646d6481dbcd7be11 14583 libperl-osnames-perl_0.11.orig.tar.gz
+ 193f03782f6a1e4f7eacd94764ccbf4b74e5190b 1624 libperl-osnames-perl_0.11-1.debian.tar.xz
+ e99ae647a36f69203f02952eca198bbd15135d70 8296 libperl-osnames-perl_0.11-1_all.deb
+Checksums-Sha256:
+ a4de1fd99cb277f1e78612b1486d86b46361a8d8d14c021c259b820d8831d1db 974 libperl-osnames-perl_0.11-1.dsc
+ fb22a1ed59dc2311f7f1ffca5685d90c0600020467f624f57b4dd3dba5bc659b 14583 libperl-osnames-perl_0.11.orig.tar.gz
+ 60d2faafe0e30160d4e22cee3810e1f817c446140c3202bfdcbd3f8d00c60c3e 1624 libperl-osnames-perl_0.11-1.debian.tar.xz
+ 7e257b8649e57dbb569c4e5ab14ba533dbd102fe1b9028223b3e6797dcf86fa0 8296 libperl-osnames-perl_0.11-1_all.deb
+Files:
+ d717222d9cf3010dfed4a08959a6be88 974 perl optional libperl-osnames-perl_0.11-1.dsc
+ 43a842825d93e9da7e83236567c4b194 14583 perl optional libperl-osnames-perl_0.11.orig.tar.gz
+ 7d65ebb2ff9bb93a3a57b6355fe54089 1624 perl optional libperl-osnames-perl_0.11-1.debian.tar.xz
+ bc8c1c3991b53e9ce86440a1ffb6f876 8296 perl optional libperl-osnames-perl_0.11-1_all.deb

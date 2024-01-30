@@ -1,0 +1,16 @@
+requires 'perl', '5.022001';
+requires 'Function::Parameters', '1.0703';
+requires 'IO::Interactive', '1.021';
+requires 'IO::Prompter', '0.004014';
+requires 'Moo', '2.000002';
+requires 'namespace::clean', '0.26';
+requires 'Readonly', '2';
+requires 'strictures', '2.000002';
+requires 'Term::ReadKey', '2.33';
+requires 'version', '0.9916';
+
+# requires 'Some::Module', 'VERSION';
+
+on test => sub {
+    requires 'Test::More', '0.96';
+};

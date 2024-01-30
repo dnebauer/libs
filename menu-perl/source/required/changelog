@@ -1,0 +1,13 @@
+libdn-menu-perl (0.1-2) UNRELEASED; urgency=low
+
+  * Move Curses::Widgets::ListBox::DnListBox to own package
+
+ -- David Nebauer <david@nebauer.org>  Sat, 30 Oct 2021 13:45:00 +0930
+
+libdn-menu-perl (0.1-1) unstable; urgency=low
+
+  * Local package
+  * Initial release
+  * Closes: 4101
+
+ -- David Nebauer <david@nebauer.org>  Sat, 15 Oct 2016 21:23:56 +0930

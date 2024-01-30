@@ -1,0 +1,60 @@
+Source: libdn-images-extractpdfpages-perl
+Section: perl
+Priority: optional
+Maintainer: David Nebauer <david@nebauer.org>
+Build-Depends: debhelper-compat (= 13),
+               libmodule-build-perl,
+               perl
+Build-Depends-Indep: librole-utils-dn-perl (>= 0.1-1),
+                     libfunction-parameters-perl (>= 1.0705),
+                     liblist-moreutils-perl (>= 0.416),
+                     libmodule-build-tiny-perl (>= 0.034),
+                     libmoo-perl (>= 2.002005),
+                     libmoox-handlesvia-perl (>= 0.001008),
+                     libmoox-options-perl (>= 4.023),
+                     libnamespace-clean-perl (>= 0.27),
+                     libpdf-api2-perl (>= 2.030),
+                     libreadonly-perl (>= 2.05),
+                     libstrictures-perl (>= 2.000003),
+                     libterm-progressbar-simple-perl (>= 0.03),
+                     libtry-tiny-perl (>= 0.28),
+                     libtype-tiny-perl (>= 1.000005),
+                     libtypes-path-tiny-perl (>= 0.005)
+Standards-Version: 3.9.8
+Homepage: https://metacpan.org/release/Dn-Images-ExtractPdfPages
+
+Package: libdn-images-extractpdfpages-perl
+Architecture: all
+Depends: ${misc:Depends}, ${perl:Depends},
+         librole-utils-dn-perl (>= 0.1-1),
+         libfunction-parameters-perl (>= 1.0705),
+         liblist-moreutils-perl (>= 0.416),
+         libmoo-perl (>= 2.002005),
+         libmoox-handlesvia-perl (>= 0.001008),
+         libmoox-options-perl (>= 4.023),
+         libnamespace-clean-perl (>= 0.27),
+         libpdf-api2-perl (>= 2.030),
+         libreadonly-perl (>= 2.05),
+         libstrictures-perl (>= 2.000003),
+         libterm-progressbar-simple-perl (>= 0.03),
+         libtry-tiny-perl (>= 0.28),
+         libtype-tiny-perl (>= 1.000005),
+         libtypes-path-tiny-perl (>= 0.005),
+         perl (>= 5.23.9)
+Description: extract pdf pages as images
+ Takes a set of pdf files and extracts each page as a png image file. All
+ output files are created in the current directory, overwriting any files of
+ the same name.
+ .
+ The created image files have the same base name as their parent pdf files,
+ with an added page number. The page numbers are left-zero-padded so as to
+ have a uniform width, enabling correct sorting order. For example, the
+ 13-page pdf file my-stuff.pdf will give rise to 13 image files, including
+ my-stuff_03.png and my-stuff_12.png.
+ .
+ Since multiple input filepaths can have the same file name, and all output
+ file names are derived from the parent pdf file name, and all output files
+ are written to the current directory, and existing output files are silently
+ overwritten, having multiple input filepaths with identical file names is
+ problematic. For that reason, the extract_images method will abort if it
+ detects multiple input filepaths with identical file names.

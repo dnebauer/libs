@@ -1,0 +1,8 @@
+Revision history for Dn-Images-Resize
+
+v0.2
+    Remove dependency on Dn::Role::Has[Path|Number...] modules
+    Replease with dependency on Role::Utils::Dn module
+
+v0.1
+    Initial release

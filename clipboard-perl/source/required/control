@@ -1,0 +1,24 @@
+Source: libclipboard-perl
+Section: perl
+Priority: optional
+Maintainer: David Nebauer <david@nebauer.org>
+Build-Depends: debhelper-compat (= 13)
+Build-Depends-Indep: perl
+Standards-Version: 4.6.0
+Homepage: https://metacpan.org/release/Clipboard
+
+Package: libclipboard-perl
+Architecture: all
+Depends: ${misc:Depends}, ${perl:Depends}
+Description: Cliboard - Copy and Paste with any OS
+ Who doesn't remember the first time they learned to copy
+ and paste, and generated an exponentially growing text
+ document? Yes, that's right, clipboards are magical.
+ .
+ With Clipboard.pm, this magic is now trivial to access,
+ in a cross-platform-consistent API, from your Perl code.
+ .
+ Seems to be working well for Linux, OSX, *BSD, and
+ Windows. I use it every day on Linux, so I think I've got
+ most of the details hammered out (X selections are kind
+ of weird).

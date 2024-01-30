@@ -1,0 +1,22 @@
+requires 'perl', '5.008005';
+requires 'autodie', '2.29';
+requires 'Carp', '1.40';
+requires 'Dn::Role::HasImage', '0.1';
+requires 'Dn::Role::HasNumber', '0.1';
+requires 'Dn::Role::HasPath', '0.1';
+requires 'English', '1.10';
+requires 'Function::Parameters', '1.0705';
+requires 'Getopt::Long::Descriptive', '0.100';
+requires 'List::MoreUtils', '0.416';
+requires 'Moo', '2.002005';
+requires 'MooX::HandlesVia', '0.001008';
+requires 'namespace::clean', '0.27';
+requires 'Readonly', '2.05';
+requires 'strictures', '2.000003';
+requires 'Term::ProgressBar::Simple', '0.03';
+requires 'Types::Standard', '1.000005';
+requires 'version';
+
+on test => sub {
+    requires 'Test::More', '0.96';
+};

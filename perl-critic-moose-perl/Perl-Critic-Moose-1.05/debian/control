@@ -1,0 +1,28 @@
+Source: libperl-critic-moose-perl
+Maintainer: David Nebauer <david@hezmana.cogito.ergo.sum>
+Section: perl
+Priority: optional
+Build-Depends: debhelper-compat (= 13)
+Build-Depends-Indep: libnamespace-autoclean-perl <!nocheck>,
+                     libperl-critic-perl <!nocheck>,
+                     libreadonly-perl <!nocheck>,
+                     libtest-simple-perl <!nocheck>,
+                     perl
+Standards-Version: 4.5.0
+Homepage: https://metacpan.org/release/Perl-Critic-Moose
+Rules-Requires-Root: no
+
+Package: libperl-critic-moose-perl
+Architecture: all
+Depends: ${misc:Depends},
+         ${perl:Depends},
+         libnamespace-autoclean-perl,
+         libperl-critic-perl,
+         libreadonly-perl
+Description: Policies for Perl::Critic concerned with using Moose
+ Some Perl::Critic policies that will help you keep your code in good shape
+ with regards to Moose.
+ .
+ The included policies are:
+ .
+ This description was automagically extracted from the module by dh-make-perl.

@@ -1,0 +1,33 @@
+requires 'perl', '5.008005';
+
+requires 'autodie', '2.29';
+requires 'Carp', '1.40';
+requires 'Cwd', '3.6301';
+requires 'Dn::Role', 'v0.1';
+requires 'Dn::Role::HasArray', 'v0.1';
+requires 'Dn::Role::HasImage', 'v0.1';
+requires 'Dn::Role::HasNumber', 'v0.1';
+requires 'Dn::Role::HasPath', 'v0.1';
+requires 'Dn::Role::HasUserInteraction', 'v0.1';
+requires 'English', '1.10';
+requires 'experimental', '0.016';
+requires 'Function::Parameters', '1.0705';
+requires 'Image::Magick';
+requires 'List::MoreUtils', '0.416';
+requires 'Moo', '2.002005';
+requires 'MooX::HandlesVia', '0.001008';
+requires 'MooX::Options', '4.023';
+requires 'namespace::clean', '0.27';
+requires 'PDF::API2', '2.030';
+requires 'Readonly', '2.05';
+requires 'Scalar::Util', '1.47';
+requires 'strictures', '2.000003';
+requires 'Term::ProgressBar::Simple', '0.03';
+requires 'Try::Tiny', '0.28';
+requires 'Types::Standard', '1.000005';
+requires 'version';
+requires 'YAML::Tiny', '1.70';
+
+on test => sub {
+    requires 'Test::More', '0.96';
+};

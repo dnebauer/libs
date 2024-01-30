@@ -1,0 +1,43 @@
+Source: libdncommon-bash
+Section: utils
+Priority: optional
+Maintainer: David Nebauer <david@nebauer.org>
+Build-Depends: debhelper-compat (= 13),
+ autotools-dev,
+ libdn-commonbash-perl (>= 0.1-1),
+ dpkg-dev (>= 1.16.12)
+Standards-Version: 4.6.0
+
+Package: libdncommon-bash
+Architecture: amd64
+Depends: ${shlibs:Depends}, ${misc:Depends},
+ bsdutils (>= 1:2.17.2-5),
+ coreutils (>= 8.5-1),
+ debianutils (>= 3.4),
+ dvd+rw-tools (>= 7.1-6),
+ dvdbackup (>= 0.4.1-1),
+ eject (>= 2.1.5+deb1+cvs20081104-7.1),
+ ffmpeg (>= 5:0.6.1+svn20101128-0.1),
+ genisoimage (>= 9:1.1.11-1),
+ grep (>= 2.6.3-3),
+ imagemagick (>= 8:6.6.0.4-3),
+ iputils-ping (>= 3:20100418-3),
+ konsole (>= 4:3.5.9.dfsg.1-2+b1),
+ libdncommon-vars (>= 1.8-1),
+ libfile-mimeinfo-perl (>= 0.27-1),
+ mencoder (>= 2:1.0~rc3++svn20100804-0.1),
+ mount (>= 2.17.2-5),
+ openssh-client (>= 1:5.5p1-6),
+ perl (>= 5.20.2-6),
+ procps (>= 1:3.2.8-9),
+ qtchooser (>= 66-2),
+ sed (>= 4.2.1-7),
+ sox (>= 14.3.1-1+b1),
+ subversion (>= 1.6.12dfsg-2),
+ tar (>= 1.23-3),
+ xine-ui (>= 0.99.6-1) | kaffeine (>= 1.0-2) | mplayer (>= 2:1.0~rc3++svn20100804-0.1),
+ zenity (>= 2.30.0-1) | kdialog (>= 4:17.08.3-2) | dialog (>= 1.1-20100428-1)
+Description: Common dn bash routines
+ These are common bash routines.
+ There is one master library file that sources subsidiary
+ library files.

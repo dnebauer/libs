@@ -1,0 +1,194 @@
+#!/usr/bin/perl
+
+use Moo;    #                                                          {{{1
+use strictures 2;
+use 5.006;
+use 5.22.1;
+use version; our $VERSION = qv('0.1');
+use namespace::clean;    #                                             }}}1
+
+{
+
+    package Dn::Internal;
+
+    use Moo;    # {{{1
+    use strictures 2;
+    use namespace::clean;
+    use Dn::Cards::UniquefyImages;
+    use English qw(-no_match_vars);
+    use Function::Parameters;
+    use Getopt::Long::Descriptive;
+    use List::MoreUtils qw(uniq);
+    use MooX::HandlesVia;
+    use Readonly;
+    use Types::Standard;
+
+    with qw(
+        Dn::Role::HasPath
+    );
+
+    Readonly my $TRUE  => 1;
+    Readonly my $FALSE => 0;    #                                      }}}1
+
+    # attributes
+
+    # _files                                                           {{{1
+    has '_file_list' => (
+        is          => 'lazy',
+        isa         => Types::Standard::ArrayRef [Types::Standard::Str],
+        handles_via => 'Array',
+        handles     => { _files => 'elements' },
+        doc         => 'Image files',
+    );
+
+    method _build__file_list () {
+
+        my @matches;              # get unique file names
+        for my $arg (@ARGV) { push @matches, glob "$arg"; }
+        my @unique_matches = List::MoreUtils::uniq @matches;
+        my @files = grep { $self->file_readable($_) }
+            @unique_matches;      # ignore non-files
+
+        return [@files];
+
+    }    #                                                             }}}1
+
+    # methods
+
+    # main()                                                           {{{1
+    #
+    # does:   main method
+    # params: nil
+    # prints: feedback
+    # return: n/a, dies on failure
+    method main () {
+
+        # print usage message if help requested
+        $self->_usage;
+
+        # uniquefy images
+        my $uniquefy = Dn::Cards::UniquefyImages->new(
+            image_files => [ $self->_files ], );
+        return $uniquefy->uniquefy_images;
+    }
+
+    # _usage()                                                         {{{1
+    #
+    # does:   print usage message if requested
+    # params: nil
+    # prints: feedback
+    # return: n/a, dies on failure
+    method _usage () {
+
+        # handle args
+        my ( $opt, $usage ) = Getopt::Long::Descriptive::describe_options(
+            '%c %o <file_glob> [<file_glob> ...]',
+            [],
+            [   'help|h',
+                'print usage message and exit',
+                { shortcircuit => 1 }
+            ],
+        );
+        if ( $opt->help ) {
+            print $usage->text;
+            exit;
+        }
+
+        return;
+    }    #                                                             }}}1
+
+}
+
+my $p = Dn::Internal->new->main;
+
+1;
+
+# POD                                                                  {{{1
+
+__END__
+
+=encoding utf8
+
+=head1 NAME
+
+dn-cards-uniquefy - tweak image files to ensure each is unique
+
+=head1 USAGE
+
+B<dn-cards-uniquefy> I<glob> [I<glob> ...]
+
+B<dn-cards-uniquefy -h>
+
+=head1 REQUIRED ARGUMENTS
+
+=over
+
+=item I<glob>
+
+Glob specifying an image file or files. Specifying files other than image files
+will result in the Image::Magick module dying when it attempts to load the
+image, which also causes this script to die. Scalar string. Required.
+
+=back
+
+=head1 OPTIONS
+
+=over
+
+=item B<-h>
+
+Display help and exit.
+
+=back
+
+=head1 DESCRIPTION
+
+Process a set of image files and ensures they are unique. The original files
+are overwritten so it advisable to save copies of them before running this
+script.
+
+=head2 Overwriting files
+
+Output files are written to the current directory. Existing files of the same
+name are silently overwritten.
+
+=head2 Duplicate file names
+
+The input files are specified by file paths which can involve multiple
+directory paths. It is possible, therefor, that input image files in different
+directories could have the same file name.
+
+All output image files, by contrast, are written to the current working
+directory. Output image file names are derived from the names of their input
+("parent") image files, ignoring the input images' directories. Since there can
+be duplicate input image file names in a set of input images, there can be
+duplicate output image file names in the corresponding set of output image
+files. For that reason, the C<uniquefy_images> method will abort if it detects
+multiple input filepaths with identical file names.
+
+=head1 DEPENDENCIES
+
+=head2 Perl modules
+
+Dn::Cards::UniquefyImages, Dn::Role::HasPath, English, Function::Parameters,
+List::MoreUtils, Moo, namespace::clean, Readonly, strictures, Types::Standard,
+version.
+
+=head1 BUGS AND LIMITATIONS
+
+Please report any bugs to the author.
+
+=head1 AUTHOR
+
+David Nebauer (david at nebauer dot org)
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright (c) 2016 David Nebauer (david at nebauer dot org)
+
+This script is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut
+
+# vim:fdm=marker

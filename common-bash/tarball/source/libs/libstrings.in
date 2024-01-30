@@ -1,0 +1,939 @@
+#!/bin/bash
+
+# Suite: libdncommon-bash
+# File: libstrings
+# Author: David Nebauer
+# Purpose: Useful bash functions for dealing with strings
+
+
+# Function: dnNoSpace                                                {{{1
+# Contains space?
+#   params: 1 - string
+#   prints: nil
+#   return: 0|1+ (no space|space)
+# fn_tag dnNoSpace purpose Determine whether string contains space
+# fn_tag dnNoSpace prints NIL
+# fn_tag dnNoSpace returns Whether string contains space (Boolean)
+# fn_tag dnNoSpace note Does not test for all whitespace -- just the space character
+# fn_tag dnNoSpace param string purpose String to check
+# fn_tag dnNoSpace param string required yes
+# fn_tag dnNoSpace param string multipart no
+# fn_tag dnNoSpace param string type string
+dnNoSpace () {
+	return $( echo "${1}" | grep -c -- " " )
+}
+# Function: dnStripComment                                           {{{1
+# Strip comment from line
+#   params: 1 - line of text
+#           2 - strip trailing spaces (boolean: 0|1 = true|false, default = 0)
+#           3 - comment marker (default = '#')
+#   prints: line after comment stripped
+#   return: nil
+#   invoke: stripped="$( dnStripComment "${input}" )"
+# fn_tag dnStripComment purpose Strip comment from a line
+# fn_tag dnStripComment prints Edited string
+# fn_tag dnStripComment returns NIL
+# fn_tag dnStripComment usage stripped="$( dnStripComment "${input}" )"
+# fn_tag dnStripComment note Uses 'sed' to perform substitution
+# fn_tag dnStripComment note Problems can occur if string contains standard escape ('\')
+# fn_tag dnStripComment note Problems can occur if string contains variable token ('$')
+# fn_tag dnStripComment param line purpose Line of text to strip
+# fn_tag dnStripComment param line required yes
+# fn_tag dnStripComment param line multipart no
+# fn_tag dnStripComment param line type string
+# fn_tag dnStripComment param strip-trailing-spaces purpose Whether trailing spaces are stripped
+# fn_tag dnStripComment param strip-trailing-spaces required no
+# fn_tag dnStripComment param strip-trailing-spaces multipart no
+# fn_tag dnStripComment param strip-trailing-spaces type boolean
+# fn_tag dnStripComment param strip-trailing-spaces value 0
+# fn_tag dnStripComment param strip-trailing-spaces value 1
+# fn_tag dnStripComment param strip-trailing-spaces default 0
+# fn_tag dnStripComment param comment-marker purpose The comment marker to be stripped
+# fn_tag dnStripComment param comment-marker required no
+# fn_tag dnStripComment param comment-marker multipart no
+# fn_tag dnStripComment param comment-marker type string
+# fn_tag dnStripComment param comment-marker default #
+dnStripComment () {
+	local output="${1}" strip=0 marker="#"
+	# what comment marker do we use? (param 3)
+	[ ${#} -ge 3 -a $( echo ${3} | grep -c -- "^$" ) -ne 1 ] && marker="${3}"
+	# do we strip trailing spaces? (param 2)
+	[ ${#} -ge 2 -a $( echo ${2} | grep -c -- "^1$" ) -eq 1 ] && strip=1
+	# strip comment (sed matching is greedy so repeat until no more markers)
+	while [ $( echo ${output} | grep -c -- "${marker}" ) -ne 0 ] ; do
+		output=$( echo ${output} | sed -e "s/\(.*\)${marker}.*/\1/" )
+	done
+	# right trim if requested
+	if [ ${strip} -eq 0 ] ; then
+		output="$( echo ${output} | sed -e 's/^\(.*\) *$/\1/' )"
+	fi
+	# return result
+	echo "${output}"
+}
+# Function: dnStripLeadingZeroes                                     {{{1
+# Strip leading zeroes from integer
+#   params: 1 - integer
+#   prints: integer
+#   return: nil
+# fn_tag dnStripLeadingZeroes purpose Strip leading zeroes from an integer
+# fn_tag dnStripLeadingZeroes prints Edited integer
+# fn_tag dnStripLeadingZeroes returns NIL
+# fn_tag dnStripLeadingZeroes param integer purpose Integer to strip leading zeroes from
+# fn_tag dnStripLeadingZeroes param integer required yes
+# fn_tag dnStripLeadingZeroes param integer multipart no
+# fn_tag dnStripLeadingZeroes param integer type integer
+dnStripLeadingZeroes () {
+	if [ $( echo ${1} | grep -c "^0\+$" ) -eq 1 ] ; then echo "0"
+    #else echo "$(( 10#${1} ))"  # forces arithmetic context and base 10
+	else echo "$( echo ${1} | sed -e 's/^0\+//' )"
+	fi
+}
+# Function: dnTruncate                                               {{{1
+# Truncate string to specified length
+#   params: 1 - string
+#           2 - maximum length
+#   prints: truncated string
+#   return: nil
+# fn_tag dnTruncate purpose Truncate string at specified length
+# fn_tag dnTruncate prints Truncated string
+# fn_tag dnTruncate returns NIL
+# fn_tag dnTruncate note String is truncated at three fewer chars to allow ellipsis to be added
+# fn_tag dnTruncate param string purpose String to be truncated
+# fn_tag dnTruncate param string required yes
+# fn_tag dnTruncate param string multipart no
+# fn_tag dnTruncate param string type string
+# fn_tag dnTruncate param max_length purpose Maximum length of string before truncation occurs
+# fn_tag dnTruncate param max_length required yes
+# fn_tag dnTruncate param max_length multipart no
+# fn_tag dnTruncate param max_length type integer
+dnTruncate () {
+	# set variables
+	local str="${1}" max="${2}" len="" trunc=""
+	len=$( dnStrLen "${str}" )
+	trunc=$(( ${max} - 3 ))
+	# sanity checks
+	if [ -z "${str}" -o -z "${max}" ] ; then
+		[ -n "${str}" ] && echo "${str}"
+		return 1
+	fi
+	# determine whether truncation necessary
+	if [ ${len} -le ${max} ] ; then  # no truncation necessary
+		echo "${str}"
+	else  # have to truncate
+		echo "${str:0:${trunc}}..."
+	fi
+}
+# Function: dnStrLen                                                 {{{1
+# Length of string
+#   params: 1 - string
+#   prints: string length
+#   return: nil
+# fn_tag dnStrLen purpose Calculate string length
+# fn_tag dnStrLen prints String length
+# fn_tag dnStrLen returns NIL
+# fn_tag dnStrLen param string purpose String to measure
+# fn_tag dnStrLen param string required yes
+# fn_tag dnStrLen param string multipart no
+# fn_tag dnStrLen param string type string
+dnStrLen () { echo "$( expr length "${1}" )"; }
+# Function: dnLastChar                                               {{{1
+# Get last character from a string
+#   params: 1 - string
+#   prints: last char
+#   return: nil
+# fn_tag dnLastChar purpose Gets last character from a string
+# fn_tag dnLastChar prints Last character in string
+# fn_tag dnLastChar returns NIL
+# fn_tag dnLastChar param string purpose String to be operated on
+# fn_tag dnLastChar param string required yes
+# fn_tag dnLastChar param string multipart no
+# fn_tag dnLastChar param string type string
+dnLastChar () { echo "${1:$( dnDecrement "$( dnStrLen "${1}" )" ):1}"; }
+# Function: dnRedReverseText                                         {{{1
+# Add formatting strings to text to make it reverse red text
+#   params: 1 - text string
+#   prints: reversed red text
+#   return: nil
+# fn_tag dnRedReverseText purpose Add bash formatting codes to string to make it display in terminal as reverse red text
+# fn_tag dnRedReverseText prints Formatted string
+# fn_tag dnRedReverseText returns NIL
+# fn_tag dnRedReverseText param string purpose String to format
+# fn_tag dnRedReverseText param string required yes
+# fn_tag dnRedReverseText param string multipart no
+# fn_tag dnRedReverseText param string type string
+dnRedReverseText () { echo "${dn_fg_red}${dn_fm_reverse}${1}${dn_reset}"; }
+# Function: dnEraseText                                              {{{1
+# Erase text by backspacing
+#   params: 1 - text of equal length to erasure
+#   prints: nil
+#   return: nil
+# fn_tag dnEraseText purpose Erase text by backspacing
+# fn_tag dnEraseText prints NIL
+# fn_tag dnEraseText returns NIL
+# fn_tag dnEraseText param erase-text purpose Text of same length as erasure
+# fn_tag dnEraseText param erase-text required yes
+# fn_tag dnEraseText param erase-text multipart no
+# fn_tag dnEraseText param erase-text type string
+# fn_tag dnEraseText param erase-text note Need not be same text as that being erased
+dnEraseText () {
+	local length=$( dnStrLen "${1}" ) i=
+	for (( i=0 ; i<length ; i++ )) ; do echo -ne "\b \b" ; done
+}
+# Function: dnLeftPad                                               {{{1
+# Left pad a string
+#   params: 1 - number of characters to pad
+#           2 - string to left pad (optional, default = empty string)
+#           3 - character to pad with (optional, default = space)
+#   prints: padded string
+#   return: nil
+# fn_tag dnLeftPad purpose Left pad a string
+# fn_tag dnLeftPad prints Padded string
+# fn_tag dnLeftPad returns NIL
+# fn_tag dnLeftPad param pad-length purpose Length that string is to be padded to (i.e., target string length)
+# fn_tag dnLeftPad param pad-length required yes
+# fn_tag dnLeftPad param pad-length multipart no
+# fn_tag dnLeftPad param pad-length type integer
+# fn_tag dnLeftPad param string purpose String to be padded
+# fn_tag dnLeftPad param string required no
+# fn_tag dnLeftPad param string multipart no
+# fn_tag dnLeftPad param string type string
+# fn_tag dnLeftPad param string default empty string
+# fn_tag dnLeftPad param string note If string is longer than pad-length then supplied string printed unchanged
+# fn_tag dnLeftPad param pad-character purpose Character to pad with
+# fn_tag dnLeftPad param pad-character required no
+# fn_tag dnLeftPad param pad-character multipart no
+# fn_tag dnLeftPad param pad-character type string
+# fn_tag dnLeftPad param pad-character default <Space>
+dnLeftPad () {
+	# check params
+	local target_len=${1} string="${2:-""}" char="${3:-" "}" i=
+	local pad_len= str_len=
+	[ -z "${char}" ] && char=" "
+	char="$( echo "${char}" | sed -e s'/^\(.\).*/\1/' )"  # ensure single char
+	# determine how much to pad
+	str_len=$( dnStrLen "${string}" )
+	pad_len=$(( target_len - str_len ))
+	# pad
+	for (( i=0 ; i<${pad_len} ; i++ )) ; do
+		string="${char}${string}"
+	done
+	# done
+	echo "${string}"
+}
+# Function: dnRightPad                                               {{{1
+# Right pad a string
+#   params: 1 - number of characters to pad
+#           2 - string to right pad (optional, default = empty string)
+#           3 - character to pad with (optional, default = space)
+#   prints: padded string
+#   return: nil
+# fn_tag dnRightPad purpose Right pad a string
+# fn_tag dnRightPad prints Padded string
+# fn_tag dnRightPad returns NIL
+# fn_tag dnRightPad param pad-length purpose Length that string is to be padded to (i.e., target string length)
+# fn_tag dnRightPad param pad-length required yes
+# fn_tag dnRightPad param pad-length multipart no
+# fn_tag dnRightPad param pad-length type integer
+# fn_tag dnRightPad param string purpose String to be padded
+# fn_tag dnRightPad param string required no
+# fn_tag dnRightPad param string multipart no
+# fn_tag dnRightPad param string type string
+# fn_tag dnRightPad param string default empty string
+# fn_tag dnRightPad param string note If string is longer than pad-length then supplied string printed unchanged
+# fn_tag dnRightPad param pad-character purpose Character to pad with
+# fn_tag dnRightPad param pad-character required no
+# fn_tag dnRightPad param pad-character multipart no
+# fn_tag dnRightPad param pad-character type string
+# fn_tag dnRightPad param pad-character default <Space>
+dnRightPad () {
+	# check params
+	local target_len=${1} string="${2:-""}" char="${3:-" "}" i=
+	local pad_len= str_len=
+	[ -z "${char}" ] && char=' '
+	char="$( echo "${char}" | sed -e s'/^\(.\).*/\1/' )"  # ensure single char
+	# determine how much to pad
+	str_len=$( dnStrLen "${string}" )
+	pad_len=$(( target_len - str_len ))
+	# pad
+	for (( i=0 ; i<${pad_len} ; i++ )) ; do
+		string="${string}${char}"
+	done
+	# done
+	echo "${string}"
+}
+# Function: dnHasEndSlash                                         {{{1
+# Whether string has a terminal slash ('/')
+#   params: 1 - string
+#   prints: nil
+#   return: boolean (0=does, does not)
+# fn_tag dnHasEndSlash purpose Determine whether string has a terminal (forward) slash
+# fn_tag dnHasEndSlash prints NIL
+# fn_tag dnHasEndSlash returns Whether string has terminal slash (Boolean)
+# fn_tag dnHasEndSlash param string purpose String to test
+# fn_tag dnHasEndSlash param string required yes
+# fn_tag dnHasEndSlash param string multipart no
+# fn_tag dnHasEndSlash param string type string
+dnHasEndSlash () {
+	[ $( echo "${1}" | grep -c -- "\/$" ) -eq 1 ]
+	return ${?}
+}
+# Function: dnRemoveEndSlash                                         {{{1
+# Remove terminal slash ('/') from string
+#   params: 1 - string
+#   prints: edited string
+#   return: nil
+# fn_tag dnRemoveEndSlash purpose Remove terminal (forward) slash from string
+# fn_tag dnRemoveEndSlash prints Edited string
+# fn_tag dnRemoveEndSlash returns NIL
+# fn_tag dnRemoveEndSlash param string purpose String to edit
+# fn_tag dnRemoveEndSlash param string required yes
+# fn_tag dnRemoveEndSlash param string multipart no
+# fn_tag dnRemoveEndSlash param string type string
+dnRemoveEndSlash () {
+	echo "$( echo "${1}" | sed -e 's/\(.*\)\/$/\1/' )"
+}
+# Function: dnExtractHttpHost                                        {{{1
+# Extract host from http url
+# e.g., from 'https://svn.sourceforge.net/svnroot/refdb/refdb/trunk'
+# extract 'svn.sourceforge.net'
+#   params: 1 - full http url
+#   prints: host
+#   return: nil
+# fn_tag dnExtractHttpHost purpose Extract server name from http url
+# fn_tag dnExtractHttpHost prints Host server
+# fn_tag dnExtractHttpHost returns NIL
+# fn_tag dnExtractHttpHost note Example: from 'https://my.server.com/docs/sales.html' will extract 'my.server.com'
+# fn_tag dnExtractHttpHost param url purpose Full url to parse
+# fn_tag dnExtractHttpHost param url required yes
+# fn_tag dnExtractHttpHost param url multipart no
+# fn_tag dnExtractHttpHost param url type string
+dnExtractHttpHost () {
+	local url="${1}" server=""
+	# strip leading protocol, e.g., 'http://; or 'https://'
+	server="$( echo "${url}" | sed -e 's,^http[s]\?:\/\/,,' )"
+	# strip all trailing subdirectories
+	server="$( echo "${server}" | awk -F '/' '{ print $1 }' )"
+	# return result
+	echo "${server}"
+}
+# Function: dnStripEnclosingSpaces                                   {{{1
+# Strip spaces from front and end of string
+#   params: 1 - string
+#   prints: string with enclosed spaces removed
+#   return: nil
+# fn_tag dnStripEnclosingSpaces purpose Strip spaces from front and end of string
+# fn_tag dnStripEnclosingSpaces prints Edited string
+# fn_tag dnStripEnclosingSpaces returns NIL
+# fn_tag dnStripEnclosingSpaces param string purpose String to edit
+# fn_tag dnStripEnclosingSpaces param string required yes
+# fn_tag dnStripEnclosingSpaces param string multipart no
+# fn_tag dnStripEnclosingSpaces param string type string
+dnStripEnclosingSpaces () {
+	echo "$( echo "${1}" | sed -e 's/^[[:space:]]*//' \
+	                     | sed -e 's/[[:space:]]*$//' )"
+}
+# Function: dnUnderSpace                                             {{{1
+# Convert underscores to spaces
+#   params: 1 - string
+#   prints: converted string
+#   return: nil
+# fn_tag dnUnderSpace purpose Convert underscores to spaces
+# fn_tag dnUnderSpace prints Edited string
+# fn_tag dnUnderSpace returns NIL
+# fn_tag dnUnderSpace note Not all whitespace -- only space characters
+# fn_tag dnUnderSpace param string purpose String to be edited
+# fn_tag dnUnderSpace param string required yes
+# fn_tag dnUnderSpace param string multipart no
+# fn_tag dnUnderSpace param string type string
+dnUnderSpace () { echo "${1}" | tr '_' ' '; }
+# Function: dnStripWhitespace                                        {{{1
+# Strip whitespace from string
+#   params: 1 - string
+#   prints: string with whitespace removed
+#   return: nil
+# fn_tag dnStripWhitespace purpose Strip all whitespace from string
+# fn_tag dnStripWhitespace prints Edited string
+# fn_tag dnStripWhitespace returns NIL
+# fn_tag dnStripWhitespace note Includes intra-string spaces as well as enclosing spaces
+# fn_tag dnStripWhitespace param string purpose String to be edited
+# fn_tag dnStripWhitespace param string required yes
+# fn_tag dnStripWhitespace param string multipart no
+# fn_tag dnStripWhitespace param string type string
+dnStripWhitespace () { echo "$( echo "${1}" | sed -e 's/[[:space:]]//g' )"; }
+# Function: dnStringContains                                         {{{1
+# Whether string contains substring
+#   params: 1 - string
+#           2 - substring
+#           3 - whole words (boolean) [default=true]
+#   prints: nil 
+#   return: boolean (0=contains|1=does not contain)
+# fn_tag dnStringContains purpose Return whether string contains a given substring
+# fn_tag dnStringContains prints NIL
+# fn_tag dnStringContains returns Whether string contains substring (Boolean)
+# fn_tag dnStringContains param string purpose String to be searched
+# fn_tag dnStringContains param string required yes
+# fn_tag dnStringContains param string multipart no
+# fn_tag dnStringContains param string type string
+# fn_tag dnStringContains param substring purpose String to search for
+# fn_tag dnStringContains param substring required yes
+# fn_tag dnStringContains param substring multipart no
+# fn_tag dnStringContains param substring type string
+# fn_tag dnStringContains param whole-words purpose Whether searching for whole words only
+# fn_tag dnStringContains param whole-words required no
+# fn_tag dnStringContains param whole-words multipart no
+# fn_tag dnStringContains param whole-words type boolean
+# fn_tag dnStringContains param whole-words value 0
+# fn_tag dnStringContains param whole-words value 1
+# fn_tag dnStringContains param whole-words default 0
+dnStringContains () {
+	local string="${1}" substring="${2}" whole_words=${3:-"0"} retval=1
+	dnFlagTrue "${whole_words}" && substring="\b${substring}\b"
+	[ $( echo "${string}" | grep -c -- "${substring}" ) -eq 1 ] && retval=0
+	return ${retval}
+}
+# Function: dnContainsSpace                                          {{{1
+# Whether string contains a space
+#   params: 1 - string
+#   prints: nil 
+#   return: boolean (0=contains|1=does not contain)
+# fn_tag dnContainsSpace purpose Returns whether string contains a space
+# fn_tag dnContainsSpace prints NIL
+# fn_tag dnContainsSpace returns Whether string contains a space (Boolean)
+# fn_tag dnContainsSpace note Not all whitespace -- only the space character
+# fn_tag dnContainsSpace param string purpose String to be searched
+# fn_tag dnContainsSpace param string required yes
+# fn_tag dnContainsSpace param string multipart no
+# fn_tag dnContainsSpace param string type string
+dnContainsSpace () {
+	local string="${1}" retval=1
+	[ $( echo "${string}" | grep -c -- " " ) -eq 1 ] && retval=0
+	return ${retval}
+}
+# Function: dnEscapeChar                                             {{{1
+# Escape character in string
+#   params: 1 - string
+#           2 - character to escape (optional, default=' ')
+#           3 - number of escape characters per space (optional, default=1)
+#           4 - escape character (optional, default='\')
+#   prints: altered string
+#   return: nil
+# fn_tag dnEscapeChar purpose Escape character in string
+# fn_tag dnEscapeChar prints Altered string
+# fn_tag dnEscapeChar returns NIL
+# fn_tag dnEscapeChar usage escaped_spaces="$( dnEscapeChar "${input}" )"
+# fn_tag dnEscapeChar param string purpose String in which character is to be escaped
+# fn_tag dnEscapeChar param string required yes
+# fn_tag dnEscapeChar param string multipart no
+# fn_tag dnEscapeChar param string type string
+# fn_tag dnEscapeChar param char purpose Character to escape
+# fn_tag dnEscapeChar param char required no
+# fn_tag dnEscapeChar param char multipart no
+# fn_tag dnEscapeChar param char type string
+# fn_tag dnEscapeChar param char default SPACE
+# fn_tag dnEscapeChar param number purpose Number of escape characters to precede each space
+# fn_tag dnEscapeChar param number required no
+# fn_tag dnEscapeChar param number multipart no
+# fn_tag dnEscapeChar param number type integer
+# fn_tag dnEscapeChar param number default 1
+# fn_tag dnEscapeChar param escape purpose Escape character to use for each space
+# fn_tag dnEscapeChar param escape required no
+# fn_tag dnEscapeChar param escape multipart no
+# fn_tag dnEscapeChar param escape type string
+# fn_tag dnEscapeChar param escape default \
+dnEscapeChar () {
+	# set variables
+	local string="${1}" char="${2:-" "}" number="${3:-"1"}"
+	local escape="${4:-"\\\\"}" escape_sequence=""
+	char="$( echo "${char}" | sed -e 's^\(.\).*$\1' )"  # first char only
+	while [ ${number} -gt 0 ] ; do  # get desired number of escapes
+		escape_sequence="${escape_sequence}${escape}"
+		number=$( dnDecrement "${number}" )
+	done
+	# insert escapes
+	# - use ACK () for sed delimiter so string can hold any regular char
+	# - enter ACK in vim with 'CTRL-v o 006' or 'CTRL-v x 06'
+	string="$( echo "${string}" \
+		| sed -e "s${char}${escape_sequence}${char}g" )"
+	# print value
+	echo "${string}"
+}
+# Function: dnQuoted                                                 {{{1
+# Determine whether string enclosed in quotes
+#   params: 1 - string
+#   prints: nil
+#   return: boolean (0=enclosed in quotes|1=not enclosed in quotes)
+# fn_tag dnQuoted purpose Returns whether a string is enclosed in quotes
+# fn_tag dnQuoted prints NIL
+# fn_tag dnQuoted returns Whether string is enclosed in quotes (Boolean)
+# fn_tag dnQuoted note Actually looks only for an opening quote -- either single or double
+# fn_tag dnQuoted param string purpose String to be tested
+# fn_tag dnQuoted param string required yes
+# fn_tag dnQuoted param string multipart no
+# fn_tag dnQuoted param string type string
+dnQuoted () {
+	local string="${1}" retval=1
+	[ $( echo "${string}" | grep -c -- '^"' ) -eq 1 ] && retval=0
+	[ $( echo "${string}" | grep -c -- "^'" ) -eq 1 ] && retval=0
+	return ${retval}
+}
+# Function: dnStripEnclosingQuotes                                   {{{1
+# Strip quotes from front and end of string
+#   params: 1 - string
+#   prints: string with enclosed quotes removed
+#   return: nil
+# fn_tag dnStripEnclosingQuotes purpose Strip enclosing quotes from a string
+# fn_tag dnStripEnclosingQuotes prints Edited string
+# fn_tag dnStripEnclosingQuotes returns NIL
+# fn_tag dnStripEnclosingQuotes note Not designed to remove concentric quotes, but will remove from <"'text'">
+# fn_tag dnStripEnclosingQuotes note Assumes closing quote type (single or double) matches opening quote type -- does not check
+# fn_tag dnStripEnclosingQuotes note If opening and closing quotes are not of the same type the outcome is unpredictable
+# fn_tag dnStripEnclosingQuotes note Uses eval to simplify bash intermediary quoting
+# fn_tag dnStripEnclosingQuotes note Can confuse eval with multiple quoting
+# fn_tag dnStripEnclosingQuotes note Do not use eval if use causes echo to error
+# fn_tag dnStripEnclosingQuotes param string purpose String to be edited
+# fn_tag dnStripEnclosingQuotes param string required yes
+# fn_tag dnStripEnclosingQuotes param string multipart no
+# fn_tag dnStripEnclosingQuotes param string type string
+dnStripEnclosingQuotes () {
+	# set variable
+	local string="${1}"
+	eval echo "${string}" &>/dev/null  # multiple quotes can confuse eval
+	local use_eval=${?}
+	# strip quotes
+	if [ $( echo "${string}" | grep -c -- '^"' ) -eq 1 ] ; then
+		# do not use eval if use causes error
+		if [ ${use_eval} -eq 0 ] ; then
+			string="$( eval echo "${string}" | \
+			                sed -e 's/^"//'  | \
+							sed -e 's/"$//'    \
+			         )"
+		else
+			string="$( echo "${string}"      | \
+			                sed -e 's/^"//'  | \
+			                sed -e 's/"$//'    \
+			         )"
+		fi
+	elif [ $( echo "${string}" | grep -c -- "^'" ) -eq 1 ] ; then
+		if [ ${use_eval} -eq 0 ] ; then
+			string="$( eval echo "${string}" | \
+			                sed -e "s/^'//"  | \
+			                sed -e "s/'$//"    \
+			         )"
+		else
+			string="$( echo "${string}"      | \
+			                sed -e "s/^'//"  | \
+			                sed -e "s/'$//"    \
+			         )"
+		fi
+	fi
+	echo "${string}"
+}
+# Function: dnStripQuotes                                            {{{1
+# Strip quote marks from string
+#   params: 1 - string
+#   prints: string with quote marks removed
+#   return: nil
+# fn_tag dnStripQuotes purpose Strip all quote marks from a string
+# fn_tag dnStripQuotes prints Edited string
+# fn_tag dnStripQuotes returns NIL
+# fn_tag dnStripQuotes note Will also strip single quotes (') used as apostrophes
+# fn_tag dnStripQuotes param string purpose String to be edited
+# fn_tag dnStripQuotes param string required yes
+# fn_tag dnStripQuotes param string multipart no
+# fn_tag dnStripQuotes param string type string
+dnStripQuotes () {
+	echo "$( echo "${1}" | sed -e 's/"//g' | sed -e "s/'//g" )";
+}
+# Function: dnLowercase                                              {{{1
+# Change uppercase to lowercase
+#   params: 1 - string
+#   prints: string
+#   return: nil
+# fn_tag dnLowercase purpose Convert upper case characters in string to lower case
+# fn_tag dnLowercase prints Edited string
+# fn_tag dnLowercase returns NIL
+# fn_tag dnLowercase param string purpose String to be converted
+# fn_tag dnLowercase param string required yes
+# fn_tag dnLowercase param string multipart no
+# fn_tag dnLowercase param string type string
+dnLowercase () {
+	echo "$( echo "${1}" | tr '[[:upper:]]' '[[:lower:]]' )"
+}
+# Function: dnUppercase                                              {{{1
+# Change lowercase to uppercase
+#   params: 1 - string
+#   prints: string
+#   return: nil
+# Note: uses 'tr'; alternate solution is 'sed -e "s/.*/\\L&/"'
+# fn_tag dnUppercase purpose Convert lower case characters in string to upper case
+# fn_tag dnUppercase prints Edited string
+# fn_tag dnUppercase returns NIL
+# fn_tag dnUppercase param string purpose String to be converted
+# fn_tag dnUppercase param string required yes
+# fn_tag dnUppercase param string multipart no
+# fn_tag dnUppercase param string type string
+dnUppercase () {
+	echo "$( echo "${1}" | tr '[[:lower:]]' '[[:upper:]]' )"
+}
+# Function: dnInitialCap                                             {{{1
+# Converts first byte of string to uppercase
+#   params: 1 - string
+#   prints: string
+#   return: nil
+# Note: subsequent characters are not changed
+# Note: does not check that first byte is alphabetic character
+# fn_tag dnInitialCap purpose Convert first byte of string to upper case
+# fn_tag dnInitialCap prints Edited string
+# fn_tag dnInitialCap returns NIL
+# fn_tag dnInitialCap note Does not check that first byte is an alphabetical character
+# fn_tag dnInitialCap note Second and subsequent characters are not altered
+# fn_tag dnInitialCap param string purpose String to be converted
+# fn_tag dnInitialCap param string required yes
+# fn_tag dnInitialCap param string multipart no
+# fn_tag dnInitialCap param string type string
+dnInitialCap () {
+	echo "$( echo "${1}" | sed -e "s/[[:graph:]]*/\u&/" )"
+}
+# Function: dnTitleCase                                              {{{1
+# Converts string to title case
+#   params: 1 - string
+#   prints: string
+#   return: nil
+#   note:   there are numerous versions of title case
+#   note:   capitalises first and last words, and all words
+#           except articles, prepositions and conjunctions
+#           of fewer than five letters
+# fn_tag dnTitleCase purpose Converts string to title case
+# fn_tag dnTitleCase prints Edited string
+# fn_tag dnTitleCase returns NIL
+# fn_tag dnTitleCase note Capitalises first and last words, and all words except articles, prepositions and conjunctions of less than five letters
+# fn_tag dnTitleCase param string purpose String to convert
+# fn_tag dnTitleCase param string required yes
+# fn_tag dnTitleCase param string multipart no
+# fn_tag dnTitleCase param string type string
+dnTitleCase () {
+    # define variables
+    local string="${1}" cap_word= loop= new_string= stem=
+    # define words not to be capitalised in title case
+    local articles=( \
+           a    an   the \
+    )
+    local prepositions=( \
+        amid    as    at  atop   but    by   for  from \
+          in  into   mid  near  next    of   off    on \
+        onto   out  over   per   quo  sans  than  till \
+          to    up  upon     v    vs   via  with \
+    )
+    local conjunctions=( \
+         and    as  both   but   for   how    if  lest \
+         nor  once    or    so  than  that  till  when \
+         yet \
+    )
+    local title_lowercase=( ${articles[@]} ${prepositions[@]} ${conjunctions[@]} )
+    # build array of lower case, space-separated string elements (=~ words)
+    local words=( $( dnLowercase "${string}" ) )
+    # loop through words
+    loop=1
+    for word in "${words[@]}" ; do
+        cap_word="$( dnInitialCap "${word}" )"
+        # first and last words must be capitalised
+        if test ${loop} -eq 1 ; then
+            new_string="${cap_word}"
+        elif test ${loop} -eq ${#words[@]} ; then
+            new_string="${new_string} ${cap_word}"
+        else
+            # these "inner" words may or may not be capitalised
+            # need to compare them with list of words not to be capitalised
+            # to enable comparison strip trailing commas, bangs, etc.
+            stem="$( echo "${word}" | tr --delete --complement "[:alpha:]" )"
+            if dnElementInArray "${stem}" "${title_lowercase[@]}" ; then
+                new_string="${new_string} ${word}"
+            else
+                new_string="${new_string} ${cap_word}"
+            fi
+        fi
+        let "loop += 1"
+    done
+    # return result
+    echo "${new_string}"
+}
+# Function: dnEquals                                                 {{{1
+# Case-insensitive comparison of two values
+#   params: 1 - string
+#           2 - string
+#   prints: nil
+#   return: boolean (0=equal|1=not equal)
+# fn_tag dnEquals purpose Returns whether two strings are (case-insensitive) equal
+# fn_tag dnEquals prints NIL
+# fn_tag dnEquals returns Whether string comparison successful (Boolean)
+# fn_tag dnEquals param first-string purpose First string to be compared
+# fn_tag dnEquals param first-string required yes
+# fn_tag dnEquals param first-string multipart no
+# fn_tag dnEquals param first-string type string
+# fn_tag dnEquals param second-string purpose Second string to be compared
+# fn_tag dnEquals param second-string required yes
+# fn_tag dnEquals param second-string multipart no
+# fn_tag dnEquals param second-string type string
+dnEquals () {
+	[ "$( dnLowercase "${1}" )" = "$( dnLowercase "${2}" )" ]
+	return ${?}
+}
+# Function: dnStringEqual                                            {{{1
+# Compare two strings to see if both lexicographically equal
+#   params: 1 - string
+#           2 - string
+#   prints: nil
+#   return: boolean (0=equal|1=not equal)
+# fn_tag dnStringEqual purpose Returns whether two string are lexicographically (case-sensitive) equal
+# fn_tag dnStringEqual prints NIL
+# fn_tag dnStringEqual returns Whether string comparison successful (Boolean)
+# fn_tag dnStringEqual param string-A purpose First string to be compared
+# fn_tag dnStringEqual param string-A required yes
+# fn_tag dnStringEqual param string-A multipart no
+# fn_tag dnStringEqual param string-A type string
+# fn_tag dnStringEqual param string-B purpose Second string to be compared
+# fn_tag dnStringEqual param string-B required yes
+# fn_tag dnStringEqual param string-B multipart no
+# fn_tag dnStringEqual param string-B type string
+dnStringEqual () { return $( [ "${1}" = "${2}" ] ); }
+# Function: dnStringLessThan                                      {{{1
+# Compare two strings to see if first is lexicographically less than
+#   params: 1 - string
+#           2 - string
+#   prints: nil
+#   return: boolean (0=less than|1=not)
+# fn_tag dnStringLessThan purpose Returns whether first string is lexicographically less than second
+# fn_tag dnStringLessThan prints NIL
+# fn_tag dnStringLessThan returns Whether string comparison successful (Boolean)
+# fn_tag dnStringLessThan param string-A purpose First string to be compared
+# fn_tag dnStringLessThan param string-A required yes
+# fn_tag dnStringLessThan param string-A multipart no
+# fn_tag dnStringLessThan param string-A type string
+# fn_tag dnStringLessThan param string-B purpose Second string to be compared
+# fn_tag dnStringLessThan param string-B required yes
+# fn_tag dnStringLessThan param string-B multipart no
+# fn_tag dnStringLessThan param string-B type string
+dnStringLessThan () {
+	# first, ensure less than or equal
+	dnStringLessThanOrEqual "${1}" "${2}" || return 1
+	# last, ensure not equal
+	dnStringEqual "${1}" "${2}" && return 1
+	return 0
+}
+# Function: dnStringLessThanOrEqual                                  {{{1
+# Compare two strings to see if first is lexicographically less or equal
+#   params: 1 - string
+#           2 - string
+#   prints: nil
+#   return: boolean (0=less than or equal|1=not)
+# fn_tag dnStringLessThanOrEqual purpose Returns whether first string is lexicographically less than or equal to second
+# fn_tag dnStringLessThanOrEqual prints NIL
+# fn_tag dnStringLessThanOrEqual returns Whether string comparison successful (Boolean)
+# fn_tag dnStringLessThanOrEqual param string-A purpose First string to be compared
+# fn_tag dnStringLessThanOrEqual param string-A required yes
+# fn_tag dnStringLessThanOrEqual param string-A multipart no
+# fn_tag dnStringLessThanOrEqual param string-A type string
+# fn_tag dnStringLessThanOrEqual param string-B purpose Second string to be compared
+# fn_tag dnStringLessThanOrEqual param string-B required yes
+# fn_tag dnStringLessThanOrEqual param string-B multipart no
+# fn_tag dnStringLessThanOrEqual param string-B type string
+dnStringLessThanOrEqual () {
+	return $( echo -e "${1}\n${2}" | sort --check 2>/dev/null )
+}
+# Function: dnStringGreaterThan                                      {{{1
+# Compare two strings to see if first is lexicographically greater
+#   params: 1 - string
+#           2 - string
+#   prints: nil
+#   return: boolean (0=greater than|1=not)
+# fn_tag dnStringGreaterThan purpose Returns whether first string is lexicographically greater than second
+# fn_tag dnStringGreaterThan prints NIL
+# fn_tag dnStringGreaterThan returns Whether string comparison successful (Boolean)
+# fn_tag dnStringGreaterThan param string-A purpose First string to be compared
+# fn_tag dnStringGreaterThan param string-A required yes
+# fn_tag dnStringGreaterThan param string-A multipart no
+# fn_tag dnStringGreaterThan param string-A type string
+# fn_tag dnStringGreaterThan param string-B purpose Second string to be compared
+# fn_tag dnStringGreaterThan param string-B required yes
+# fn_tag dnStringGreaterThan param string-B multipart no
+# fn_tag dnStringGreaterThan param string-B type string
+dnStringGreaterThan () {
+	# opposite of less than or equal
+	dnStringLessThanOrEqual "${1}" "${2}" && return 1
+	return 0
+}
+# Function: dnStringGreaterThanOrEqual                               {{{1
+# Compare two strings to see if first is lexicographically greater or equal
+#   params: 1 - string
+#           2 - string
+#   prints: nil
+#   return: boolean (0=greater than or equal|1=not)
+# fn_tag dnStringGreaterThanOrEqual purpose Returns whether first string is lexicographically greater than or equal to second
+# fn_tag dnStringGreaterThanOrEqual prints NIL
+# fn_tag dnStringGreaterThanOrEqual returns Whether string comparison successful (Boolean)
+# fn_tag dnStringGreaterThanOrEqual param string-A purpose First string to be compared
+# fn_tag dnStringGreaterThanOrEqual param string-A required yes
+# fn_tag dnStringGreaterThanOrEqual param string-A multipart no
+# fn_tag dnStringGreaterThanOrEqual param string-A type string
+# fn_tag dnStringGreaterThanOrEqual param string-B purpose Second string to be compared
+# fn_tag dnStringGreaterThanOrEqual param string-B required yes
+# fn_tag dnStringGreaterThanOrEqual param string-B multipart no
+# fn_tag dnStringGreaterThanOrEqual param string-B type string
+dnStringGreaterThanOrEqual () {
+	# first, catch if equal
+	dnStringEqual "${1}" "${2}" && return 0
+	# last, rule out less than (or equal)
+	dnStringLessThanOrEqual "${1}" "${2}" && return 1
+	return 0
+}
+
+# }}}1
+# Function: dnHighlightHotkey                               {{{1
+# Colour hotkey in string
+#   params: 1 - string
+#           2 - hotkey
+#           3 - colour (optional) [default=red]
+#   prints: altered string
+#   return: boolean [ 0 = able to highlight hotkey | 1 = unable to do so ]
+# fn_tag dnHighlightHotkey purpose Highlight hotkey in string with different colour
+# fn_tag dnHighlightHotkey prints Altered string
+# fn_tag dnHighlightHotkey returns Whether hotkey was highlighted
+# fn_tag dnHighlightHotkey note Colours are derived from 'fg_*' colours supplied by libdncommon-bash library
+# fn_tag dnHighlightHotkey param string purpose String containing hotkey
+# fn_tag dnHighlightHotkey param string required yes
+# fn_tag dnHighlightHotkey param string multipart no
+# fn_tag dnHighlightHotkey param string type string
+# fn_tag dnHighlightHotkey param hotkey purpose The character to highlight as hotkey
+# fn_tag dnHighlightHotkey param hotkey required yes
+# fn_tag dnHighlightHotkey param hotkey multipart no
+# fn_tag dnHighlightHotkey param hotkey type string
+# fn_tag dnHighlightHotkey param hotkey note Must be single character contained in string
+# fn_tag dnHighlightHotkey param hotkey note If hotkey character occurs twice in string, only first occurrence is highlighted
+# fn_tag dnHighlightHotkey param colour purpose Colour to highlight hotkey with
+# fn_tag dnHighlightHotkey param colour required no
+# fn_tag dnHighlightHotkey param colour multipart no
+# fn_tag dnHighlightHotkey param colour type string
+# fn_tag dnHighlightHotkey param colour default red
+# fn_tag dnHighlightHotkey param colour note Must be colour part of one of the 'fg_*' colours provided by this library
+dnHighlightHotkey () {
+	# set variables
+	local string="${1}" hotkey="$( dnLowercase "${2}" )"
+    local colour="dn_fg_${3:-"red"}"
+	local i= len= new_string= char= done_hotkey=1
+	colour="${!colour}"  # indirect reference
+	[ -z "${colour}" ] && colour="${dn_fg_red}"
+	len=$( dnStrLen "${string}" )
+	# cycle through string and add formatting to hotkey
+	for (( i=0 ; i<${len} ; i++ )) ; do
+		char="${string:${i}:1}"
+		if [ "$( dnLowercase "${char}" )" = "${hotkey}" ] \
+				&& [ ${done_hotkey} -ne 0 ] ; then
+			new_string="${new_string}${colour}${char}${dn_reset}"
+			done_hotkey=0
+		else
+			new_string="${new_string}${char}"
+		fi
+	done
+	# done
+	echo "${new_string}"
+	return ${done_hotkey}  # succeeded if formatted hotkey
+}
+# Function: dnValidRGB                                      {{{1
+# Determine whether an RGB value is correct
+#   params: 1 - RBG values
+#   prints: nil
+#   return: boolean (0=valid|1=invalid)
+#   format: 'r,g,b' where 'r', 'g' and 'b' are integers between 0 and 255
+# fn_tag dnValidRGB purpose Determine whether an RGB value is correct
+# fn_tag dnValidRGB prints NIL
+# fn_tag dnValidRGB returns Whether an RGB value is correct (Boolean)
+# fn_tag dnValidRGB note Valid RGB format is 'r,g,b' where each is integer between 0 and 255
+# fn_tag dnValidRGB param rgb purpose The RGB value being analysed
+# fn_tag dnValidRGB param rgb required yes
+# fn_tag dnValidRGB param rgb multipart no
+# fn_tag dnValidRGB param rgb type string
+# fn_tag dnValidRGB param rgb note Valid RGB format is 'r,g,b' where each is integer between 0 and 255
+dnValidRGB () {
+	local rgb="${1}" index= value=
+	# first, make sure basic format is correct
+	local grep='^[[:digit:]]\+,[[:digit:]]\+,[[:digit:]]\+$'
+	[ $( echo "${rgb}" | grep -c -- "${grep}" ) -eq 1 ] || return 1
+	# second, check each is valid positive integer between 0 and 255
+	for (( index=1 ; index <= 3 ; index++ )) ; do
+		value="$( echo "${rgb}" | cut -d ',' -f ${index} )"
+		dnValidPosInteger "${value}" || return 1
+		[ ${value} -ge 0 -a ${value} -le 255 ] || return 1
+	done
+	# if here then no errors
+	return 0
+}
+
+# }}}1
+# Function: dnNullCharacter                                 {{{1
+#   params: nil
+#   prints: null character
+#   return: nil
+# fn_tag dnNullCharacter purpose Provides a null character, i.e., octal 000, hex 00, decimal 0, NUL, '\0'
+# fn_tag dnNullCharacter prints Null character
+# fn_tag dnNullCharacter returns NIL
+dnNullCharacter () {
+	echo $'\000';
+}
+
+# }}}1
+# Function: dnValidDebianPackageVersion                     {{{1
+# Check validity of debian package version
+#   params: 1 - version
+#   prints: error message if invalid
+#   return: boolean (0=valid|1=invalid)
+#   notes:  based on Debian::Dpkg::Version module
+#   usage:  dnValidDebianPackageVersion "${version}" &>/dev/null
+#           if ! dnFlagTrue ${?} ; then
+#               dnError "Version '${version}' is INVALID because"
+#               dnError "  $( dnValidDebianPackageVersion "${version}" )"
+#           fi
+# fn_tag dnValidDebianPackageVersion purpose Check validity of debian package version
+# fn_tag dnValidDebianPackageVersion prints Informative error message if version string is invalid
+# fn_tag dnValidDebianPackageVersion returns Whether version string is valid (Boolean)
+# fn_tag dnValidDebianPackageVersion usage dnValidDebianPackageVersion "${version}" &>/dev/null
+# fn_tag dnValidDebianPackageVersion usage if ! dnFlagTrue ${?} ; then
+# fn_tag dnValidDebianPackageVersion usage     dnError "Version '${version}' is INVALID because"
+# fn_tag dnValidDebianPackageVersion usage     dnError "  $( dnValidDebianPackageVersion "${version}" )"
+# fn_tag dnValidDebianPackageVersion usage fi
+# fn_tag dnValidDebianPackageVersion note Based on Debian::Dpkg::Version module
+# fn_tag dnValidDebianPackageVersion param version purpose Debian package version string
+# fn_tag dnValidDebianPackageVersion param version required yes
+# fn_tag dnValidDebianPackageVersion param version multipart no
+# fn_tag dnValidDebianPackageVersion param version type string
+dnValidDebianPackageVersion () {
+    # variables
+    local version="${1}" illegal= epoch= fragment="character"
+    # cannot be empty
+    if [ -z "${version}" ] ; then
+        echo "version number cannot be empty"
+        return ${dn_false}
+    fi
+    # check for illegal characters
+    # - produces sequence of illegal characters
+    illegal="$( echo "${version}" | sed -e 's/./&\n/g' | \
+                grep "[^-+:.0-9a-zA-Z~]" | tr -d '\n' )"
+    if [ -n "${illegal}" ] ; then
+        [ ${#illegal} -gt 1 ] && fragment+='s'
+        echo "version number contains illegal ${fragment} '${illegal}'"
+        return ${dn_false}
+    fi
+    # epoch, if present, must be number
+    if dnStringContains "${version}" ":" ; then
+        epoch="$( echo "${version}" | sed -e 's/^\([[:digit:]]\+\):.*$/\1/' )"
+        if ! dnValidPosInteger "${epoch}" ; then
+            echo "epoch part of version number ('${epoch}') is not an integer"
+            return ${dn_false}
+        fi
+    fi
+    # if here then all tests passed
+    return ${dn_true}
+}
+
+# }}}1
+
+# vim: set foldmethod=marker :

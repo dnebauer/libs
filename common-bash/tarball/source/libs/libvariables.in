@@ -1,0 +1,208 @@
+#!/bin/bash
+
+# Suite: libdncommon-bash
+# File: libvariables
+# Author: David Nebauer
+# Purpose: Useful bash variables
+# Shellcheck:
+#   SC2034 - "variable appears unused - verify it or export it"
+#          - variables are used by other scripts in suite
+
+
+# VARIABLES
+
+# Set directly                                                       {{{1
+# - dn_self
+#   . name of calling app
+#   . control, files, kde, user-interaction
+#   shellcheck disable=SC2034
+dn_self="$( basename "${0}" )"
+# - dn_temp_file_dirs
+#   . list of temporary directories
+#   . files
+#   shellcheck disable=SC2034
+dn_temp_file_dirs=()                          # all temp file and dir names
+# - dn_conf
+#   . config file is from libdncommon-vars library
+#   . self-only
+#   shellcheck disable=SC2034
+dn_conf="@sysconf_dir@/libdncommon-varsrc"
+# - dn_true, dn_false
+#   . boolean values
+#   . control, kde, program-interaction, strings, user-interaction
+#   shellcheck disable=SC2034
+dn_true=0 dn_false=1
+# - dn_IFS_stack
+#   . manipulate IFS system variable
+#   . program-interaction
+#   shellcheck disable=SC2034
+declare -a dn_IFS_stack
+
+# Set from configuration file                                        {{{1
+declare -a dn_drive_names=()
+declare -a dn_drive_hotkeys=()
+declare -a dn_drive_paths=()
+declare -a dn_drive_primaries=()
+declare -a dn_drive_dvd_maxs=()
+declare -a dn_ping_urls=()
+declare -a dlg_names=()
+declare -a dlg_bins=()
+declare -a dlg_cmds_info=()
+declare -a dlg_cmds_warn=()
+declare -a dlg_cmds_error=()
+declare -a dlg_cmds_confirm=()
+declare -a dlg_cmds_popup=()
+declare -a dlg_popups_doing_newlines=()
+declare -a dlg_popup_delay_multipliers=()
+declare -a dlg_preferences=()
+declare -a dlg_desktops=()
+declare -a dn_dlg_names=()
+declare -a dn_dlg_bins=()
+declare -a dn_dlg_cmds_info=()
+declare -a dn_dlg_cmds_warn=()
+declare -a dn_dlg_cmds_error=()
+declare -a dn_dlg_cmds_confirm=()
+declare -a dn_dlg_cmds_popup=()
+declare -a dn_dlg_popups_doing_newlines=()
+declare -a dn_dlg_popup_delay_multipliers=()
+declare -a dn_dlg_preferences=()
+declare -a dn_dlg_desktops=()
+if [ -r "${dn_conf}" ] ; then
+	while read dn_name dn_val ; do
+		if [ -n "${dn_val}" ] ; then
+			# remove enclosing quotes if present
+			if [ $( echo "${dn_val}" | grep -c -- '^"' ) -eq 1 ] ; then
+				dn_val="$( echo "${dn_val}" | sed -e 's/^"//' \
+				                 | sed -e 's/"$//' )"
+			elif [ $( echo "${dn_val}" | grep -c -- "^'" ) -eq 1 ] ; then
+				dn_val="$( echo "${dn_val}" | sed -e "s/^'//" \
+				                 | sed -e "s/'$//" )"
+			fi
+			# load vars depending on name
+			case ${dn_name} in
+			# urls for checking internet connectivity
+			'ping_url' ) dn_ping_urls[${#dn_ping_urls[*]}]=" ${dn_val}";;
+			# semantic fragments
+			'query_prefix'   ) dn_query_prefix="${dn_val}";;
+			'prompt_prefix'  ) dn_prompt_prefix="${dn_val}";;
+			'divider'        ) dn_divider="${dn_val}"
+			                   dn_divider_top="${dn_val}";;
+			'divider_bottom' ) dn_divider_bottom="${dn_val}";;
+			# bash formatting: reset all
+			'reset'          ) dn_reset="${dn_val}";;
+			# bash formatting: fonts
+			'fm_bold'        ) dn_fm_bold="${dn_val}";;
+			'fm_bold_off'    ) dn_fm_bold_off="${dn_val}";;
+			'fm_uline'       ) dn_fm_uline="${dn_val}";;
+			'fm_uline_off'   ) dn_fm_uline_off="${dn_val}";;
+			'fm_blink'       ) dn_fm_blink="${dn_val}";;
+			'fm_blink_off'   ) dn_fm_blink_off="${dn_val}";;
+			'fm_reverse'     ) dn_fm_reverse="${dn_val}";;
+			'fm_reverse_off' ) dn_fm_reverse_off="${dn_val}";;
+			'fm_conceal'     ) dn_fm_conceal="${dn_val}";;
+			'fm_conceal_off' ) dn_fm_conceal_off="${dn_val}";;
+			# bash formatting: foreground colour
+			'fg_black'       ) dn_fg_black="${dn_val}";;
+			'fg_lt_gray'     ) dn_fg_lt_gray="${dn_val}";;
+			'fg_dk_gray'     ) dn_fg_dk_gray="${dn_val}";;
+			'fg_red'         ) dn_fg_red="${dn_val}";;
+			'fg_lt_red'      ) dn_fg_lt_red="${dn_val}";;
+			'fg_green'       ) dn_fg_green="${dn_val}";;
+			'fg_lt_green'    ) dn_fg_lt_green="${dn_val}";;
+			'fg_brown'       ) dn_fg_brown="${dn_val}";;
+			'fg_yellow'      ) dn_fg_yellow="${dn_val}";;
+			'fg_blue'        ) dn_fg_blue="${dn_val}";;
+			'fg_lt_blue'     ) dn_fg_lt_blue="${dn_val}";;
+			'fg_purple'      ) dn_fg_purple="${dn_val}";;
+			'fg_lt_purple'   ) dn_fg_lt_purple="${dn_val}";;
+			'fg_cyan'        ) dn_fg_cyan="${dn_val}";;
+			'fg_lt_cyan'     ) dn_fg_lt_cyan="${dn_val}";;
+			'fg_white'       ) dn_fg_white="${dn_val}";;
+			# ejectable optical drives
+			'drive_name'    )
+				dn_drive_names[${#dn_drive_names[*]}]="${dn_val}";;
+			'drive_hotkey'  )
+				dn_drive_hotkeys[${#dn_drive_hotkeys[*]}]="${dn_val}";;
+			'drive_path'    )
+				dn_drive_paths[${#dn_drive_paths[*]}]="${dn_val}";;
+			'drive_dvd_max' ) 
+				dn_drive_dvd_maxs[${#dn_drive_dvd_maxs[*]}]="${dn_val}";;
+			# dialogs
+			'dlg_name' )
+				dn_dlg_names[${#dn_dlg_names[*]}]="${dn_val}";;
+			'dlg_bin' )
+				dn_dlg_bins[${#dn_dlg_bins[*]}]="${dn_val}";;
+			'dlg_cmd_info' )
+				dn_dlg_cmds_info[${#dn_dlg_cmds_info[*]}]="${dn_val}";;
+			'dlg_cmd_warn' )
+				dn_dlg_cmds_warn[${#dn_dlg_cmds_warn[*]}]="${dn_val}";;
+			'dlg_cmd_error' )
+				dn_dlg_cmds_error[${#dn_dlg_cmds_error[*]}]="${dn_val}";;
+			'dlg_cmd_confirm' )
+				dn_dlg_cmds_confirm[${#dn_dlg_cmds_confirm[*]}]="${dn_val}";;
+			'dlg_cmd_popup' )
+				dn_dlg_cmds_popup[${#dn_dlg_cmds_popup[*]}]="${dn_val}";;
+			'dlg_popup_does_newlines' )
+				dn_dlg_popups_doing_newlines[${#dn_dlg_popups_doing_newlines[*]}]="${dn_val}";;
+			'dlg_popup_delay_multiplier' )
+				dn_dlg_popup_delay_multipliers[${#dn_dlg_popup_delay_multipliers[*]}]="${dn_val}";;
+			'dlg_preference' )
+				dn_dlg_preferences[${#dn_dlg_preferences[*]}]="${dn_val}";;
+			'dlg_desktop' )
+				dn_dlg_desktops[${#dn_dlg_desktops[*]}]="${dn_val}";;
+			esac
+		fi
+	done < "${dn_conf}"
+else
+	err_title="Library dncommon-bash load error"
+	err_msg="Unable to locate dncommon-vars configuration file"
+	err_msg="${err_msg}\n(${dn_conf})."
+	err_msg="${err_msg}\nSome dncommon-bash library functions"
+	err_msg="${err_msg} may not work correctly."
+	err_msg="${err_msg}\n\nYou or your system administrator"
+	err_msg="${err_msg} should install the dncommon-vars library."
+	Xdialog --title "${err_title}" --infobox "${err_msg}" 0 0 20000
+	unset err_title err_msg
+fi
+unset dn_conf dn_name dn_val
+# Set from loaded data                                               {{{1
+# - "greppable" list of available functions
+dn_commonbash_fns="$(  declare -F | \
+                       sed -e 's/^declare -[^ tab]\+ \(.\+\)$/\1/' | \
+                       tr '\n' ' ' | \
+                       sed -e 's/^ //' | \
+                       sed -e 's/ $//' | \
+                       sed -e 's/ /\\|/g' \
+                    )"
+# - "greppable" list of available variables
+dn_commonbash_vars="$( declare | \
+                       grep -- "^[A-Za-z0-9_]\+=.*" | \
+                       sed -e 's/^\([A-Za-z0-9_]\+\)=.*/\1/' | \
+                       tr '\n' ' ' | \
+                       sed -e 's/^ //' | \
+                       sed -e 's/ $//' | \
+                       sed -e 's/ /\\|/g' \
+                     )"
+# }}}1
+
+# Function: dnVariableSet                                            {{{1
+# Determines whether bash variable is set
+#   params: 1 - variable name
+#   prints: nil
+#   return: boolean
+# fn_tag dnVariableSet purpose Determine whether variable is set
+# fn_tag dnVariableSet prints NIL
+# fn_tag dnVariableSet returns Boolean
+# fn_tag dnVariableSet usage if dnVariableSet "proxy" ; then ...
+# fn_tag dnVariableSet note Variable may exist but not be initialised, i.e., is null/empty
+# fn_tag dnVariableSet param var purpose Name of variable
+# fn_tag dnVariableSet param var required yes
+# fn_tag dnVariableSet param var multipart no
+# fn_tag dnVariableSet param var type string
+dnVariableSet () {
+	[ "${!1-one}" == "${!1-two}" ]
+}
+
+# }}}1
+
+# vim: set foldmethod=marker :

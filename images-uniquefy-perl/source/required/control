@@ -1,0 +1,41 @@
+Source: libdn-images-uniquefy-perl
+Section: perl
+Priority: optional
+Maintainer: David Nebauer <david@nebauer.org>
+Build-Depends: debhelper-compat (= 13),
+               libmodule-build-perl,
+               perl
+Build-Depends-Indep: librole-utils-dn-perl (>= 0.1-1),
+                     libfunction-parameters-perl (>= 1.0705),
+                     libgetopt-long-descriptive-perl (>= 0.100),
+                     liblist-moreutils-perl (>= 0.416),
+                     libmodule-build-tiny-perl (>= 0.034),
+                     libmoo-perl (>= 2.002005),
+                     libmoox-handlesvia-perl (>= 0.001008),
+                     libnamespace-clean-perl (>= 0.27),
+                     libreadonly-perl (>= 2.05),
+                     libstrictures-perl (>= 2.000003),
+                     libterm-progressbar-simple-perl (>= 0.03),
+                     libtype-tiny-perl (>= 1.000005)
+Standards-Version: 3.9.8
+Homepage: https://metacpan.org/release/Dn-Images-Uniquefy
+
+Package: libdn-images-uniquefy-perl
+Architecture: all
+Depends: ${misc:Depends}, ${perl:Depends},
+ librole-utils-dn-perl (>= 0.1-1),
+ libfunction-parameters-perl (>= 1.0705),
+ libgetopt-long-descriptive-perl (>= 0.100),
+ liblist-moreutils-perl (>= 0.416),
+ libmoo-perl (>= 2.002005),
+ libmoox-handlesvia-perl (>= 0.001008),
+ libnamespace-clean-perl (>= 0.27),
+ libreadonly-perl (>= 2.05),
+ libstrictures-perl (>= 2.000003),
+ libterm-progressbar-simple-perl (>= 0.03),
+ libtype-tiny-perl (>= 1.000005),
+ perl (>= 5.23.9)
+Description: tweak image files to ensure each is unique
+ Process a set of image files and ensures they are unique. The original files
+ are overwritten so it advisable to save copies of them before running this
+ script.

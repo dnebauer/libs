@@ -1,0 +1,34 @@
+Format: 1.8
+Date: Mon, 9 Nov 2020 19:00:36 +0930
+Source: libperl-critic-moose-perl
+Binary: libperl-critic-moose-perl
+Architecture: source all
+Version: 1.05-1
+Distribution: unstable
+Urgency: low
+Maintainer: David Nebauer <david@hezmana.cogito.ergo.sum>
+Changed-By: David Nebauer <david@hezmana.cogito.ergo.sum>
+Description:
+ libperl-critic-moose-perl - Policies for Perl::Critic concerned with using Moose
+Changes:
+ libperl-critic-moose-perl (1.05-1) unstable; urgency=low
+ .
+   * Initial release.
+Checksums-Sha1:
+ 398dee1910c5c1a285740c990c001e88a32e0c7d 1156 libperl-critic-moose-perl_1.05-1.dsc
+ 4e7b8b4f2f24a987459755ba85fd9e55997fe242 31644 libperl-critic-moose-perl_1.05.orig.tar.gz
+ c380a260403951b16a286e4d25d80dfa9bbe3d42 1756 libperl-critic-moose-perl_1.05-1.debian.tar.xz
+ 5b6bff77e52d59f6b11f61deee9bb4c576fb373f 24852 libperl-critic-moose-perl_1.05-1_all.deb
+ 99df595a318624904a3596934f045f2e4a594053 7233 libperl-critic-moose-perl_1.05-1_amd64.buildinfo
+Checksums-Sha256:
+ a27a8e0f84822843d56296dbd1e12aadd21730ed6527c2c5e653d2c2f9d8bbc9 1156 libperl-critic-moose-perl_1.05-1.dsc
+ 52eb8e22c42643f17fe297a21714017efdb9e2986c24e3337e030f3650f92201 31644 libperl-critic-moose-perl_1.05.orig.tar.gz
+ f062d575c582a4aa654d4fc623145744882af5c861634ab2b8f72b1117f4f4cc 1756 libperl-critic-moose-perl_1.05-1.debian.tar.xz
+ 8af25822eb736ded8dc49137d11198a1322fe7182db4f6f0199208b72b705492 24852 libperl-critic-moose-perl_1.05-1_all.deb
+ aae9753a8565c4acc0600e7782978c7adbf691e303158a65b344308547cda2df 7233 libperl-critic-moose-perl_1.05-1_amd64.buildinfo
+Files:
+ 3d780ae141b734bd98efe81042243b7b 1156 perl optional libperl-critic-moose-perl_1.05-1.dsc
+ 4b8f8df1f1d5b32e73e0d8c318a26022 31644 perl optional libperl-critic-moose-perl_1.05.orig.tar.gz
+ fa420452ce704f536babfa4f3518270a 1756 perl optional libperl-critic-moose-perl_1.05-1.debian.tar.xz
+ fd566b853768119be902cc2de9abea95 24852 perl optional libperl-critic-moose-perl_1.05-1_all.deb
+ 46b3d24cbcf5fc7fba6d41582e78225b 7233 perl optional libperl-critic-moose-perl_1.05-1_amd64.buildinfo

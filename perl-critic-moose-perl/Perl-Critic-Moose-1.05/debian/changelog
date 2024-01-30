@@ -1,0 +1,5 @@
+libperl-critic-moose-perl (1.05-1) unstable; urgency=low
+
+  * Initial release.
+
+ -- David Nebauer <david@hezmana.cogito.ergo.sum>  Mon, 9 Nov 2020 19:00:36 +0930

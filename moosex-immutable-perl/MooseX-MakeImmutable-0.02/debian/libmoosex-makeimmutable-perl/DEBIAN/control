@@ -1,0 +1,24 @@
+Package: libmoosex-makeimmutable-perl
+Version: 0.02-1
+Architecture: all
+Maintainer: David Nebauer <david@hezmana.cogito.loc>
+Installed-Size: 61
+Depends: perl, libcarp-clan-perl, libclass-inspector-perl, liblist-moreutils-perl, libmoose-perl
+Section: perl
+Priority: optional
+Homepage: https://metacpan.org/release/MooseX-MakeImmutable
+Description: Make many Moosen immutable (or mutable) in one shot
+ MooseX::MakeImmutable is a tool for loading every
+ Moose::Object within a hierarchy and making each
+ immutable/mutable. It uses Module::Pluggable for searching
+ and will load both inner and .pm packages.
+ .
+ In a nutshell, if you add a Moose-based package to your
+ object hierarchy, then MooseX::MakeImmutable, given a
+ proper manifest, will pick it up and mark it im/mutable
+ (without you having to manually write-out the new package).
+ .
+ NOTE: The name "MakeImmutable" is a bit of a misnomer,
+ since this package can both make_immutable AND
+ make_mutable. However, 90% of the time, you'll probably
+ be using ->make_immutable.

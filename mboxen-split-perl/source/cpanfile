@@ -1,0 +1,31 @@
+requires 'perl', '5.022001';
+requires 'autodie', '2.29';
+requires 'Carp', '1.36';
+requires 'Date::Parse', '2.30';
+requires 'Email::MIME', '1.937';
+requires 'Encode', '2.72';
+requires 'English', '1.09';
+requires 'experimental', '0.013';
+requires 'File::Spec', '3.56';
+requires 'File::Temp', '0.2304';
+requires 'File::Util', '4.132140';
+requires 'Function::Parameters', '1.0703';
+requires 'LWP::Simple', '6.15';
+requires 'Mail::Mbox::MessageParser', '1.5105';
+requires 'Moo', '2.000002';
+requires 'MooX::HandlesVia', '0.001008';
+requires 'MooX::Options', '4.022';
+requires 'namespace::clean', '0.26';
+requires 'Readonly', '2';
+requires 'Storable', '2.53_01';
+requires 'strictures', '2.000002';
+requires 'Term::Clui', '1.70';
+requires 'Term::ProgressBar::Simple', '0.03';
+requires 'Text::Pluralize', '1.1';
+requires 'Text::Unidecode', '1.27';
+requires 'Types::Standard', '1.000005';
+requires 'version', '0.9915';
+
+on test => sub {
+    requires 'Test::More', '0.96';
+};

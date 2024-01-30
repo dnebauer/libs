@@ -1,0 +1,45 @@
+Source: libdn-images-extractregions-perl
+Section: perl
+Priority: optional
+Maintainer: David Nebauer <david@nebauer.org>
+Build-Depends: debhelper-compat (= 13),
+               libmodule-build-perl,
+               perl
+Build-Depends-Indep: librole-utils-dn-perl (>= 0.1-1),
+                     libfunction-parameters-perl (>= 1.0705),
+                     libmodule-build-tiny-perl (>= 0.034),
+                     libmoo-perl (>= 2.002005),
+                     libmoox-handlesvia-perl (>= 0.001008),
+                     libmoox-options-perl (>= 4.023-1),
+                     libnamespace-clean-perl (>= 0.27),
+                     libreadonly-perl (>= 2.05),
+                     libstrictures-perl (>= 2.000003),
+                     libterm-progressbar-simple-perl (>= 0.03),
+                     libtype-tiny-perl (>= 1.000005),
+                     libtypes-path-tiny-perl (>= 0.005),
+                     libyaml-tiny-perl (>= 1.70)
+Standards-Version: 3.9.8
+Homepage: https://metacpan.org/release/Dn-Images-ExtractRegions
+
+Package: libdn-images-extractregions-perl
+Architecture: all
+Depends: ${misc:Depends}, ${perl:Depends},
+         librole-utils-dn-perl (>= 0.1-1),
+         libfunction-parameters-perl (>= 1.0705),
+         libmoo-perl (>= 2.002005),
+         libmoox-handlesvia-perl (>= 0.001008),
+         libmoox-options-perl (>= 4.023-1),
+         libnamespace-clean-perl (>= 0.27),
+         libreadonly-perl (>= 2.05),
+         libstrictures-perl (>= 2.000003),
+         libterm-progressbar-simple-perl (>= 0.03),
+         libtype-tiny-perl (>= 1.000005),
+         libtypes-path-tiny-perl (>= 0.005),
+         libyaml-tiny-perl (>= 1.70),
+         perl (>= 5.23.9)
+Description: extract rectangular regions as images
+ Dn::Images::ExtractRegions extracts rectangular regions from specified image
+ files. It assumes the rectangular region sides are truly vertical and
+ horizontal. It also assumes the regions occur in the same locations on each
+ of the specified image files, i.e., the top-left and bottom-right pixels of
+ the regions have the same (x, y) coordinates in each image.

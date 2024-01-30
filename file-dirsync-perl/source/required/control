@@ -1,0 +1,30 @@
+Source: libfile-dirsync-perl
+Section: perl
+Priority: optional
+Maintainer: David Nebauer <david@nebauer.org>
+Build-Depends: debhelper-compat (= 12)
+Build-Depends-Indep: perl
+Standards-Version: 3.9.6
+Homepage: https://metacpan.org/release/File-DirSync
+
+Package: libfile-dirsync-perl
+Architecture: all
+Depends: ${misc:Depends}, ${perl:Depends}
+Description: Synchronise one directory with another
+ File::DirSync will make two directories exactly the same. The goal is to
+ perform this syncronization process as quickly as possible with as few stats
+ and reads and writes as possible. It usually can perform the syncronization
+ process within a few milliseconds - even for gigabytes or more of
+ information.
+ .
+ Much like File::Copy::copy, one is designated as the source and the other as
+ the destination, but this works for directories too. It will ensure the
+ entire file structure within the descent of the destination matches that of
+ the source. It will copy files, update time stamps, adjust symlinks, and
+ remove files and directories as required to force consistency.
+ .
+ The algorithm used to keep the directory structures consistent is a dirsync
+ cache stored within the source structure. This cache is stored within the
+ timestamp information of the directory nodes. No additional checksum files or
+ separate status configurations are required nor created. So it will not
+ affect any files or symlinks within the source_directory nor its descent.

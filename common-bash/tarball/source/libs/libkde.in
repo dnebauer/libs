@@ -1,0 +1,299 @@
+#!/bin/bash
+
+# Suite: libdncommon-bash  # do not alter or delete -- required by vim plugin
+# File: libkde
+# Author: David Nebauer
+# Purpose: Useful bash functions for interacting with K Desktop Environment
+
+
+# VARIABLES
+
+# Screensaver
+dn_kde_screensaver_initially_enabled=""
+# aRts (sound server)
+dn_arts_initial_state=""
+
+
+# PROCEDURES
+
+# Function: dnKdeRunning                                         {{{1
+# Determine whether a KDE sessions is running
+#   params: nil
+#   prints: nil
+#   return: boolean (0=running|1=not running)
+# fn_tag dnKdeRunning purpose Determine whether KDE is running
+# fn_tag dnKdeRunning prints NIL
+# fn_tag dnKdeRunning returns Whether KDE is running (Boolean)
+# fn_tag dnKdeRunning note Relies on environment variable KDE_FULL_SESSION being set to 'true'
+dnKdeRunning () { return $( [ x"${KDE_FULL_SESSION}" = x"true" ] ); }
+# Function: dnKdeVersion                                         {{{1
+# Return major version number of KDE
+#   params: nil
+#   prints: major KDE version number
+#   return: integer
+# fn_tag dnKdeVersion purpose Get KDE major version number
+# fn_tag dnKdeVersion prints Major KDE version number
+# fn_tag dnKdeVersion returns KDE major version number (Integer)
+# fn_tag dnKdeVersion note Relies on environmental variable KDE_SESSION_VERSION (absent < 4)
+# fn_tag dnKdeVersion note Returns version '0' if KDE is not running
+dnKdeVersion () {
+	local version=0
+	if dnKdeRunning ; then                         # leave at 0 if not KDE
+		if [ -n "${KDE_SESSION_VERSION}" ] ; then  # >= version 4
+			version=${KDE_SESSION_VERSION}
+		else                                       # < version 4 (call it 3)
+			version=3
+		fi
+	fi
+	echo ${version}
+}
+# Function: dnRecordArtsState                                    {{{1
+# Set aRts sound server initial state
+#   params: 1 - state
+#   prints: nil
+#   return: nil
+# fn_tag dnRecordArtsState purpose Record state of aRts sound server
+# fn_tag dnRecordArtsState prints NIL
+# fn_tag dnRecordArtsState returns NIL
+# fn_tag dnRecordArtsState note Stores value in a global variable 'dn_arts_initial_state'.
+# fn_tag dnRecordArtsState note Never called by fn dnDisableArts if no aRts sound server
+# fn_tag dnRecordArtsState note Variable accessed by other functions
+# fn_tag dnRecordArtsState param state purpose Running state of aRts sound server
+# fn_tag dnRecordArtsState param state required yes
+# fn_tag dnRecordArtsState param state multipart no
+# fn_tag dnRecordArtsState param state type string
+# fn_tag dnRecordArtsState param state value enabled
+# fn_tag dnRecordArtsState param state value disabled
+dnRecordArtsState () { dn_arts_initial_state="${1}"; }
+# Function: dnArtsInitiallyEnabled                                   {{{1
+# Whether aRts sound server initially enabled
+#   params: nil
+#   prints: nil
+#   return: boolean (0=enabled|1=disabled)
+# fn_tag dnArtsInitiallyEnabled purpose Report whether aRts sound server was initially enabled
+# fn_tag dnArtsInitiallyEnabled prints NIL
+# fn_tag dnArtsInitiallyEnabled returns Whether aRts was initially enabled (Boolean)
+# fn_tag dnArtsInitiallyEnabled note Queries global variable 'dn_arts_initial_state'
+# fn_tag dnArtsInitiallyEnabled note Never called by fn dnEnableArts if no aRts sound server
+dnArtsInitiallyEnabled () {
+	return $( [ "${dn_arts_initial_state}" = "enabled" ] )
+}
+# Function: dnDisableArts                                            {{{1
+# Disable KDE sound server (aRts)
+#   params: nil
+#   prints: feedback
+#   return: nil
+# fn_tag dnDisableArts purpose Disable aRts sound server
+# fn_tag dnDisableArts prints Feedback on run state of aRts sound server
+# fn_tag dnDisableArts returns NIL
+# fn_tag dnDisableArts note Aborts if no artsshell (aRts sound server)
+dnDisableArts () {
+	dnToolAvailable "artsshell" || return
+	artsshell status &> /dev/null
+	if [ $? -eq 0 ] ; then
+		dnRecordArtsState "enabled"
+		dnInfon "Disabling aRts sound server... "
+		artsshell terminate &> /dev/null
+		artsshell status &> /dev/null
+		test ${?} -eq 0 && dnCritRep 1 "Unable to run 'artshell'"
+		echo "OK."
+	else
+		dnRecordArtsState "disabled"
+		dnInfo "aRts sound server currently disabled."
+	fi
+}
+# Function: dnEnableArts                                             {{{1
+# Restart KDE sound server (aRts)
+#   params: nil
+#   prints: feedback
+#   return: nil
+# fn_tag dnEnableArts purpose Enable aRts sound server
+# fn_tag dnEnableArts prints Feedback on run state of aRts sound server
+# fn_tag dnEnableArts returns NIL
+# fn_tag dnEnableArts note Aborts if no artsshell (aRts sound server)
+dnEnableArts () {
+	dnToolAvailable "artsshell" || return
+	if dnArtsInitiallyEnabled ; then
+		# test again, just in case...
+		artsshell status &> /dev/null
+		if [ ${?} -eq 1 ] ; then
+			dnInfon "Restarting aRts sound server in "
+			kcminit arts &> /dev/null
+			# allow time for server to start before testing
+			echo -n "2..."
+			sleep 1s
+			echo -en "\b\b\b\b1... "
+			sleep 1s
+			echo -en "\b\b\b\b\b\b\b\bnow... "
+			artsshell status &> /dev/null
+			dnReport ${?}
+		fi
+	fi
+}
+# Function: dnSuspendKdeDbusScreensaver                              {{{1
+# Suspend KDE screensaver using dbus (>=KDE4)
+#   params: nil
+#   prints: feedback
+#   return: nil
+# fn_tag dnSuspendKdeDbusScreensaver purpose Suspend KDE screensaver
+# fn_tag dnSuspendKdeDbusScreensaver prints Feedback on screensaver status
+# fn_tag dnSuspendKdeDbusScreensaver returns NIL
+# fn_tag dnSuspendKdeDbusScreensaver note For internal use only
+# fn_tag dnSuspendKdeDbusScreensaver note Scripts should call 'dnSuspendKdeScreensaver'
+# fn_tag dnSuspendKdeDbusScreensaver note Routine suspends screensaver only until the process issuing the inhibit request ends
+# fn_tag dnSuspendKdeDbusScreensaver note Uses 'dbus' to interact with screensaver
+dnSuspendKdeDbusScreensaver () {
+	# simply issue qdbus request
+	# note: dbus-send was not returning cookie at time of writing
+	dnInfon "suspending screensaver... "
+#	dbus-send --session --dest=org.freedesktop.ScreenSaver --type=method_call \
+#			--reply-timeout=20000 /ScreenSaver 
+#			org.freedesktop.ScreenSaver.Inhibit string:'libdncommon-bash' \
+#				string:'request from script ${dn_self}'
+	# need suitably configured (q)dbus to manipulate screensaver
+	if qdbus org.freedesktop.ScreenSaver /ScreenSaver &>/dev/null ; then
+		# issue inhibit request
+		local cookie="$( qdbus \
+							org.freedesktop.ScreenSaver \
+							/ScreenSaver \
+							org.freedesktop.ScreenSaver.Inhibit \
+								$$ \
+								"request from script ${dn_self}" \
+							2>/dev/null )"
+		# report outcome
+		if dnFlagTrue ${?} ; then  # no errors reported so may have worked
+			dnInfo "OK" \
+				   "inhibit request returned cookie ${cookie}"
+		else  # error occurred
+			dnCritRep 1 "Inhibit request sent by qdbus failed"
+		fi  # dnFlagTrue ${?}
+	else  # unable to use (q)dbus
+		dnError "unable to suspend KDE screensaver" \
+				"call to 'qdbus org.freedesktop.ScreenSaver /ScreenSaver' failed" \
+				"is qdbus installed?"
+	fi
+}
+# Function: dnSuspendKdeDcopScreensaver                              {{{1
+# Suspend KDE screensaver using dcop (<=KDE3)
+#   params: nil
+#   prints: feedback
+#   return: nil
+# fn_tag dnSuspendKdeDcopScreensaver purpose Suspend KDE screensaver
+# fn_tag dnSuspendKdeDcopScreensaver prints Feedback on screensaver status
+# fn_tag dnSuspendKdeDcopScreensaver returns NIL
+# fn_tag dnSuspendKdeDcopScreensaver note For internal use only
+# fn_tag dnSuspendKdeDcopScreensaver note Scripts should call 'dnSuspendKdeScreensaver'
+# fn_tag dnSuspendKdeDcopScreensaver note Routine suspends screensaver indefinitely
+# fn_tag dnSuspendKdeDcopScreensaver note Uses 'dcop' to interact with screensaver
+# fn_tag dnSuspendKdeDcopScreensaver note Uses library-wide variable 'dn_kde_screensaver_initially_enabled' to store initial state of screensaver
+dnSuspendKdeDcopScreensaver () {
+	# need suitably configured dcop to manipulate screensaver
+	if dcop kdesktop KScreensaverIface &>/dev/null ; then  # can proceed
+		# get initial state of screensaver
+		local is_enabled=${dn_false}
+		[ x"$( dcop kdesktop KScreensaverIface isEnabled )" = x"true" ] \
+			&& is_enabled=${dn_true}
+		# store initial screensaver status
+		dn_kde_screensaver_initially_enabled=${is_enabled}
+		# only suspend if initially enabled
+		if ! dnFlagTrue ${dn_kde_screensaver_initially_enabled} ; then
+			dnInfon "suspending screensaver... "
+			dcop kdesktop KScreensaverIface enable false &> /dev/null
+			is_enabled=${dn_false}
+			[ x"$( dcop kdesktop KScreensaverIface isEnabled )" = x"true" ] \
+				&& is_enabled=${dn_true}
+			if dnFlagTrue ${is_enabled} ; then
+				echo "OK"
+			else
+				dnCritRep 1 "Unable to disable screensaver"
+			fi
+		else  # already suspended
+			dnInfo "screensaver currently disabled"
+		fi  # ! dnFlagTrue ${dn_kde_screensaver_initially_enabled}
+	else  # unable to use dcop
+		dnError "unable to suspend KDE screensaver" \
+				"call to 'dcop kdesktop KScreensaverIface' failed"
+	fi
+}
+# Function: dnSuspendKdeScreensaver                                  {{{1
+# Suspend KDE screensaver
+#   params: nil
+#   prints: feedback
+#   return: nil
+# fn_tag dnSuspendKdeScreensaver purpose Suspend KDE screensaver
+# fn_tag dnSuspendKdeScreensaver prints Feedback on screensaver status
+# fn_tag dnSuspendKdeScreensaver returns NIL
+# fn_tag dnSuspendKdeScreensaver note Prior to KDE4 routine suspends screensaver indefinitely
+# fn_tag dnSuspendKdeScreensaver note From KDE4 suspend request lasts only as long as calling process is active
+# fn_tag dnSuspendKdeScreensaver note Uses library-wide variable 'dn_kde_screensaver_initially_enabled' to store initial state of screensaver
+dnSuspendKdeScreensaver () {
+	# screensaver operation changed with KDE4
+	local kde_version=$( dnKdeVersion )
+	if   [ ${kde_version} -eq 0 ] ; then  # not running KDE
+		dnWarn "kde is not running so there is no kde screensaver to suspend"
+	elif [ ${kde_version} -eq 3 ] ; then  # running KDE version <4, using dcop
+		dnSuspendKdeDcopScreensaver
+	else [ ${kde_version} -ge 4 ]         # running KDE version 4+, using dbus
+		dnSuspendKdeDbusScreensaver
+	fi
+}
+# Function: dnRestoreKdeDcopScreensaver                              {{{1
+# Restart screensaver using dcop
+#   params: nil
+#   prints: feedback
+#   return: nil
+# fn_tag dnRestoreKdeDcopScreensaver purpose Restore KDE screensaver, i.e., 'unsuspend' it
+# fn_tag dnRestoreKdeDcopScreensaver prints Feedback on screensaver status
+# fn_tag dnRestoreKdeDcopScreensaver returns NIL
+# fn_tag dnRestoreKdeDcopScreensaver note For internal use only
+# fn_tag dnRestoreKdeDcopScreensaver note Scripts should call 'dnRestoreKdeScreensaver'
+# fn_tag dnRestoreKdeDcopScreensaver note Routine restores screensaver regardless of which process disabled it
+# fn_tag dnRestoreKdeDcopScreensaver note Uses 'dcop' to interact with screensaver
+# fn_tag dnRestoreKdeDcopScreensaver note Uses library-wide variable 'dn_kde_screensaver_initially_enabled' to get initial state of screensaver
+dnRestoreKdeDcopScreensaver () {
+	# need suitably configured dcop to manipulate screensaver
+	if dcop kdesktop KScreensaverIface &>/dev/null ; then  # can proceed
+		# only restore if initially enabled
+		if dnFlagTrue ${dn_kde_screensaver_initially_enabled} ; then
+			# test again, in case another process restored screensaver
+			[ x$( dcop kdesktop KScreensaverIface isEnabled ) = x"false" ]
+			if dnFlagTrue ${?} ; then  # screensaver still disabled
+				dnInfon "restoring screensaver... "
+				dcop kdesktop KScreensaverIface enable true &> /dev/null
+				# check for success
+				[ x"$( dcop kdesktop KScreensaverIface isEnabled )" = x"true" ]
+				dnReport ${?}
+			else  # screensaver restored by another process
+				dnInfon "screensaver has been restored by another process"
+			fi  # [ x$( dcop kdesktop KScreensaverIface isEnabled ) = x"false" ]
+		fi  # dnFlagTrue ${dn_kde_screensaver_initially_enabled}
+	else  # unable to use dcop
+		dnError "unable to restore KDE screensaver" \
+				"call to 'dcop kdesktop KScreensaverIface' failed"
+	fi
+}
+# Function: dnRestoreKdeScreensaver                                  {{{1
+# Restart screensaver
+#   params: nil
+#   prints: feedback
+#   return: nil
+# fn_tag dnRestoreKdeScreensaver purpose Restore KDE screensaver, i.e., 'unsuspend' it
+# fn_tag dnRestoreKdeScreensaver prints Feedback on screensaver status
+# fn_tag dnRestoreKdeScreensaver returns NIL
+# fn_tag dnRestoreKdeScreensaver note Only KDE versions <4 need to restore screensaver operation
+# fn_tag dnRestoreKdeScreensaver note KDE from version 4 automatically lifts suspension when the process that requested it ends
+dnRestoreKdeScreensaver () {
+	# screensaver operation changed with KDE4
+	local kde_version=$( dnKdeVersion )
+	if   [ ${kde_version} -eq 0 ] ; then  # not running KDE
+		dnWarn "kde is not running so there is no kde screensaver to restore"
+	elif [ ${kde_version} -eq 3 ] ; then  # running KDE version <4, using dcop
+		dnRestoreKdeDcopScreensaver
+	else [ ${kde_version} -ge 4 ]         # running KDE version 4+, using dbus
+		# no message needed -- feedback was given at suspend/inhibit time
+	fi
+}
+
+# }}}1
+
+# vim: set foldmethod=marker :

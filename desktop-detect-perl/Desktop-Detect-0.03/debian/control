@@ -1,0 +1,18 @@
+Source: libdesktop-detect-perl
+Section: perl
+Priority: optional
+Maintainer: David Nebauer <david@hezmana.cogito.loc>
+Build-Depends: debhelper (>= 9)
+Build-Depends-Indep: libperl-osnames-perl (>= 0.09),
+ perl
+Standards-Version: 3.9.6
+Homepage: https://metacpan.org/release/Desktop-Detect
+
+Package: libdesktop-detect-perl
+Architecture: all
+Depends: ${misc:Depends}, ${perl:Depends}
+Description: Detect desktop environment currently running
+ Desktop::Detect uses several heuristics to find out what desktop environment
+ is currently running, along with extra information.
+ .
+ This description was automagically extracted from the module by dh-make-perl.

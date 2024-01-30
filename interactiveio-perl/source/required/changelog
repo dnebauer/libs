@@ -1,0 +1,7 @@
+libdn-interactiveio-perl (0.1-1) unstable; urgency=low
+
+  * Local package
+  * Initial release
+  * Closes: 4101
+
+ -- David Nebauer <david@hezmana.cogito.loc>  Sat, 15 Oct 2016 21:29:02 +0930

@@ -1,0 +1,18 @@
+Package: libtime-simple-perl
+Version: 0.06-1
+Architecture: all
+Maintainer: David Nebauer <david@hezmana.cogito.loc>
+Installed-Size: 31
+Depends: perl
+Section: perl
+Priority: optional
+Homepage: https://metacpan.org/release/Time-Simple
+Description: A simple, light-weight ISO 8601 time object.
+ A simple, light-weight time object.
+ .
+ This version should be considered an alpha developer release.
+ .
+ How do you think this moudle should handle return values of multiplacation,
+ where the return value would be greater than 23:59:59?
+ .
+ This description was automagically extracted from the module by dh-make-perl.

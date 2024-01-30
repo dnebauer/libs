@@ -1,0 +1,14 @@
+Package: libperl-osnames-perl
+Version: 0.11-1
+Architecture: all
+Maintainer: David Nebauer <david@hezmana.cogito.loc>
+Installed-Size: 51
+Depends: perl
+Section: perl
+Priority: optional
+Homepage: https://metacpan.org/release/Perl-osnames
+Description: List possible $^O ($OSNAME) values, with description
+ This package contains $data which lists possible values of $^O along with
+ description for each. It also provides some helper functions.
+ .
+ This description was automagically extracted from the module by dh-make-perl.

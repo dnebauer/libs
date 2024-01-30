@@ -1,0 +1,13 @@
+libdn-images-extractregions-perl (0.2-1) UNRELEASED; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Tue, 02 Nov 2021 22:59:00 +0930
+
+libdn-images-extractregions-perl (0.1-1) unstable; urgency=low
+
+  * Local package
+  * Initial release
+  * Closes: 2001
+
+ -- David Nebauer <david@nebauer.org>  Sat, 11 Mar 2017 23:40:19 +0930

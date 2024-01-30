@@ -1,0 +1,5259 @@
+package Role::Utils::Dn;
+
+use Moo::Role;    # {{{1
+use strictures 2;
+use 5.006;
+use 5.022001;
+use version; our $VERSION = qv('0.1');
+use namespace::clean;
+
+use autodie qw(open close);
+use Carp qw(confess);
+use Const::Fast;
+use Clipboard;
+use Curses;
+use Data::Dumper::Simple;
+use Date::Simple qw(today);
+use English qw(-no_match_vars);
+use Env qw($PAGER);
+use Feature::Compat::Try;
+use File::Basename;
+use File::Compare;
+use File::Copy::Recursive qw(dircopy fcopy fmove);
+use File::MimeInfo;
+use File::Path qw(make_path remove_tree);
+use File::Spec;
+use File::Temp qw(tempdir);
+use File::Util;
+use File::Which;
+use Function::Parameters;
+use Image::Magick;
+use IO::Pager;
+use IPC::Cmd;
+use IPC::Run;    # required by IPC::Cmd
+use List::MoreUtils;
+use List::Util qw(reduce);
+use Net::Ping::External qw(ping);
+use Path::Tiny;
+use POSIX;       # for WIFEXITED, WEXITSTATUS, WIFSIGNALED, WTERMSIG
+use Role::Utils::Dn::CommandResult;
+use Scalar::Util qw(blessed reftype);
+use Symbol;
+use Term::Clui;
+use Term::ProgressBar::Simple;
+use Text::Pluralize;
+use Text::Wrap;
+use experimental qw(switch);
+
+const my $TRUE               => 1;
+const my $FALSE              => 0;
+const my $FILE_COMPARE_ERROR => -1;
+const my $NEGATE             => -1;
+const my $RGB_ARG_COUNT      => 3;
+const my $RGB_ARG_MAX        => 255;
+const my $TERM_MIN_WIDTH     => 10;
+const my $TERM_GUTTER        => 5;     # }}}1
+
+# methods
+
+# array_push($arrayref, @items)    {{{1
+#
+# does:   add items to an arrayref
+# params: $arrayref - array reference to add to [required]
+#         @items    - items to add [required]
+# prints: nil, except error messages
+# return: array reference (dies on failure)
+method array_push ( $arrayref, @items ) {
+
+    # check args
+    if ( not @items )    { confess 'No items provided'; }
+    if ( not $arrayref ) { confess 'No array reference provided'; }
+    my $ref_type = ref $arrayref;
+    if ( $ref_type ne 'ARRAY' ) { confess 'Not an array reference'; }
+
+    # add items
+    my @list = @{$arrayref};
+    push @list, @items;
+    return [@list];
+}
+
+# changelog_version_regex()    {{{1
+#
+# does:   provide regex for finding version in the
+#         debianise/debian-files/changelog file
+#
+# params: nil
+# prints: nil
+# return: scalar regex
+# note:   assumes first line of changelog file is well-formed, i.e., like:
+#             dn-cronsudo (2.1-2) UNRELEASED; urgency=low
+#         so the first pair of parentheses encloses pkg_version-deb_revision,
+#         and has a final line like:
+#             -- John Doe <john@doe.com>  Fri, 29 Oct 2021 17:22:13 +0930
+# note:   returned regex includes five named captures from the most recent
+#         changelog entry:
+#                    <pkg> = package name
+#                <version> = version
+#                <release> = package release
+#                <urgency> = package urgency
+#             <maintainer> = maintainer name+email
+# note:   access named capture like:
+#             my $changelog_content = $changelog->slurp_utf8;
+#             my $re = $self->changelog_version_regex;
+#             if ( $changelog_content =~ $re ) {
+#                 my $version = "$LAST_PAREN_MATCH{'version'}";
+#                 # ...
+#             }
+method changelog_version_regex () {
+
+    # building blocks
+    my $any = qr/.*?/xsm;
+
+    # in $any can't enclose '.' in a character class ('[.]')
+    # because then it wouldn't match newlines
+    # (see 'Metacharacters' section in 'perlre' manpage)
+    # so need to disable related Perl::Critic warnings
+
+    # first capture: package name
+
+    my $pkg = qr{
+        (?<pkg>    # first capture is package name
+        \A\S+      # package name
+        )          # close capture
+        \s+        # followed by space
+    }xsm;
+
+    # second capture: version+revision
+
+    my $version = qr{
+        [(]            # enclosed in parentheses
+        (?<version>    # commence capture of version+revision
+        [^)]+          # version+revision
+        )              # close second capture
+        [)]            # enclosed in parentheses
+        \s+            # followed by space
+    }xsm;
+
+    # third capture: release
+
+    my $release = qr{
+        (?<release>    # commence capture of release
+        [^;]+          # release
+        )              # close third capture
+        ;\s+           # followed by semicolon and space
+    }xsm;
+
+    # fourth capture: urgency
+
+    my $urgency = qr{
+        (?<urgency>    # commence capture of urgency
+        .*?$           # remainder of line
+        )              # close fourth capture
+        $any           # followed by any content
+    }xsm;
+
+    # fifth capture: maintainer
+
+    my $maint = qr{
+        (?<maint>    # commence capture of maintainer
+        ^[ ]+--\s+   # leading double hyphen
+        [^\>]+>      # maintainer name and then <email_address>
+        )            # close fifth capture
+    }xsm;
+
+    return qr{ $pkg $version $release $urgency $maint }xsm;
+}
+
+# configure_ac_version_regex()    {{{1
+#
+# does:   provide regex for finding version in the
+#         tarball/autotools/configure.ac file
+#
+# params: nil
+# prints: nil
+# return: scalar regex
+# note:   returned regex includes three named captures:
+#                 <pre> = from beginning of file to version
+#             <version> = version
+#                <post> = from version to end of file
+# note:   access named capture like:
+#             my $configure_ac_content = $configure_ac->slurp_utf8;
+#             my $re = $self->configure_ac_version_regex;
+#             if ( $configure_ac_content =~ $re ) {
+#                 my $version = "$LAST_PAREN_MATCH{'version'}";
+#                 # ...
+#             }
+method configure_ac_version_regex () {
+
+    # building blocks
+    my $any = qr/.*?/xsm;
+    my $arg = qr{
+        \[.*?\]    # argument, enclosed in square brackets
+        $any  # interargument characters, may include newline
+    }xsm;
+
+    # in $any can't enclose '.' in a character class ('[.]')
+    # because then it wouldn't match newlines
+    # (see 'Metacharacters' section in 'perlre' manpage)
+    # so need to disable related Perl::Critic warnings
+
+    # first capture: all of file before version
+
+    my $pre_version = qr{
+        (?<pre>    # first capture is all of file before version
+        \A$any     # capture from beginning of file
+        AC_INIT    # version is an argument to the AC_INIT macro
+        $any       # chars between macro name and opening '('
+        [(]        # open arguments for AC_INIT macro
+        $arg       # first AC_INIT argument: description
+        \[         # opening brace of second argument
+        )          # close first capture
+    }xsm;
+
+    # second capture: version
+
+    my $version = qr{
+        (?<version>    # second capture is version
+        $any           # second AC_INIT argument: version
+        )              # close second capture
+    }xsm;
+
+    # third capture: all of file after version
+
+    my $post_version = qr{
+        (?<post>     # third capture is all of file after version no.
+        \]           # closing brace of second argument
+        $any         # interargument chars, may include newline
+        $arg         # third AC_INIT argument: maintainer email
+        $arg         # fourth AC_INIT argument: distribution name
+        [)]          # close AC_INIT macro
+        $any\z       # include remainder of file
+        )
+    }xsm;
+
+    return qr{ $pre_version $version $post_version }xsm;
+}
+
+# copy_to_clipboard($val)    {{{1
+#
+# does:   copy value to system clipboard
+# params: $val - value to copy to system clipboard
+# return: n/a, dies on error
+# note:   non scalar values are converted to string by the Dumper
+#         function from the Data::Dumper::Simple module
+# note:   in X-Windows system (such as linux) the value is copied
+#         to both the primary selection (paste with middle mouse button
+#         of shift key + middle mouse button) and clipboard selection
+#         (ctrl+v keys or shift+ctrl+v keys)
+method copy_to_clipboard ($val) {
+
+    my $scalar = $self->stringify($val);
+
+    # system-neutral assignation to clipboard    {{{2
+    # - in X-Windows (e.g., linux) copies to primary selection,
+    #   which pastes with middle mouse button
+    if ( !eval { Clipboard->copy($scalar); 1 } ) {
+        warn "Couldn't copy '$scalar' to clipboard: $EVAL_ERROR\n";
+    }
+
+    # linux systems assign to X-Windows clipboard selection    {{{2
+    if ( List::MoreUtils::any {/\A$OSNAME\z/xsm} qw(linux darwin) ) {
+
+        # stolen from https://www.av8n.com/security/Xclip.pm
+
+        my @cmd  = qw(xclip -selection clipboard);
+        my $pipe = Symbol::gensym;
+
+        # open pipe to xclip
+        # - no need for error message on failure as 'open' prints one
+        if ( !open $pipe, q{|-}, @cmd ) { return; }
+
+        # echo value to xclip via pipe
+        print {$pipe} $scalar or confess "Couldn't write to pipe: $OS_ERROR";
+
+        # close pipe
+        if ( !close $pipe ) {
+
+            # exit status of pipe close
+            # - perlcritic mistakenly complains about
+            #   ${^CHILD_ERROR_NATIVE} being a "magic punctuation variable"
+            #   but it is actually the long name from the English module,
+            #   so ignore perlcritic in this case
+            ## no critic (ProhibitPunctuationVars)
+            my $err = ${^CHILD_ERROR_NATIVE};
+            ## use critic
+
+            # decode this exit status with POSIX module functions
+            if ( POSIX::WIFEXITED($err) ) {
+                warn 'cmd exited with status ', POSIX::WEXITSTATUS($err),
+                    "\n";
+            }
+            if ( POSIX::WIFSIGNALED($err) ) {
+                warn 'cmd killed by signal ', POSIX::WTERMSIG($err), "\n";
+            }
+            warn ' +++ ', join( q{ }, @cmd ), "\n";
+        }
+    }    # }}}2
+}
+
+# cwd()    {{{1
+#
+# does:   get current directory
+# params: nil
+# prints: nil
+# return: scalar string
+method cwd () {
+    return Path::Tiny::path(q{.})->realpath;
+}
+
+# date_current_iso()    {{{1
+#
+# does:   get current date in ISO 8601 format (yyyy-mm-dd)
+# params: nil
+# prints: nil
+# return: scalar string
+# uses:   Date::Simple
+method date_current_iso () {
+    return Date::Simple->today()->format('%Y-%m-%d');
+}
+
+# debhelper_compat()    {{{1
+#
+# does:   get current debian compatibility level
+#         - actually gets major version of debian package 'debhelper'
+# params: nil
+# prints: nil
+# return: scalar string - version (undef if problem encountered)
+method debhelper_compat () {
+
+    # get full version
+    # - called method dies on failure
+    my $version_full = $self->debian_package_version('debhelper');
+
+    # get semantic version
+    # - meaning only '[E:]X' and not, for example, '[E:]X.Y.Z')
+    my $match_full_version = qr{
+            \A                  # anchor to start of string
+            (\d+:)?             # epoch (optional)
+            [\d\N{FULL STOP}]+  # version: A.B.C...
+            \Z                  # anchor to start of string
+        }xsm;
+    my $match_major_version = qr{
+            \A                # anchor to start of string
+            (                 # start capture
+              (?:\d+:)?       # epoch (optional)
+              \d+             # major version number
+            )                 # end capture (don't care about string end)
+        }xsm;
+    my $major_version;
+    if ( $version_full =~ $match_full_version ) {
+        $version_full =~ $match_major_version;
+        $major_version = $1;
+    }
+    if ( not $major_version ) {
+        my $msg = 'Unable to extract debhelper major version number'
+            . " from version: $version_full";
+        confess $msg;
+    }
+
+    return $major_version;
+}
+
+# debian_install_deb($deb)    {{{1
+#
+# does:   installs debian package from a deb file
+# params: $deb - deb package file [required]
+# prints: question and feedback
+# return: boolean
+method debian_install_deb ($deb) {
+
+    # test filepath
+    if ( not $deb ) {
+        warn "No debian package filepath provided\n";
+        return;
+    }
+    if ( not -r $deb ) {
+        warn "Invalid filepath: $deb\n";
+        return;
+    }
+    if ( not $self->file_is_deb($deb) ) {
+        warn "Invalid package file: $deb\n";
+        return;
+    }
+
+    # requires 'dpkg'
+    if ( not $self->tools_available('dpkg') ) { return; }
+
+    # try installing as if root
+    my @cmd = ( 'dpkg', '--install', $deb );
+    try {
+        $self->run_command( undef, @cmd );
+        say 'Package installed successfully' or confess;
+        return $TRUE;
+    }
+    catch ($err) {
+        warn "Looks like you are not root/superuser\n";
+    }
+
+    # try installing with sudo
+    @cmd = ( 'sudo', 'dpkg', '--install', $deb );
+    try {
+        $self->run_command( undef, @cmd );
+        say 'Package installed successfully' or confess;
+        return $TRUE;
+    }
+    catch ($err) {
+        warn "Okay, seems you do not have root privileges for 'dpkg'\n";
+    }
+
+    # lastly, try su
+    # - if every part is made array element then operation fails with:
+    #   /bin/su: unrecognized option '--install'
+    # - if pass entire command spanning double quotes (including double
+    #   quotes) as a single array element, then entire command appears
+    #   to be passed to bash as a single unit, and after providing
+    #   password the operation fails with:
+    #     bash: dpkg --install ../build/FILE.deb: No such file or directory
+    @cmd
+        = (   'su -c' . q{ } . q{"} . 'dpkg' . q{ }
+            . '--install' . q{ }
+            . $deb
+            . q{"} );
+    say 'The root password is needed' or confess;
+    try {
+        $self->run_command( undef, @cmd );
+        say 'Package installed successfully' or confess;
+        return $TRUE;
+    }
+    catch ($err) {
+        warn "That's it, I give up installing this package\n";
+    }
+
+    return;
+}
+
+# debian_package_version($pkg)    {{{1
+#
+# does:   get version of debian package
+# params: $pkg - name of debian package
+# prints: nil
+# return: scalar string - version
+#         undef = dpkg command failed
+#         dies on failure to parse version string
+method debian_package_version ($pkg) {
+
+    # check arg
+    return if not $pkg;
+
+    # get output of 'dpkg -s PKG'
+    my $cmd    = [ 'dpkg', '-s', $pkg ];
+    my $result = $self->shell_command( [$cmd] );
+    return if not $result->success;
+
+    # get version line from status output
+    my @out      = $result->stdout;
+    my $ver_line = List::MoreUtils::first_value {/\AVersion: /xsm} @out;
+    confess "Unable to extract version information for package $pkg"
+        if not $ver_line;
+
+    # get full version number
+    my $version = ( split /\s+/xsm, $ver_line )[1];
+    confess "Unable to extract $pkg version from $ver_line"
+        if not $version;
+
+    return $version;
+}
+
+# debian_standards_version()    {{{1
+#
+# does:   get current version of debian standards
+#         - actually gets semantic version of debian package 'debian-policy'
+#         - if problem encountered returns safe version ('3.9.2')
+# params: nil
+# prints: nil
+# return: scalar string - version
+method debian_standards_version () {
+
+    # get full version
+    # - called method returns undef on dpkg error, otherwise dies on failure
+    my $version_full = $self->debian_package_version('debian-policy');
+    confess "Unable to get 'debian-policy' status with dpkg\n"
+        if not $version_full;
+
+    # get semantic version
+    # - meaning only '[E:]X.Y.Z' and not, for example, '[E:]X.Y.Z.A')
+    my $match_full_version = qr{
+        \A                  # anchor to start of string
+        (\d+:)?             # epoch (optional)
+        [\d\N{FULL STOP}]+  # version: A.B.C...
+        \Z                  # anchor to start of string
+    }xsm;
+    my $match_semantic_version = qr{
+        \A                           # anchor to start of string
+        (                            # start capture
+          (?:\d+:)?                  # epoch (optional)
+          \d+                        # major version number
+          (?:\N{FULL STOP}\d+){0,2}  # up to two further version levels
+        )                            # end capture (ignore string end)
+    }xsm;
+    my $version;
+    if ( $version_full =~ $match_full_version ) {
+        $version_full =~ $match_semantic_version;
+        $version = $1;
+    }
+    confess "Unable to extract 3-part version from '$version_full'"
+        if not $version;
+
+    return $version;
+
+}
+
+# dir_clean($dir)    {{{1
+#
+# does:   remove all contents of directory
+#
+# params: $dir - dirpath to check [Path::Tiny object or string, required]
+# prints: feedback on error
+# return: n/a, dies on failure
+method dir_clean ($dir_param) {
+
+    # check directory param    {{{2
+    my $dir;
+    my $dir_reftype  = Scalar::Util::reftype $dir_param;
+    my $dir_obj_type = Scalar::Util::blessed $dir_param;
+    if ( defined $dir_reftype ) {
+
+        # is a reference
+        if ( defined $dir_obj_type ) {
+
+            # is an object
+            if ( $dir_obj_type eq 'Path::Tiny' ) { $dir = $dir_param; }
+            else { confess "Invalid directory: is $dir_obj_type object"; }
+        }
+        else { confess "Invalid directory: is $dir_reftype"; }
+    }
+    else {
+        # scalar, presumed to be string file path
+        $dir = Path::Tiny::path($dir_param)->absolute;
+    }
+    if ( not $dir ) { confess 'Unable to determine directory path'; }
+
+    # delete directory contents    {{{2
+    my @children  = map { $_->canonpath } $dir->children;
+    my $to_delete = scalar @children;
+    my $deleted   = File::Path::remove_tree(@children);
+    if ( $deleted < $to_delete ) {
+        confess "Tried to delete $to_delete items, deleted $deleted";
+    }    # }}}2
+
+    return;
+}
+
+# dir_copy($source_dir, $target_dir)    {{{1
+#
+# does:   recursively copy the contents of one directory to another
+# params: $source_dir - directory to copy from
+#                       [required, dirpath, must exist]
+#         $target_dir - directory to copy to
+#                       [required, dirpath, created if necessary]
+# prints: error message on failure
+# return: nil, dies on failure
+method dir_copy ( $source_dir, $target_dir ) {
+
+    # check args
+    confess 'No target directory provided' if not $target_dir;
+    confess 'No source directory provided' if not $source_dir;
+    if ( not -d $source_dir ) {
+        confess "Source directory '$source_dir' does not exist";
+    }
+
+    File::Copy::Recursive::dircopy( $source_dir, $target_dir )
+        or confess $ERRNO;
+
+    return;
+}
+
+# dir_current()    {{{1
+#
+# does:   get current working directory
+# params: nil
+# prints: nil
+# return: scalar string
+method dir_current () {
+    return Path::Tiny::path(q{.})->absolute->canonpath;
+}
+
+# dir_join(@dirs)    {{{1
+#
+# does:   concatenates list of directories in path to string path
+# params: @dirs - directory parts [required, list]
+# prints: nil
+# return: scalar string path
+#         die on error
+method dir_join (@dirs) {
+    return if not @dirs;
+    return File::Spec->catdir(@dirs);
+}
+
+# dir_list($directory)    {{{1
+#
+# does:   list subdirectories in directory
+# params: $directory - directory path [optional, default=cwd]
+# prints: nil
+# return: list, die if operation fails
+method dir_list ($dir) {
+    if ( not $dir ) { $dir = $self->cwd(); }
+    $dir = $self->path_true($dir);
+    if ( not -d $dir ) { confess "Invalid directory '$dir'"; }
+    my $f = File::Util->new();
+
+    # method 'list_dir' fails if directory has no subdirs, so cannot test
+    # for failure of method - assume "failure" == no subdirs in directory
+    my @dirs;
+    @dirs = $f->list_dir( $dir, { dirs_only => $TRUE } );
+    if (@dirs) {
+        @dirs = grep { !/^[.]{1,2}$/xsm } @dirs;    # exclude '.' and '..'
+    }
+    return @dirs;
+}
+
+# dir_make(@paths)    {{{1
+#
+# does:   create directory paths
+# params: @paths - one or more directory paths to create [required]
+# prints: error messages
+# return: boolean, dies on fatal filesystem errors
+method dir_make (@paths) {
+
+    # check args
+    return $TRUE if not @paths;
+
+    # create directory paths
+    my $success = $TRUE;
+    my $options = { error => \my $errors };
+    File::Path::make_path( @paths, $options );
+    if ( $errors && @{$errors} ) {
+        $success = $FALSE;
+        for my $error ( @{$errors} ) {
+            my ( $dirpath, $msg ) = %{$error};
+            if   ($dirpath) { warn "problem creating $dirpath: $msg\n"; }
+            else            { warn "error during creation: $msg\n"; }
+        }
+    }
+
+    if   ($success) { return $TRUE; }
+    else            { return; }
+}
+
+# dir_parent($dir)    {{{1
+#
+# does:   return parent directory
+# params: $dir - directory path to analyse [required]
+# prints: nil
+# return: scalar (absolute directory path)
+# note:   converts to, and returns, absolute path
+method dir_parent ($dir) {
+    if ( not $dir ) { confess 'No path provided'; }
+    return Path::Tiny::path($dir)->absolute->parent->canonpath;
+}
+
+# dir_temp()    {{{1
+#
+# does:   get path of temporary directory
+# params: nil
+# prints: nil
+# return: scalar string
+method dir_temp () {
+    return File::Temp::tempdir( CLEANUP => $TRUE );
+}
+
+# divider()    {{{1
+#
+# does:   get divider string (dashes) as wide as current terminal
+# params: nil
+# prints: nil
+# return: scalar string
+method divider () {
+    my $width = $self->term_width;
+    if ( $width < $TERM_MIN_WIDTH ) {
+        confess "Terminal < $TERM_MIN_WIDTH chars($width)";
+    }
+    my $length  = $width - $TERM_GUTTER;
+    my $divider = q{-} x $length;
+
+    return $divider;
+}
+
+# dump_var($var1[, var2[, ...]])    {{{1
+#
+# does:   format variable for display
+# params: $varX - variable to format [optional, any variable type]
+# prints: nil
+# return: list of strings, each of which fits the current terminal
+# usage:  say $_ for $self->dump_var($my_var);
+method dump_var (@vars) {
+
+    # check params
+    return if not @vars;
+
+    # configure dumper
+    # - Terse and Indent combine to minimise initial spacing
+    local $Data::Dumper::Terse         = $TRUE;
+    local $Data::Dumper::Indent        = 1;
+    local $Data::Dumper::Deepcopy      = $TRUE;
+    local $Data::Dumper::Trailingcomma = $TRUE;
+    local $Data::Dumper::Sortkeys      = $TRUE;
+    local $Data::Dumper::Deparse       = $TRUE;
+
+    # convert to dumped output
+    my @raw_output = split qr{\n}xsm, Dumper(@vars);
+
+    # wrap output
+    my %options = ( hang => 'e=4', cont => $TRUE );
+    my @output  = $self->wrap_text( [@raw_output], %options );
+
+    return @output;
+}
+
+# file_base($filepath, $exists = $FALSE)    {{{1
+#
+# does:   extract base name from file path
+# params: $filepath - path from which to extract base name [required, str]
+#         $exists   - die if param does not exist
+# prints: error messages
+# return: scalar string
+method file_base ( $filepath, $exists = $FALSE ) {
+
+    # check args
+    confess 'No filepath provided' if not $filepath;
+    if ( $exists and not $self->file_readable($filepath) ) {
+        confess "Filepath '$filepath' does not exist";
+    }
+
+    return ( File::Basename::fileparse( $filepath, qr/[.][^.]*\z/xsm ) )[0];
+}
+
+# file_cat_dir($filepath, $dirpath, $exists = $FALSE)    {{{1
+#
+# does:   extract filename from filepath and add it to a dirpath
+# params: $filepath - path from which to extract file name [required, str]
+#         $dirpath  - path to add file to [required, str]
+#         $exists   - die if either param does not exist
+#                     [optional, bool, default=false]
+# prints: error messages
+# return: scalar string
+method file_cat_dir ( $filepath, $dirpath, $exists = $FALSE ) {
+
+    # check args
+    confess 'No dirpath provided'  if not $dirpath;
+    confess 'No filepath provided' if not $filepath;
+    if ($exists) {
+        if ( not $self->file_readable($filepath) ) {
+            confess "Filepath '$filepath' does not exist";
+        }
+        if ( not -d $dirpath ) {
+            confess "Directory path '$dirpath' does not exist";
+        }
+    }
+
+    my $file = $self->file_name($filepath);
+    return File::Spec->catfile( $dirpath, $file );
+}
+
+# file_cmdline_args()    {{{1
+#
+# does:   assume all arguments in ARGV are file globs and expand them
+# params: nil
+# prints: error messages
+# return: list of strings
+method file_cmdline_args () {
+    my @matches;              # get unique file names
+    for my $arg (@ARGV) { push @matches, glob "$arg"; }
+    my @unique_matches = List::MoreUtils::uniq @matches;
+    my @files
+        = grep { $self->file_readable($_) }
+        @unique_matches;      # ignore non-files
+
+    return [@files];
+}
+
+# file_copy($source_file, $target)    {{{1
+#
+# does:   copy a file
+# params: $source_file - file to copy
+#                        [required, filepath, must exist]
+#         $target      - filepath/directory to copy to
+#                        [required, path, created if necessary]
+# prints: error message on failure
+# return: nil, dies on failure
+method file_copy ( $source_file, $target ) {
+
+    # check args
+    confess 'No target provided'      if not $target;
+    confess 'No source file provided' if not $source_file;
+    if ( not $self->file_readable($source_file) ) {
+        confess "Source file '$source_file' does not exist";
+    }
+
+    File::Copy::Recursive::fcopy( $source_file, $target ) or confess $ERRNO;
+
+    return;
+}
+
+# file_identical($fp_1, $fp_2)    {{{1
+#
+# does:   compare two files to see if they are identical
+# params: $fp_1 - file to compare [required, filepath, must exist]
+#         $fp_2 - file to compare [required, filepath, must exist]
+# prints: error message on failure
+# return: scalar boolean, dies on failure
+method file_identical ( $fp_1, $fp_2 ) {
+
+    # check args
+    confess 'Filepath 1 not provided' if not $fp_1;
+    confess 'Filepath 2 not provided' if not $fp_2;
+    for my $filepath ( $fp_1, $fp_2 ) {
+        if ( not $self->file_readable($filepath) ) {
+            confess "Comparison file '$filepath' does not exist";
+        }
+    }
+
+    # compare files
+    my $compare = File::Compare::compare( $fp_1, $fp_2 );
+    if ( $compare == $FILE_COMPARE_ERROR ) {
+        confess "Unable to compare '$fp_1' and '$fp_2': $ERRNO";
+    }
+
+    # File::Compare::compare has reversed return values
+    # - i.e., returns 0 if files identical and 1 if file not identical
+    return not $compare;
+}
+
+# file_is_deb($filepath)    {{{1
+#
+# does:   determine whether file is a debian package file
+# params: $filepath - file to analyse [required]
+#                     dies if missing or invalid
+# prints: nil
+# return: scalar boolean
+method file_is_deb ($filepath) {
+    if ( not $filepath )    { confess 'No filepath provided'; }
+    if ( not -r $filepath ) { confess "Invalid filepath '$filepath'"; }
+    my @mimetypes
+        = ( 'application/x-deb', 'application/vnd.debian.binary-package' );
+    foreach my $mimetype (@mimetypes) {
+        if ( $self->file_is_mimetype( $filepath, $mimetype ) ) {
+            return $TRUE;
+        }
+    }
+    return;
+}
+
+# file_is_mimetype($filepath, $mimetype)    {{{1
+#
+# does:   determine whether file is a specified mimetype
+# params: $filepath - file to analyse [required]
+#                     dies if missing or invalid
+#         $mimetype - mime type to test for [required]
+# prints: nil
+# return: scalar boolean
+method file_is_mimetype ( $filepath, $mimetype ) {
+    if ( not $mimetype ) { confess 'No mimetype provided'; }
+    my $filetype = $self->file_mime_type($filepath);
+    if ( not $filetype ) { return; }
+    return $filetype =~ m{\A$mimetype\z}xsm;
+}
+
+# file_list([$dir[, $pattern]])    {{{1
+#
+# does:   list files in directory
+# params: $dir     - directory path [string, optional, default=cwd]
+#         $pattern - file name pattern to match
+#                    [regex (qr//), optional, default=all files]
+# prints: nil
+# return: list, die if operation fails
+method file_list ( $dir = undef, $pattern = undef ) {
+
+    # process parameters
+    if ( not $dir ) { $dir = $self->cwd(); }
+    $dir = $self->path_true($dir);
+    if ( not -d $dir ) { confess "Invalid directory: $dir"; }
+    if ($pattern) {
+        my $dump = $self->dump_var($pattern);
+        my $ref  = ref $pattern;
+        if ( $ref ne 'Regexp' ) {
+            confess "Invalid regex file pattern: $dump";
+        }
+        my $blessed = Scalar::Util::blessed($pattern);
+        if ( $blessed ne 'Regexp' ) {
+            confess "Invalid regex file pattern: $dump";
+        }
+        my $reftype = Scalar::Util::reftype($pattern);
+        if ( $reftype ne 'REGEXP' ) {
+            confess "Invalid regex file pattern: $dump";
+        }
+    }
+
+    # get directory contents
+    my $dir_obj = Path::Tiny::path($dir);
+    my @children;
+    if   ($pattern) { @children = $dir_obj->children($pattern); }
+    else            { @children = $dir_obj->children; }
+
+    # filter for files
+    my @fp_objects = grep { not $_->is_dir } @children;
+    my @files      = map  { $_->basename } @fp_objects;
+
+    return @files;
+}
+
+# file_move($source_file, $target)    {{{1
+#
+# does:   move a file
+# params: $source_file - file to move
+#                        [required, filepath, must exist]
+#         $target      - filepath/directory to move to
+#                        [required, path, created if necessary]
+# prints: error message on failure
+# return: nil, dies on failure
+method file_move ( $source_file, $target ) {
+
+    # check args
+    confess 'No target provided'      if not $target;
+    confess 'No source file provided' if not $source_file;
+    if ( not $self->file_readable($source_file) ) {
+        confess "Source file '$source_file' does not exist";
+    }
+
+    # fatal error can occur if source and target filepaths are identical
+    return if $source_file eq $target;
+
+    File::Copy::Recursive::fmove( $source_file, $target ) or confess $ERRNO;
+
+    return;
+}
+
+# file_mime_type($filepath)    {{{1
+#
+# does:   determine mime type of file
+# params: $filepath - file to analyse [required]
+#                     dies if missing or invalid
+# prints: nil
+# return: scalar boolean
+# note:   this method previously used File::Type::mime_type but that
+#         module incorrectly identifies some mp3 files as
+#         'application/octet-stream'
+# note:   uses File::MimeInfo: alternatives include File::MMagic and
+#         File::MMagic:Magic
+method file_mime_type ($filepath) {
+    if ( not $filepath )    { confess 'No filepath provided'; }
+    if ( not -r $filepath ) { confess "Invalid filepath '$filepath'"; }
+    return File::MimeInfo->new()->mimetype($filepath);
+}
+
+# file_name($filepath, $exists = $FALSE)    {{{1
+#
+# does:   extract filename from filepath
+# params: $filepath - path from which to extract file name [required, str]
+#         $exists   - die if filepath does not exist
+#                     [optional, bool, default=false]
+# prints: error messages
+# return: scalar string
+method file_name ( $filepath, $exists = $FALSE ) {
+
+    # check args
+    confess 'No filepath provided' if not $filepath;
+    if ( $exists and not $self->file_readable($filepath) ) {
+        confess "Filepath '$filepath' does not exist";
+    }
+
+    return ( File::Spec->splitpath($filepath) )[2];
+}
+
+# file_name_duplicates(@filepaths)    {{{1
+#
+# does:   find duplicate file names in set of filepaths, i.e., same
+#         file name in different directories
+# params: @filepaths - filenames to analyse [optional, str]
+# prints: nil
+# return: hashref: {filename => [filepath1, filepath2, ...], ...}
+method file_name_duplicates (@fps) {
+    return {} if not @fps;
+
+    # extract file names and use them as hash keys, with key values
+    # being the corresponding file paths
+    my %names;
+    for my $fp (@fps) {
+        my $name = $self->file_name($fp);
+        if   ( exists $names{$name} ) { push @{ $names{$name} }, $fp; }
+        else                          { push @{ $names{$name} }, [$fp]; }
+    }
+
+    # find file names with multiple associated file paths
+    my @multiple = grep { scalar @{ $names{$_} } > 1 } keys %names;
+
+    # create hash with details of these file names and paths
+    my %dupes;
+    for my $name (@multiple) { $dupes{$name} = $names{$name}; }
+
+    return {%dupes};
+}
+
+# file_name_parts($filepath, $exists = $FALSE)    {{{1
+#
+# does:   extract base name and suffix from file path
+# params: $filepath - path from which to extract base name [required, str]
+#         $exists   - die if param does not exist
+#                     [optional, boolean, default=false]
+# prints: error messages
+# return: list of strings ($base, $suffix)
+# note:   suffix includes period separator
+method file_name_parts ( $filepath, $exists = $FALSE ) {
+
+    # check args
+    confess 'No filepath provided' if not $filepath;
+    if ( $exists and not $self->file_readable($filepath) ) {
+        confess "Filepath '$filepath' does not exist";
+    }
+
+    return ( File::Basename::fileparse( $filepath, qr/[.][^.]*\z/xsm ) )
+        [ 0, 2 ];
+}
+
+# file_readable(@filepaths)    {{{1
+#
+# does:   determine whether paths are (symlinks to) valid plain
+#         files and are readable
+# params: @filepaths - paths to be analysed [required, str]
+# prints: error messages
+# return: scalar boolean, dies on failure
+method file_readable (@filepaths) {
+
+    # check args
+    confess 'No filepaths' if not @filepaths;
+
+    # cycle through filepaths
+    for my $filepath (@filepaths) {
+        my $true_path = $self->path_true($filepath);
+        if ( not( -f $true_path and -r $true_path ) ) { return; }
+    }
+
+    # no unreadable files found
+    return $TRUE;
+}
+
+# file_write($content, $fp, [$perm])    {{{1
+#
+# params: $content - file content [array reference, required]
+#         $fp      - file path to write to
+#                    [string or Path::Tiny object, required]
+#         $perm    - permissions for file [quoted octal string, optional,
+#                                          default=current umask]
+# prints: nil, except on failure
+# return: n/a, dies on file operation failure
+# notes:  if file exists it will be silently overwritten
+method file_write ( $content, $fp, $perm = undef ) {
+
+    # set vars
+    if ( not $content )            { confess 'No content provided'; }
+    if ( ref $content ne 'ARRAY' ) { confess 'Content not an array'; }
+    if ( not $fp )                 { confess 'No file provided'; }
+    my $dest;
+    my $fp_reftype  = Scalar::Util::reftype $fp;
+    my $fp_obj_type = Scalar::Util::blessed $fp;
+    if ( defined $fp_reftype ) {
+
+        # is a reference
+        if ( defined $fp_obj_type ) {
+
+            # is an object
+            if ( $fp_obj_type eq 'Path::Tiny' ) {
+                $dest = $fp;
+            }
+            else {
+                confess "Invalid file: is $fp_obj_type object";
+            }
+        }
+        else {
+            # is a reference that is not an object
+            confess "Invalid file: is $fp_reftype";
+        }
+    }
+    else {
+        # scalar, presumed to be string file path
+        $dest = Path::Tiny::path($fp)->absolute;
+    }
+    if ( not $dest ) {
+        confess 'Unable to determine destination file path';
+    }
+
+    # write file
+    my @lines = map {"$_\n"} @{$content};
+    try {
+        $dest->spew_utf8(@lines);
+    }
+    catch ($err) {
+        confess "Unable to write to '$dest': $err";
+    }
+
+    # set file permissions
+    # - combination of 'if' and Feature::Compat::Try::try confuses perlcritic
+    if ($perm) {    ## no critic (ProhibitPostfixControls)
+        try {
+            $dest->chmod($perm);
+        }
+        catch ($err) {
+            confess "Unable to modify permissions of '$dest': $err";
+        }
+    }
+
+    return;
+}
+
+# image_add_border($image, $side, $top_bottom, $fill = 'none')    {{{1
+#
+# does:   add borders to image (left=right and top=bottom)
+# params: $image      - image object [required, Image::Magick object]
+#         $side       - width of each of the left and right borders
+#                       [required, int, pixels]
+#         $top_bottom - width of each of the top and bottom borders
+#                       [required, int, pixels]
+#         $fill       - border color [optional, str|rgb, default='none']
+# prints: error messages
+# return: nil, edits $image in place
+# note:   no border is added if border widths are zero
+method image_add_border ( $i, $s, $t, $f = 'none' ) {
+
+    # use more intuitive variable names
+    my ( $image, $side, $top_bottom, $fill ) = ( $i, $s, $t, $f );
+
+    # check args
+    # - if no border widths provided, assume user is only resizing
+    return if not( $side and $top_bottom );
+
+    # - otherwise need all values
+    confess 'Empty color'                         if not $fill;
+    confess 'No top/bottom border width provided' if not $top_bottom;
+    confess 'No side border width provided'       if not $side;
+    confess 'No image provided'                   if not $image;
+    confess "Non-integer border width '$top_bottom'"
+        if not $self->int_pos_valid($top_bottom);
+    confess "Non-integer border width '$side'"
+        if not $self->int_pos_valid($side);
+    confess 'Not an image object' if not $self->image_object($image);
+    if ( $side == 0 and $top_bottom == 0 ) { return; }
+
+    # prepare arguments for size function
+    my $width  = $self->image_width($image);
+    my $height = $self->image_height($image);
+    $width  += ( $side * 2 );
+    $height += ( $top_bottom * 2 );
+    my %args;
+    $args{'geometry'}   = "${width}x${height}";
+    $args{'background'} = $fill;
+    $args{'gravity'}    = 'Center';
+
+    # resize image
+    my $err;
+    $err = $image->Extent(%args);
+    confess "Image::Magick->Extent failed: $err" if "$err";
+
+    return;
+}
+
+# image_create($filepath, $attributes)    {{{1
+#
+# does:   create Image::Magick object for image file
+# params: $filepath   - image file path [required, str]
+#         $attributes - Image::Magick attributes [optional, hashref]
+# prints: error messages
+# return: Image::Magick object
+method image_create ( $filepath, $attributes = undef ) {
+
+    # check args
+    confess 'No filepath provided' if not $filepath;
+    confess "Invalid filepath '$filepath'"
+        if not $self->file_readable($filepath);
+    if ($attributes) {
+        my $ref = ref $attributes;
+        confess "Invalid attributes var type '$ref'" if $ref ne 'HASH';
+    }
+
+    # create image
+    my $image = Image::Magick->new;
+    my $err;
+    my %attrs = ($attributes) ? %{$attributes} : ();
+    if (%attrs) {
+        $err = $image->Set(%attrs);
+        confess "Image::Magick->Set failed on image '$filepath': $err"
+            if "$err";
+    }
+    $err = $image->Read($filepath);
+    confess "Image::Magick->Read failed on image '$filepath': $err"
+        if "$err";
+
+    return $image;
+}
+
+# image_crop ($image, $tl_x, $tl_y, $br_x, $br_y)    {{{1
+#
+# does:   crop Image::Magick object
+# params: $image - image object [required, Image::Magick object]
+#         $top_left_x     - x coordinate of top-left pixel
+#                           [required, int]
+#         $top_left_y     - y coordinate of top-left pixel
+#                           [required, int]
+#         $bottom_right_x - x coordinate of bottom-right pixel
+#                           [required, int]
+#         $bottom_right_y - y coordinate of bottom-right pixel
+#                           [required, int]
+# prints: error messages
+# return: nil, edits $image in place
+method image_crop ( $image, $tl_x, $tl_y, $br_x, $br_y ) {
+
+    # check args
+    # - note that coordinates can be zero, hence use of 'defined'
+    confess 'No bottom-right pixel y-coord provided'  if not defined $br_y;
+    confess 'No bottom-right pixel x-coord provided'  if not defined $br_x;
+    confess 'No top_left pixel y-coordinate provided' if not defined $tl_y;
+    confess 'No top_left pixel x-coordinate provided' if not defined $tl_x;
+
+    # easier-to-parse variable names
+    my ( $top_left_x, $top_left_y, $bottom_right_x, $bottom_right_y )
+        = ( $tl_x, $tl_y, $br_x, $br_y );
+
+    # check args
+    my @coords
+        = ( $top_left_x, $top_left_y, $bottom_right_x, $bottom_right_y );
+    for my $coord (@coords) {
+        confess "Invalid coordinate '$coord'"
+            if not $self->int_pos_valid($coord);
+    }
+    confess 'Not an image object' if not $self->image_object($image);
+
+    # convert coordinates to dimensions and offsets
+    my $width    = $bottom_right_x - $top_left_x + 1;
+    my $height   = $bottom_right_y - $top_left_y + 1;
+    my $x_offset = $top_left_x;
+    my $y_offset = $top_left_y;
+
+    # get geometry param
+    my $geometry = sprintf '%sx%s+%s+%s', $width, $height, $x_offset,
+        $y_offset;
+
+    # crop image
+    my $err;
+    $err = $image->Crop( geometry => $geometry );
+    confess "Image::Magic->Crop failed: $err" if "$err";
+
+    return;
+}
+
+# image_files_valid(@filepaths)    {{{1
+#
+# does:   ensure all files can be opened as images
+# params: @filepaths - image file paths [optional, str list]
+# prints: feedback, e.g., "Verifying $count image files:"
+# prints: error messages
+# return: scalar boolean
+# warn:   returns true if no parameter provided
+# note:   croaks of Image::Magick module unable to open file as image
+method image_files_valid (@filepaths) {
+    if ( not @filepaths ) {
+        warn "No image files to verify\n";
+        return;
+    }
+    my $count    = scalar @filepaths;
+    my $progress = 0;
+    if ( $count == 1 ) {
+        say "Verifying image file '$filepaths[0]'"
+            or confess 'Unable to output to terminal';
+    }
+    else {
+        say "Verifying $count image files:"
+            or confess 'Unable to output to terminal';
+        $progress = Term::ProgressBar::Simple->new($count);
+    }
+    for my $filepath (@filepaths) {
+        my $image = $self->image_create($filepath);    # croaks if fails
+        undef $image;    # avoid memory cache overflow
+        $progress++;
+    }
+    undef $progress;     # ensure final messages displayed
+
+    return $TRUE;
+}
+
+# image_height($image)    {{{1
+#
+# does:   get image height in pixels
+# params: $image - image object [required, Image::Magick object]
+# prints: error messages
+# return: scalar integer
+method image_height ($image) {
+
+    # check args
+    confess 'No image provided'   if not $image;
+    confess 'Not an image object' if not $self->image_object($image);
+
+    return $image->Get('height');
+}
+
+# image_label($image, $text, :$font, :$size ,:$color, :$edge, :$space)    {{{1
+#
+# does:   add label to image
+# params: $image - image object [required, Image::Magick object]
+#         $text  - label text [required, string]
+#         $font  - label font
+#                  [optional, int, default selected by ImageMagick]
+#         $size  - label font size (pt) [optional, int, default=0]
+#         $color - label font color [optional, string, default='black']
+#         $edge  - label location
+#                  [optional, 'north|south|east|west', default='south']
+#         $space - space between edge and label (pt)
+#                  [optional, int, default=0]
+# prints: error messages
+# return: nil, edits $image in place
+method image_label ( $i, $t, : $f, : $d, : $c, : $e, : $s ) {
+
+    # use more intuitive variable names
+    my ( $image, $text, $font, $size, $color, $edge, $space )
+        = ( $i, $t, $f, $d, $c, $e, $s );
+
+    # check args
+    # - otherwise need all values
+    confess 'No label text provided' if not $text;
+    confess 'No image provided'      if not $image;
+    confess 'Not an image object'    if not $self->image_object($image);
+    if ( defined $space ) {
+        die "Invalid space value '$space'\n"
+            if not $self->int_pos_valid($space);
+    }
+    if ( not $edge ) { $edge = 'south'; }
+    my %valid_edge = map { $_ => $TRUE } qw(north south east west);
+    confess "Invalid edge '$edge'" if not $valid_edge{$edge};
+    if ( defined $size ) {
+        die "Invalid size value '$size'\n"
+            if not $self->int_pos_valid($size);
+    }
+
+    # assemble parameters
+    my %params = ( text => $text, gravity => $edge );
+    if ($font)  { $params{'font'}      = $font; }
+    if ($size)  { $params{'pointsize'} = $size; }
+    if ($color) { $params{'stroke'}    = $color; }
+    if ($space) { $params{'geometry'}  = '+0+' . $space; }
+
+    my $err;
+
+    # label image
+    $err = $image->Annotate(%params);
+    confess "Image::Magick->Annotate failed: $err" if "$err";
+
+    return;
+}
+
+# image_max_dimensions(@filepaths)    {{{1
+#
+# does:   determine maximum width and height of images
+# params: @filepaths - image file paths [optional, list]
+# prints: error messages
+# return: ( $width, $height )  # pixels, scalar integers
+# warn:   returns (0, 0) if no parameter provided
+# note:   longest width and height may be from different images
+method image_max_dimensions (@filepaths) {
+
+    # check args
+    confess 'No filepaths provided' if not @filepaths;
+    for my $filepath (@filepaths) {
+        confess "Invalid filepath '$filepath'"
+            if not $self->file_readable($filepath);
+    }
+
+    # provide feedback
+    my $count    = scalar @filepaths;
+    my $progress = 0;
+    if ( $count == 1 ) {
+        say "Analysing image file '$filepaths[0]'"
+            or confess 'Unable to output to terminal';
+    }
+    else {
+        say "Analysing $count image files:"
+            or confess 'Unable to output to terminal';
+        $progress = Term::ProgressBar::Simple->new($count);
+    }
+
+    # check each file for image dimensions
+    my ( $max_width, $max_height ) = ( 0, 0 );
+    for my $filepath (@filepaths) {
+        my $image = $self->image_create($filepath);
+
+        # update maximum height and width if necessary
+        my $width  = $self->image_width($image);
+        my $height = $self->image_height($image);
+        if ( $width > $max_width )   { $max_width  = $width; }
+        if ( $height > $max_height ) { $max_height = $height; }
+
+        undef $image;    # avoid memory cache overflow
+        $progress++;
+    }
+    undef $progress;     # ensure final messages displayed
+
+    return ( $max_width, $max_height );
+}
+
+# image_max_x($image)    {{{1
+#
+# does:   get maximum pixel x-coordinate for image
+# params: $image - image object [required, Image::Magick object]
+# prints: error messages
+# return: scalar integer
+method image_max_x ($image) {
+
+    # check args
+    confess 'No image provided'   if not $image;
+    confess 'Not an image object' if not $self->image_object($image);
+
+    return $self->image_width($image) - 1;
+}
+
+# image_max_y($image)    {{{1
+#
+# does:   get maximum pixel y-coordinate for image
+# params: $image - image object [required, Image::Magick object]
+# prints: error messages
+# return: scalar integer
+method image_max_y ($image) {
+
+    # check args
+    confess 'No image provided'   if not $image;
+    confess 'Not an image object' if not $self->image_object($image);
+
+    return $self->image_height($image) - 1;
+}
+
+# image_object($object)    {{{1
+#
+# does:   verify that object is an Image::Magick object
+# params: $object - object to analyse [required, scalar reference]
+# prints: error messages
+# return: scalar boolean
+method image_object ($object) {
+
+    return $FALSE if not $object;
+    my $object_type = Scalar::Util::blessed $object;
+    return $FALSE if not $object_type;    # not an object
+    return $object_type eq 'Image::Magick';
+}
+
+# image_pixel_color($image, $x, $y, [@color])    {{{1
+#
+# does:   set or get color of pixel as RGB color component values (each 0-255)
+# params: $image - image [required, Image::Magick object]
+#         $x     - x-coordinate of pixel [required, int]
+#         $y     - y-coordinate of pixel [required, int]
+#         @color - rgb components
+#                  [optional, required if called as setter, int 0-255]
+# prints: error messages
+# return: if setter - nil
+#         if getter - @color, i.e., ( $red, $green, $blue )
+method image_pixel_color ( $image, $x, $y, @color ) {
+
+    # check args
+    # - note pixel coordinates can be zero, hence use of 'defined'
+    confess 'No y-coordinate provided'      if not defined $y;
+    confess 'No x-coordinate provided'      if not defined $x;
+    confess 'No image provided'             if not $image;
+    confess "Non-integer y-coordinate '$y'" if not $self->int_pos_valid($y);
+    confess "Non-integer x-coordinate '$x'" if not $self->int_pos_valid($x);
+    confess 'Not an image object' if not $self->image_object($image);
+    my $max_x = $self->image_max_x($image);
+    my $max_y = $self->image_max_y($image);
+    confess "X-coordinate $x > image's largest x-coord $max_x" if $x > $max_x;
+    confess "Y-coordinate $y > image's largest y-coord $max_y" if $y > $max_y;
+
+    if (@color) {
+        my $rgb = join ', ', @color;
+        if ( scalar @color < $RGB_ARG_COUNT ) {
+            confess "Incomplete color provided ($rgb)";
+        }
+        if ( scalar @color > $RGB_ARG_COUNT ) {
+            confess 'Too many arguments';
+        }
+        my @ok_rgb = ( 0 .. $RGB_ARG_MAX );
+        for my $component (@color) {
+            if ( not $self->int_pos_valid($component) ) {
+                confess "Non-integer color value ($rgb)";
+            }
+            if ( not List::MoreUtils::any { $component == $_ } @ok_rgb ) {
+                confess "Color value out of range ($rgb)";
+            }
+        }
+    }
+
+    if (@color) {    # setter
+
+        # convert values to 0-1
+        for (@color) { $_ /= $RGB_ARG_MAX; }
+
+        # set pixel color
+        $self->_image->SetPixel( x => $x, y => $y, color => [@color] );
+    }
+    else {           # getter
+
+        # get color component values (3-element array, values 0-1)
+        my @color = $image->GetPixel( x => $x, y => $y, normalize => $TRUE );
+
+        # convert values to 0-255
+        for (@color) { $_ *= $RGB_ARG_MAX; }
+
+        return @color;
+    }
+
+    return;
+}
+
+# image_resize($image, $width, $height, ...    {{{1
+#       ... $fill = 'none', :$preserve=>$TRUE)
+#
+# does:   resize image
+# params: $image    - image object [required, Image::Magick object]
+#         $width    - target width [required, int]
+#         $height   - target height [required, int]
+#         $fill     - fill color [optional, string, default='none']
+#         $preserve - whether to preserve aspect ratio
+#                     [optional, bool, default=true]
+# prints: error messages
+# return: nil, edits $image in place
+method image_resize ( $image, $w, $h, $f = 'none', : $p = $TRUE ) {
+
+    # use more intuitive variable names
+    my ( $width, $height, $fill, $preserve ) = ( $w, $h, $f, $p );
+
+    # check args
+    # - if no dimensions provided, assume user is only adding borders
+    return if not( $width and $height );
+
+    # - otherwise need all values
+    confess 'No fill color provided'     if not $fill;
+    confess 'No width provided'          if not $width;
+    confess 'No height provided'         if not $height;
+    confess 'No image provided'          if not $image;
+    confess "Non-integer width '$width'" if not $self->int_pos_valid($width);
+    confess "Non-integer height '$height'"
+        if not $self->int_pos_valid($height);
+    confess 'Not an image object' if not $self->image_object($image);
+
+    # the terminology gets a little confusing here
+    # - the Resize functions *scales* the image
+    #   . if preserving aspect ratio the image itself will scale
+    #     up or down until one dimension matches the resized
+    #     dimensions, and the other is smaller (unless aspect
+    #     ratios of the original image and resize dimensions
+    #     match perfectly
+    # - the Extent function, though, actually *resizes* the image
+    #   to the new dimensions, adding fill (background) color to
+    #   extend the image to the new size
+    # - thus *scaling* is done by the Resize function,
+    #   and *resizing* is done by the Extent function
+
+    # prepare argument for Resize function (which *scales* image)
+    my %scale_args;
+    if ($preserve) { $scale_args{'geometry'} = "${width}x${height}"; }
+    else {
+        $scale_args{'width'}  = $width;
+        $scale_args{'height'} = $height;
+    }
+
+    my $err;
+
+    # scale image
+    $err = $image->Resize(%scale_args);
+    confess "Image::Magick->Resize failed: $err" if "$err";
+
+    # prepare argument for Extent function (which *resizes* image)
+    my %resize_args;
+    $resize_args{'geometry'}   = "${width}x${height}";
+    $resize_args{'background'} = $fill;
+    $resize_args{'gravity'}    = 'Center';
+
+    # resize image
+    $err = $image->Extent(%resize_args);
+    confess "Image::Magick->Extent failed: $err" if "$err";
+
+    return;
+}
+
+# image_width($image)    {{{1
+#
+# does:   get image width in pixels
+# params: $image - image object [required, Image::Magick object]
+# prints: error messages
+# return: scalar integer
+method image_width ($image) {
+
+    # check args
+    confess 'No image provided'   if not $image;
+    confess 'Not an image object' if not $self->image_object($image);
+
+    return $image->Get('width');
+}
+
+# image_write($image, $filemask)    {{{1
+#
+# does:   write image to file
+# params: $image    - image object [required, Image::Magick object]
+#         $filemask - target file mask [required, Str]
+# prints: error messages
+# return: nil
+# note:   if file mask contains printf-like formatting it can serve
+#         as basis for multiple output files
+method image_write ( $image, $filemask ) {
+
+    # check args
+    confess 'No file mask provided' if not $filemask;
+    confess 'No image provided'     if not $image;
+    confess 'Not an image object'   if not $self->image_object($image);
+
+    # leftover geometry offsets can be problematic, so repage
+    my $err;
+    $err = $image->Set( page => '0x0+0+0' );
+    confess "Image::Magick->Set failed: $err" if "$err";
+
+    # write file
+    $err = $image->Write( filename => $filemask );
+    confess "Image::Magick->Write failed: $err" if "$err";
+
+    return;
+}
+
+# int_pad_width($max_int)    {{{1
+#
+# does:   maximum width of an integer sequence, i.e., the value that
+#         would determine how much padding is necesary to ensure
+#         all integers in the sequence are the same length
+# params: $max_int - largest integer in sequence [required, int]
+# prints: nil
+# return: scalar integer
+method int_pad_width ($max_int) {
+    return 1 if not $max_int;
+    confess "Invalid integer '$max_int'"
+        if not $self->int_pos_valid($max_int);
+    return length $max_int;
+}
+
+# int_pos_valid($value)    {{{1
+#
+# does:   whether value is a positive integer
+# params: $value - item to be analysed [required]
+# prints: nil
+# return: scalar boolean
+method int_pos_valid ($value) {
+    return if not defined $value;
+    for ($value) {
+        if    ( $_ =~ /^[+]?0$/xsm )         { return $TRUE; }    # zero
+        elsif ( $_ =~ /^[+]?[1-9]\d*\z/xsm ) { return $TRUE; }    # above zero
+        else                                 { return; }
+    }
+}
+
+# int_valid($value)    {{{1
+#
+# does:   whether value is an integer
+# params: $value - item to be analysed [required]
+# prints: nil
+# return: scalar boolean
+method int_valid ($value) {
+    return if not defined $value;
+    for ($value) {
+        if    ( $_ =~ /^[+-]?0\z/xsm )        { return $TRUE; }    # zero
+        elsif ( $_ =~ /^[+-]?[1-9]\d*\z/xsm ) { return $TRUE; }    # other int
+        else                                  { return; }
+    }
+}
+
+# interact_confirm($question)    {{{1
+#
+# does:   user answers y/n to a question
+# params: $question - question to be answered with yes or no
+#                     [required, can be multi-line (use "\n")]
+# prints: user interaction
+#         after user answers, all but first line of question
+#           is removed from the screen
+#         answer also remains on screen
+# return: scalar boolean
+# usage:  my $prompt = "Short question?\n\nMore\nmulti-line\ntext.";
+#         if ( $self->interact_confirm($prompt) ) {
+#             # do stuff
+#         }
+method interact_confirm ($question) {
+
+    if ( not $question ) { return; }
+    local $ENV{CLUI_DIR} = 'OFF';     # do not remember responses
+    return Term::Clui::confirm($question);
+}
+
+# internet_connection([$verbose])    {{{1
+#
+# does:   determine whether an internet connection can be found
+# params: $verbose - whether to provide feedback [optional, default=false]
+# prints: feedback if requested
+# return: boolean
+method internet_connection ( $verbose = $FALSE ) {
+    my $connected;
+    my @urls         = ( 'www.debian.org', 'www.uq.edu.au' );
+    my $max_attempts = scalar @urls;
+    my $timeout      = 1;                                       # seconds
+    if ($verbose) {
+        say "Checking internet connection (maximum $max_attempts attempts):";
+    }
+    while ( my ( $index, $url ) = each @urls ) {
+        my $attempt_number = $index + 1;
+        if ($verbose) { print "  Attempt $attempt_number... "; }
+        if (Net::Ping::External::ping(
+                hostname => $url,
+                timeout  => $timeout,    # appears to be ignored
+            )
+            )
+        {
+            $connected = $TRUE;
+            if ($verbose) { say 'OK'; }
+            last;
+        }
+        else {
+            if ($verbose) { say 'Failed'; }
+        }
+    }
+    if ($connected) {
+        if ($verbose) { say 'Internet connection detected'; }
+        return $TRUE;
+    }
+    else {
+        if ($verbose) { say 'No internet connection detected'; }
+        return;
+    }
+}
+
+# list_duplicates(@values)    {{{1
+#
+# does:   return list of duplicate list elements
+# params: @values - list to be processed [optional, list]
+# prints: warning if references found in list
+# return: list
+# note:   non-scalar values are assumed to be unique
+# note:   element order is not preserved
+method list_duplicates (@values) {
+
+    my ( @duplicates, @scalars );
+
+    # assume non-scalars are unique
+    for my $value (@values) {
+        if   ( ref $value ) { push @duplicates, $value; }
+        else                { push @scalars,    $value; }
+    }
+
+    # find scalar duplicates
+    my %count;
+    for my $value (@values) { $count{$value}++; }
+    push @duplicates, grep { $count{$_} > 1 } keys %count;
+
+    return @duplicates;
+}
+
+# pad($values[, $width[, $char[, $side]]] )    {{{1
+#
+# does:   left- or right-pad a value or list of values with a character
+# params: $values - simple scalar or arrayref of values
+#                   [empty scalar or arrayref allowed]
+#                   [error if not simple scalar or arrayref]
+#         $width  - integer [optional, default: longest item]
+#                           [ignore if less than longest item]
+#         $char   - single char [optional]
+#                               [default: 0 if all int values, else ' ']
+#         $side   - whether left or right padding ['left'|'right']
+#                                                 [default: 'left']
+# prints: nil
+# return: scalar string if input is simple scalar
+#         list if input is array ref
+# credit: pad methods from https://www.tek-tips.com/viewthread.cfm?qid=184815
+method pad (@params) {
+
+    # params    {{{2
+    my ( $values, $width, $char, $side ) = @params;
+    if ( not $side )  { $side  = 'left'; }
+    if ( not $width ) { $width = 0; }
+
+    # - $values    {{{3
+    my @vals;
+    my $ref = ref $values;
+    if ( $ref eq 'ARRAY' ) {    # array
+        my @array = @{$values};
+        return if not @array;
+        push @vals, @array;
+    }
+    if ( $ref and $ref ne 'ARRAY' ) {    # not array
+        confess "Values are '$ref' instead of 'ARRAY'";
+    }
+    if ( not $ref ) {                    # scalar
+        return if not $values;
+        push @vals, $values;
+    }
+
+    # - $width    {{{3
+    confess "Invalid width '$width'" if not $self->int_pos_valid($width);
+    my $max_width
+        = length reduce { length($a) > length($b) ? $a : $b } @vals;
+    if ( $width == 0 )         { $width = $max_width; }
+    if ( $width < $max_width ) { $width = $max_width; }
+
+    # - $char   {{{3
+    if ( defined $char ) {
+        if ( length $char != 1 ) {
+            confess "Want single pad char, got '$char'";
+        }
+    }
+    else {    # decide on pad char
+        if ( List::MoreUtils::any { not $self->int_pos_valid($_) } @vals ) {
+            $char = q{ };    # not all integers, so use space
+        }
+        else {
+            $char = q{0};    # all integers, so use zero
+        }
+    }
+
+    # - $side    {{{3
+    $side = lc $side;
+    my %valid_side = map { $_ => $TRUE } qw(left right);
+    confess "Expect side is 'left' or 'right', got '$side'"
+        if not $valid_side{$side};    # }}}3
+
+    # pad list    {{{2
+    # - works only if $width >= longest list element
+    # - need parentheses to enforce operator precedence
+    ## no critic (ProhibitParensWithBuiltins)
+    my @padded
+        = ( $side eq 'left' )
+        ? map { substr( ( $char x $width ) . $_, $NEGATE * $width, $width ) }
+        @vals
+        : map { substr( $_ . ( $char x $width ), 0, $width ) } @vals;
+    ## use critic
+
+    # return padded value or list    {{{2
+    return ($ref) ? @padded : $padded[0];    # }}}2
+}
+
+# pager($lines)    {{{1
+#
+# does:   display list of lines in terminal using pager
+# params: $lines  - array reference [required]
+#         $prefer - preferred pager, used if it is found on the system
+#                   [optional, no default]
+# prints: paged lines
+# return: n/a, die on failure
+# note:   pager used depends on IO::Pager algorithm
+# note:   does not matter whether lines have terminal newlines or not
+# note:   often used with method 'term_wrap' to format screen display
+method pager ( $lines, $prefer ) {
+
+    # check args
+    if ( not $lines ) { confess 'No lines provided'; }
+    my $ref_type = ref $lines;
+    if ( $ref_type ne 'ARRAY' ) { confess 'Not an array reference'; }
+    my $default_pager;
+    if ( $prefer and $self->executable_path($prefer) and $prefer ne $PAGER ) {
+        $default_pager = $PAGER;
+        $PAGER         = $prefer;
+    }
+
+    # display lines
+    my @output = @{$lines};
+    chomp @output;
+    my $pager = IO::Pager->new();
+    foreach my $line (@output) {
+        $pager->print("$line\n");
+    }
+
+    # restore default pager
+    if ($default_pager) { $PAGER = $default_pager; }
+}
+
+# path_canon($path)    {{{1
+#
+# does:   get canonical path
+# params: $path - path to canonicalise [required, str]
+# prints: error messages
+# return: scalar string - canonical path
+# notes:  uses File::Spec->canonpath to clean up path, but this does not
+#         resolve symlinks and relative paths -- for those use path_true; also
+#         uses perl glob function in case tilde is present and needs
+#         resolution, but this means a wildcard present in the input string can
+#         potentially resolve to multiple matching files, which causes a fatal
+#         error
+method path_canon ($path) {
+
+    # expand tilde, but catch case where wildcard matches multiple results
+    my @glob_matches = glob $path;
+    confess "Multiple paths match '$path'" if scalar @glob_matches > 1;
+
+    # return canonical path
+    return File::Spec->canonpath( $glob_matches[0] );
+}
+
+# path_executable($exe)    {{{1
+#
+# does:   get path of executable
+# params: $exe - short name of executable [required, str]
+# prints: error messages
+# return: path to executable, undef if not found
+method path_executable ($exe) {
+    confess 'No executable name provided' if not $exe;
+    return scalar File::Which::which($exe);
+}
+
+# path_join(@parts)    {{{1
+#
+# does:   concatenates list of directories and file to string path
+# params: @parts - path parts [required, list]
+# prints: nil
+# return: scalar string path
+#         die on error
+method path_join (@parts) {
+    return if not @parts;
+    return File::Spec->catfile(@parts);
+}
+
+# path_parts($filepath, $exists = $FALSE)    {{{1
+#
+# does:   extract directory path and file name from file path
+# params: $filepath - path from which to extract parts [required, str]
+#         $exists   - die if path does not exist
+#                     [optional, boolean, default=false]
+# prints: error messages
+# return: list of strings ($dirpath, $filename)
+method path_parts ( $filepath, $exists = $FALSE ) {
+
+    # check args
+    confess 'No filepath provided' if not $filepath;
+    if ( $exists and not $self->file_readable($filepath) ) {
+        confess "Filepath '$filepath' does not exist";
+    }
+
+    my ( $file, $dirpath, $suffix ) = File::Basename::fileparse($filepath);
+    return ( $dirpath, $file . $suffix );
+}
+
+# path_remove(@paths)    {{{1
+#
+# does:   delete files and recursively delete directories
+# params: @paths - one or more filepaths or dirpaths to delete [required]
+# prints: error messages
+# return: boolean, dies on fatal filesystem errors
+method path_remove (@paths) {
+
+    # check args
+    return $TRUE if not @paths;
+
+    # perform deletion
+    my $success = $TRUE;
+    my $options = { error => \my $errors };
+    File::Path::remove_tree( @paths, $options );
+    if ( $errors && @{$errors} ) {
+        $success = $FALSE;
+        for my $error ( @{$errors} ) {
+            my ( $file, $msg ) = %{$error};
+            if   ($file) { warn "problem deleting $file: $msg\n"; }
+            else         { warn "error during deletion: $msg\n"; }
+        }
+    }
+
+    if   ($success) { return $TRUE; }
+    else            { return; }
+}
+
+# path_true($path, $exists = $FALSE)    {{{1
+#
+# does:   convert relative path to absolute
+# params: $path   - path to convert [required]
+#         $exists - die if path does not exist
+#                   [optional, bool, default=false]
+# prints: nil
+# return: scalar string
+# note:   returns absolute filepaths unchanged
+# note:   symlinks are followed
+# note:   double quote filepath parameter if it is a variable
+#         - if not, passing a value like './' results in an error
+#           as it is somehow reduced to an empty value
+method path_true ( $path, $exists = $FALSE ) {
+
+    # check args
+    confess 'No filepath provided' if not $path;
+    if ( $exists and not $self->file_readable($path) ) {
+        confess "Path '$path' does not exist";
+    }
+
+    return Path::Tiny::path($path)->absolute->canonpath;
+}
+
+# pluralise($string, $numeric)    {{{1
+#
+# does:   adjust string based on provided numerical value
+# params: $string - string to adjust [required]
+#         $number - integer value [required]
+# prints: nil
+# return: scalar string
+# note:   passes values straight through to Text::Pluralizer::pluralize
+method pluralise ( $string, $number ) {
+
+    # check args
+    if ( not( defined $string ) ) { confess 'No string provided'; }
+    if ( not $string )            { return q{}; }
+    if ( not $number )            { confess 'No number provided'; }
+    if ( not $self->int_pos_valid($number) ) {
+        confess "Number '$number' is not an integer";
+    }
+
+    # use Text::Pluralize
+    return Text::Pluralize::pluralize( $string, $number );
+}
+
+# run_command($err, @cmd)    {{{1
+#
+# does:   run system command and die with custom error message on failure
+#
+# params: $err - error message [scalar string, required, can be undef]
+#         @cmd - command and arguments [list, required]
+# prints: feedback
+# return: n/a, dies on failure
+#   note: displays command output in real time but does not capture it
+#    see: shell_command()
+method run_command ( $err, @cmd ) {
+
+    if ( not @cmd ) { confess 'No command provided'; }
+    my $divider = $self->divider;
+    say $divider or confess;
+    if ( system @cmd ) {
+
+        say $divider or confess;
+        my $cmd_str = join q{ }, @cmd;
+        if ($err) { warn "$err\n"; }
+        warn "Failed command: $cmd_str\n";
+
+        # perlcritic mistakenly complains about ${^CHILD_ERROR_NATIVE}
+        # being a "magic punctuation variable" but it is actually the
+        # long name from the English module, so perlcritic is wrong
+        ## no critic (ProhibitPunctuationVars)
+        my $err = ${^CHILD_ERROR_NATIVE};
+        ## use critic
+
+        # decode the exit status with POSIX module functions
+        if ( POSIX::WIFEXITED($err) ) {
+            warn '- exited with status ', POSIX::WEXITSTATUS($err), "\n";
+        }
+        my $exit_status = 1;
+        if ( POSIX::WIFSIGNALED($err) ) {
+            warn '- killed by signal ', POSIX::WTERMSIG($err), "\n";
+            $exit_status = POSIX::WTERMSIG($err);
+        }
+
+        confess "Exit status: $exit_status";
+    }
+    say $divider or confess;
+
+    return;
+}
+
+# shell_command($cmd, $fatal, $timeout)    {{{1
+#
+# does:   run shell command and capture output
+# params: $cmd     - command to run [string or array reference, required]
+#         $fatal   - die on command failure [bool, optional, default=true]
+#         $timeout - command timeout [integer, optional, default=0]
+# return: Role::Utils::Dn::CommandResult object
+#   note: does not display output while command running, but captures output
+#    see: run_command()
+method shell_command ( $cmd, $fatal = $TRUE, $timeout = 0 ) {
+
+    # process arg
+    if ( not( defined $cmd ) ) { confess 'No command provided'; }
+    my $arg_type = ref $cmd;
+    if ( $arg_type eq 'ARRAY' ) {
+        my @cmd_args = @{$cmd};
+        if ( not @cmd_args ) { confess 'No command arguments provided'; }
+    }
+    elsif ( $arg_type ne q{} ) {    # if not array ref must be string
+        confess 'Command is not a string or array reference';
+    }
+    if ( not $self->int_pos_valid($timeout) ) {
+        confess 'timeout is not a valid positive integer';
+    }
+
+    # run command
+    my ( $succeed, $err, $full_ref, $stdout_ref, $stderr_ref )
+        = IPC::Cmd::run( command => $cmd, timeout => $timeout );
+
+    # process output
+    # - err: has trailing newline
+    if ( defined $err ) { chomp $err; }
+    else { $err = q{}; }    # prevent undef which fails type constraint
+
+    # - full, stdout and stderr: appears that for at least some commands
+    #   all output lines are put into a single string, separated with
+    #   embedded newlines, which is then put into a single element list
+    #   which is made into an array reference; these are unpacked below
+    my @full;
+    foreach my $chunk ( @{$full_ref} ) {
+        chomp $chunk;
+        my @lines = split /\n/xsm, $chunk;
+        push @full, @lines;
+    }
+    my @stdout;
+    foreach my $chunk ( @{$stdout_ref} ) {
+        chomp $chunk;
+        my @lines = split /\n/xsm, $chunk;
+        push @stdout, @lines;
+    }
+    my @stderr;
+    foreach my $chunk ( @{$stderr_ref} ) {
+        chomp $chunk;
+        my @lines = split /\n/xsm, $chunk;
+        push @stderr, @lines;
+    }
+
+    # die now if command failed and fatal flag is set
+    if ( $fatal and not $succeed ) {
+        my $cmd_str;
+        if ( $arg_type eq 'ARRAY' ) { $cmd_str = join q{ }, @{$cmd}; }
+        else                        { $cmd_str = $cmd; }
+        confess "Shell command '$cmd_str' failed: $err";
+    }
+
+    # return results as an object
+    return Role::Utils::Dn::CommandResult->new(
+        success      => $succeed,
+        error        => $err,
+        full_output  => [@full],
+        standard_out => [@stdout],
+        standard_err => [@stderr],
+    );
+}
+
+# stringify($val)    {{{1
+#
+# does:   convert all values to a string (may contain newlines)
+# params: $val - value to stringify [any, required]
+# prints: nil
+# return: scalar string
+method stringify ($val) {
+
+    # no need to alter a string    {{{2
+    my $val_type = Scalar::Util::reftype $val;
+    if ( not( defined $val_type ) ) { return $val; }
+
+    # stringify anything else    {{{2
+    return Dumper($val);
+
+}
+
+# term_height()    {{{1
+#
+# does:   get terminal height in characters
+# params: nil
+# prints: nil
+# return: Scalar integer
+method term_height () {
+    my ( $height, $width );
+    my $mwh = Curses->new();
+    $mwh->getmaxyx( $height, $width );
+    endwin();
+    return $height;
+}
+
+# term_width()    {{{1
+#
+# does:   get terminal width in characters
+# params: nil
+# prints: nil
+# return: Scalar integer
+method term_width () {
+    my ( $height, $width );
+    my $mwh = Curses->new();
+    $mwh->getmaxyx( $height, $width );
+    endwin();
+    return $width;
+}
+
+# tools_available(@tools)    {{{1
+#
+# does:   check that required executables are available on system
+# params: @tools - required executables [optional]
+# prints: message to stderr if any tools not available
+# return: scalar boolean
+# usage:  if ( not $cp->tools_available( 'tar', 'gzip' ) ) { return; }
+# note:   error message looks like:
+#             Required executable is not available: not-here
+#             Required executables are not available: not-here, me-either
+method tools_available (@tools) {
+    if ( not @tools ) { return; }
+    my @missing = grep { not $self->path_executable($_) } @tools;
+    if (@missing) {
+        my $missing_tools = join q{, }, @missing;
+        my $err
+            = $self->pluralise(
+            'Required (executable is|executables are) not available: ',
+            scalar @missing )
+            . $missing_tools;
+        my @display = $self->wrap_text($err);
+        for my $line (@display) { warn "$line\n"; }
+
+        return;
+    }
+
+    return $TRUE;
+}
+
+# wrap_text($string, %options)    {{{1
+#
+# does:   displays screen text with word wrapping
+# params: $strings - text to wrap, string or array reference
+#                    [required]
+#         %options - options hash [all optional]:
+#         - $width:  width at which to wrap [int, default=terminal width]
+#                    note: cannot be wider than terminal width
+#         - $indent: size of indent [int, default=0]
+#         - $hang:   size of indent of second and subsequent lines
+#                    [int or string, default=$indent]
+#         - $break:  regular expression giving characters to break on
+#                    example: qr{[\s']} for space and quote
+#                    [regexp, default=qr{[\s]}]
+#         - $cont:   use continuation character [bool, default=$FALSE]
+# prints: nil
+# return: list of strings (no terminal slashes)
+# usage:  my @output = $self->wrap_text($string, indent => 2, hang => 4);
+#         my @output = $self->wrap_text([@many_strings]);
+# note:   there are two formats for 'hang'; the first format is the usual
+#         meaning of a hanging indent, where second and subsequent lines are
+#         indented by the nominated number of spaces, accepts an integer >=0;
+#         the second format is an extended hanging indent where the base
+#         hanging indent is equal to the number of leading spaces in the first
+#         row, optionally with an additional indent amount, accepts a string
+#         like 'e=X' where the 'e' is a flag indicating use of the second
+#         format style and 'X' is an integer >=0, and as a special case a
+#         simple 'e' is the same as 'e=0'
+# note:   continuation lines have appended character U+21A9 (↩);
+#         alternatives that could be used are:
+#         U+2938 (⤸), U+21A9 (↩), U+21B2 (↲), U+21B5 (↵), U+21D9 (⇙),
+#         U+2926 (⤦), U+2936 (⤶), U+23CE (⏎), U+2B0B (⬋), U+2B03 (⬃)
+# note:   Text::Wrap consumes break characters if a simple regexpt is provided;
+#         a line consisting solely of break characters (such as a line of
+#         dashes, where dashes are defined as a break character) will simply
+#         disappear during processing; use a positive lookbehind construct to
+#         prevent consumption of break characters
+# note:   often used with method 'pager' to format screen display
+method wrap_text ( $strings, %options ) {
+
+    const my $MIN_TEXT_WIDTH => 10;
+    const my $TAB_SIZE       => 4;
+
+    # handle args    {{{2
+    # - $strings    {{{3
+    if ( not $strings ) { confess 'No strings provided'; }
+    my $strings_ref = ref $strings;
+    my @input;
+    for ($strings_ref) {
+        if    ( $_ eq 'ARRAY' ) { @input = @{$strings}; }
+        elsif ( $_ eq q{} )     { push @input, $strings; }
+        else {
+            my $err = 'Input is not a string or array reference: '
+                . Dumper($strings);
+            confess $err;
+        }
+    }
+
+    # - $width    {{{3
+    my $width;
+    if ( $options{'width'} ) {
+        if (    $self->int_pos_valid( $options{'width'} )
+            and $options{'width'} > 0 )
+        {
+            $width = $options{'width'};
+        }
+        else {
+            my $err
+                = q{Invalid option 'width': } . Dumper( $options{'width'} );
+            confess $err;
+        }
+    }
+    my $terminal_width = $self->term_width - 1;    #
+    if ( ( not $width ) or ( $width > $terminal_width ) ) {
+        $width = $terminal_width;
+    }
+
+    # - localised as per PBP, so ignore package variable warning
+    ## no critic (ProhibitPackageVars)
+    local $Text::Wrap::columns = $Text::Wrap::columns;
+    $Text::Wrap::columns = $width;
+    ## use critic
+
+    # - $indent    {{{3
+    my $indent = q{};
+    if ( exists $options{'indent'} ) {
+        if (    $self->int_pos_valid( $options{'indent'} )
+            and $options{'indent'} >= 0
+            and ( ( $options{'indent'} + $MIN_TEXT_WIDTH ) < $width ) )
+        {
+            $indent = q{ } x $options{'indent'};
+        }
+        else {
+            my $err
+                = q{Invalid option 'indent': } . Dumper( $options{'indent'} );
+            confess $err;
+        }
+    }
+
+    # - $hang    {{{3
+    #   . positive integer regexp    {{{4
+    my $int_re = qr{
+        (?:                             #  '()' not to capture to $1, etc.
+            (?: 0 )                     # zero
+            |                           # OR
+            (?:                         # integer
+                (?: [123456789]    )    # - being a non-zero
+                (?: [0123456789] * )    # - and optional number combo
+            )
+        )
+    }xsm;
+
+    #    . extended hang regexp    {{{4
+    my $extend_re = qr{
+        (?:                          #  '()' not to capture to $1, etc.
+            (?: [Ee] )               # 'E' or 'e'
+            (?: = ( $int_re ) ) ?    # optionally followed by '=' and integer
+                                     # and capture the integer
+        )
+    }xsm;    # }}}4
+    my $hang = $indent;
+    if ( exists $options{'hang'} ) {
+        my $valid_hang = $FALSE;
+
+        # basic format: positive integer
+        if ( $self->int_pos_valid( $options{'hang'} )
+            and ( ( $options{'hang'} + $MIN_TEXT_WIDTH ) < $width ) )
+        {
+            $hang       = q{ } x $options{'hang'};
+            $valid_hang = $TRUE;
+        }
+
+        # extended format: 'e' or 'e=X' where 'X' is a positive integer
+        elsif ( $options{'hang'} =~ /\A$extend_re\Z/xsm ) {
+            my $extend     = $1 // 0;    # provided by $extend_re
+            my $base       = length $input[0] =~ s/\A(\s*).*\Z/$1/xsmr;
+            my $hang_width = $base + $extend;
+            if ( ( $hang_width + $MIN_TEXT_WIDTH ) < $width ) {
+                $hang       = q{ } x $hang_width;
+                $valid_hang = $TRUE;
+            }
+        }
+
+        # invalid format
+        if ( not $valid_hang ) {
+            my $err = q{Invalid option 'hang': } . Dumper( $options{'hang'} );
+            confess $err;
+        }
+    }
+
+    # - $break    {{{3
+    my $break = qr{[\s]}xsm;
+    if ( exists $options{'break'} ) {
+        my $candidate = $options{'break'};
+        if ( ref $candidate eq 'Regexp' ) { $break = $candidate; }
+    }
+
+    # - localised as per PBP, so ignore package variable warning
+    ## no critic (ProhibitPackageVars)
+    local $Text::Wrap::break = $Text::Wrap::break;
+    $Text::Wrap::break = $break;
+    ## use critic
+
+    # - $cont    {{{3
+    my $cont = $FALSE;
+    if ( exists $options{'cont'} ) {
+        $cont = $options{'cont'};
+    }    # }}}3
+
+    # wrap message    # {{{2
+    # - localised as per PBP, so ignore package variable warning
+    ## no critic (ProhibitPackageVars)
+    local $Text::Wrap::unexpand = $Text::Wrap::unexpand;
+    $Text::Wrap::unexpand = $FALSE;
+    local $Text::Wrap::tabstop = $Text::Wrap::tabstop;
+    $Text::Wrap::tabstop = $TAB_SIZE;
+    local $Text::Wrap::huge = $Text::Wrap::huge;
+    $Text::Wrap::huge = 'wrap';
+    ## use critic
+    my @output;
+
+    foreach my $line (@input) {
+        my $wrapped       = Text::Wrap::wrap( $indent, $hang, $line );
+        my @wrapped_lines = split /\n/xsm, $wrapped;
+        if ( $cont && scalar @wrapped_lines > 1 ) {    # add continuations
+            my $last_line = pop @wrapped_lines;
+            foreach my $line (@wrapped_lines) { $line .= q{↩}; }
+            push @wrapped_lines, $last_line;
+        }
+        push @output, @wrapped_lines;
+    }
+    chomp @output;    # }}}2
+
+    return @output;
+}    # }}}1
+
+1;
+
+# POD    {{{1
+
+__END__
+
+=encoding utf8
+
+=head1 NAME
+
+Role::Utils::Dn - utility methods
+
+=head1 VERSION
+
+This documentation refers to Role::Utils::Dn version 0.1.
+
+=head1 SYNOPSIS
+
+    package My::Module;
+    use Moo;
+    with qw(Role::Utils::Dn);
+
+=head1 DESCRIPTION
+
+A library of my personal utility methods.
+
+=head2 Previous role structure
+
+These methods were originally provided in multiple role modules grouped by
+theme. Unfortunately there were interdependencies between these role modules,
+meaning the modules consumed each other. Eventually the circular dependencies
+became sufficiently complex that perl began crashing with errors like "Due to a
+method name conflict between roles 'Dn::Role::HasDebian' and
+'Dn::Role::HasUserInteraction', the method 'getchar' must be implemented by
+[the calling script]" when one of the roles was consumed.
+
+To prevent this situation, all utility role methods were combined into one.
+
+=head2 Thematic classification
+
+All role methods are listed below in alphabetical order. They are listed here
+in their original thematic groupings.
+
+=head3 Array
+
+=over
+
+=item array_push($arrayref, @items)
+
+add items to an arrayref
+
+=item list_duplicates(@values)
+
+get duplicate list items
+
+=back
+
+=head3 Debian
+
+=over
+
+=item changelog_version_regex( )
+
+get regex for extracting package version from F<changelog>
+
+=item configure_ac_version_regex( )
+
+get regex for extracting package version from F<configure.ac>
+
+=item debhelper_compat( )
+
+get current debian compatibility level
+
+=item debian_install_deb($deb)
+
+installs debian package from a deb file
+
+=item debian_package_version($pkg)
+
+get current version of a debian package
+
+=item debian_standards_version( )
+
+get current debian standards version
+
+=back
+
+=head3 Image
+
+=over
+
+=item image_add_border($image, $side, $top_bottom, $fill = 'none')
+
+add border to Image::Magick image
+
+=item image_create($filepath, $attributes = undef)
+
+create Image::Magick object from image file
+
+=item image_crop($image, $tl_x, $tl_y, $br_x, $br_y)
+
+crop Image::Magick object
+
+=item image_files_valid(@filepaths)
+
+ensure all image files can be opened as Image::Magick objects
+
+=item image_height($image)
+
+get height in pixels of Image::Magick object
+
+=item image_label($image, $text, :$font, :$size, :$color, :$edge, :$space)
+
+add label to Image::Magick object
+
+=item image_max_dimensions(@filepaths)
+
+get maximum height and width of images in files
+
+=item image_max_x($image)
+
+get maximum pixel x-coordinate for image
+
+=item image_max_y($image)
+
+get maximum pixel y-coordinate for image
+
+=item image_object($object)
+
+check whether variable is an Image::Magick object
+
+=item image_pixel_color($image, $x, $y, [@color])
+
+get or set the (rgb) color of a pixel in an Image::Magick object
+
+=item image_resize($image, $width, $height, $fill = 'none', :$preserve = $TRUE)
+
+resize an Image::Magick object
+
+=item image_width($image)
+
+get width in pixels of Image::Magick object
+
+=item image_write($image, $filemask)
+
+save an Image::Object to file
+
+=back
+
+=head3 Number
+
+=over
+
+=item int_pad_width($int)
+
+width, in characters, of an integer
+
+=item int_pos_valid($value)
+
+whether a given value is a valid positive integer (includes zero)
+
+=item int_valid($value)
+
+whether a given value is a valid integer (includes zero)
+
+=back
+
+=head3 Path
+
+=over
+
+=item cwd( )
+
+get current directory path
+
+=item dir_clean($dir)
+
+delete all files and recursively delete all subdirectories in a directory
+
+=item dir_copy($source_dir, $target_dir)
+
+recursively copy the contents of one directory to another
+
+=item dir_current( )
+
+get current working directory
+
+=item dir_join(@dirs)
+
+concatenate list of directories in path to a string path
+
+=item dir_list($dir)
+
+list subdirectories in directory
+
+=item dir_make(@paths)
+
+create directory paths
+
+=item dir_parent($dir)
+
+return parent directory
+
+=item dir_temp( )
+
+get path of temporary directory
+
+=item file_base($filepath, $exists = $FALSE)
+
+extract base name from file path
+
+=item file_cat_dir($filepath, $dirpath, $exists = $FALSE)
+
+extract filename from a filepath and add it to a directory path
+
+=item file_cmdline_args( )
+
+assume all arguments in ARGV are file globs and expand them
+
+=item file_copy($source_file, $target)
+
+copy a file
+
+=item file_identical($fp_1, $fp_2)
+
+compare two files to see if they are identical
+
+=item file_is_deb($filepath)
+
+determine whether file is a debian package file.
+
+=item file_is_mimetype($filepath, $mimetype)
+
+determine whether a given file is a specified mimetype
+
+=item file_list([$directory[, $pattern]])
+
+list files in directory, optionally listing only those matching a pattern
+
+=item file_mime_type($filepath)
+
+determine the mime type of a file
+
+=item file_move($source_file, $target)
+
+move a file
+
+=item file_name($filepath, $exists = $FALSE)
+
+extract filename from filepath
+
+=item file_name_duplicates(@fps)
+
+find duplicate file names in a set of filepaths, i.e., the same file name in
+different directories
+
+=item file_name_parts($filepath, $exists = $FALSE)
+
+extract base name and suffix from a file path
+
+=item file_readable(@filepaths)
+
+determine whether given paths are (symlinks to) valid plain files and are
+readable
+
+=item file_write($content, $fp, $perm = undef)
+
+write file content to disk
+
+=item path_canon($path)
+
+get canonical path
+
+=item path_executable($exe)
+
+get path of executable
+
+=item path_join(@parts)
+
+concatenates a list of directories and a file to create a string path
+
+=item path_parts($filepath, $exists = $FALSE)
+
+extract directory path and file name from a file path
+
+=item path_remove(@paths)
+
+delete files and recursively delete directories
+
+=item path_true($path, $exists = $FALSE)
+
+convert a relative path to an absolute path
+
+=back
+
+=head3 Program interaction
+
+=over
+
+=item copy_to_clipboard($val)
+
+copy value to system clipboard
+
+=item internet_connection([$verbose])
+
+determine whether an internet connection can be found
+
+=item run_command($err, @cmd)
+
+run shell command and die with custom error message if command fails
+
+=item shell_command($cmd, $fatal = $TRUE, $timeout = 0)
+
+run shell command and capture output
+
+=item tools_available(@tools)
+
+checks that required executables are available on the system
+
+=back
+
+=head3 String
+
+=over
+
+=item date_current_iso( )
+
+get current date in ISO 8601 format (yyyy-mm-dd)
+
+=item pad($values[, $width[, $char[, $side]]])
+
+left- or right-pad a value or list of values with a character
+
+=item stringify($val)
+
+convert a value of any type to a string (may contain newlines)
+
+=item pluralise($string, $numeric)
+
+adjust string based on a provided numerical value
+
+=back
+
+=head3 User interaction
+
+=over
+
+=item divider( )
+
+provides a string of dashes as wide as the current terminal
+
+=item dump_var($var1[, var2[, ...]])
+
+format variable for display
+
+=item interact_confirm($question)
+
+user answers y/n to a question
+
+=item pager($lines)
+
+display list of lines in terminal using pager
+
+=item term_height( )
+
+get terminal height in characters
+
+=item term_width( )
+
+terminal width in characters
+
+=item wrap_text($string, %options)
+
+displays screen text with word wrapping
+
+=back
+
+=head1 ATTRIBUTES
+
+None provided.
+
+=head1 SUBROUTINES/METHODS
+
+=head2 array_push($arrayref, @items)
+
+=head3 Purpose
+
+Add items to an array reference.
+
+=head3 Parameters
+
+=over
+
+=item $arrayref
+
+Array reference to add items to. Array reference. Required.
+
+=item @items
+
+Items to add to array reference. List. Required.
+
+=back
+
+=head3 Prints
+
+Error message on failure.
+
+=head3 Returns
+
+Array reference. Dies on failure.
+
+=head2 changelog_version_regex( )
+
+=head3 Purpose
+
+Provides a regex for finding the package version in the F<changelog> debian
+control file.
+
+The script assumes the first line of the file is well-formed, i.e., like:
+
+    dn-cronsudo (2.1-2) UNRELEASED; urgency=low
+
+so that the first pair of parentheses found on the line encloses the S<"package
+version"-"debian revision"> value. It similarly assumes the last line of the
+entry is like:
+
+    -- John Doe <john@doe.com>  Fri, 29 Oct 2021 17:22:13 +0930
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar regexp, e.g., qr//.
+
+The regex includes five named captures from the most recent changelog entry:
+
+=over
+
+=over
+
+=item <pkg>
+
+package name
+
+=item <version>
+
+version
+
+=item <release>
+
+package release
+
+=item <urgency>
+
+package urgency
+
+=item <maintainer>
+
+maintainer name and email
+
+=back
+
+=back
+
+=head3 Usage
+
+The named captures can be accessed with code like:
+
+    my $changelog_content = $changelog->slurp_utf8;
+    my $re = $self->changelog_version_regex;
+    if ( $changelog_content =~ $re ) {
+        my $version = "$LAST_PAREN_MATCH{'version'}";
+        # ...
+    }
+
+=head2 configure_ac_version_regex( )
+
+Provides a regex for finding the package version in the F<configure.ac>
+autotools file.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar regexp, e.g., qr//.
+
+The regex includes three named captures:
+
+=over
+
+=over
+
+=item <pre>
+
+from beginning of file to version
+
+=item <version>
+
+version
+
+=item <post>
+
+from version to end of file.
+
+=back
+
+=back
+
+=head3 Usage
+
+The named captures can be accessed with code like:
+
+    my $configure_ac_content = $configure_ac->slurp_utf8;
+    my $re = $self->configure_ac_version_regex;
+    if ( $configure_ac_content =~ $re ) {
+        my $version = "$LAST_PAREN_MATCH{'version'}";
+        # ...
+    }
+
+=head2 copy_to_clipboard($val)
+
+=head3 Purpose
+
+Copies a value to the system clipboard.
+
+Non-scalar values are converted to a string by the C<Dumper> function from the
+L<Data::Dumper::Simple> module.
+
+In X-Windows systems (such as linux) the value is copied to both the primary
+selection (paste with middle mouse button of shift key + middle mouse button)
+and clipboard selection (ctrl+v keys or shift+ctrl+v keys).
+
+=head3 Parameters
+
+=over
+
+=item $val
+
+Value to copy to system clipboard. Required.
+
+=back
+
+=head3 Prints
+
+Error message on failure.
+
+=head3 Returns
+
+N/A. Dies on error.
+
+=head2 cwd( )
+
+=head3 Purpose
+
+Get path of current directory.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
+=head2 date_current_iso( )
+
+=head3 Purpose
+
+Get current date in ISO 8601 format (yyyy-mm-dd).
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
+=head2 debhelper_compat( )
+
+=head3 Purpose
+
+Get the current debian compatibility level. This value is actually the major
+version of the debian package F<debhelper>.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string integer (undef if problem encountered).
+
+head2 debian_package_version($pkg)
+
+=head3 Purpose
+
+Get the version of a debian package.
+
+WARNING: Requires that the package be installed on the current system.
+
+=head3 Parameters
+
+=over
+
+=item $pkg
+
+Name of debian package. Scalar string. Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
+Undef if C<dpkg> command fails. Dies if unable to parse the C<dpkg> output and
+extract the package version.
+
+=head2 debian_install_deb($deb)
+
+=head3 Purpose
+
+Install debian package from a deb package file. Uses the C<dpkg> package
+installer which requires root/superuser privileges.
+
+Makes the following installation attempts in sequence:
+
+=over
+
+=item *
+
+Install as though root
+
+=item *
+
+Install with C<sudo>
+
+=item *
+
+Install with C<su -c>, which requires the user to enter the superuser
+password.
+
+=back
+
+The method returns once installation is successful.
+
+=head3 Parameters
+
+=over
+
+=item $deb
+
+Path to debian package file. Scalar string. Required.
+
+=back
+
+=head3 Prints
+
+Feedback on install attempts.
+
+=head3 Returns
+
+Scalar boolean. Whether package was successfully installed.
+
+=head2 debian_standards_version( )
+
+=head3 Purpose
+
+Gets the current version of the debian standards. This is actually the first
+three elements of the version of the F<debian-policy> debian package.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
+=head2 dir_clean($dir)
+
+=head3 Purpose
+
+Remove all contents of directory, deleting all files and recursively deleting
+all subdirectories.
+
+=head3 Parameters
+
+=over
+
+=item $dir
+
+Path to directory whose contents are to be deleted. Path::Tiny object or scalar
+string. Required.
+
+=back
+
+=head3 Prints
+
+Feedback on error.
+
+=head3 Returns
+
+N/A. Dies on failure.
+
+=head2 dir_copy($source_dir, $target_dir)
+
+Recursively copy the contents of one directory to another.
+
+=head3 Parameters
+
+=over
+
+=item $source_dir
+
+Path of directory to copy from. The directory must exist or this method dies.
+Scalar string. Required.
+
+=item $target_dir
+
+Path of directory to copy to. If this directory does not exist it is created,
+recursively if necessary. Scalar string. Required.
+
+=back
+
+=head3 Prints
+
+Error message on failure.
+
+=head3 Returns
+
+Nil. Dies on failure.
+
+=head2 dir_current( )
+
+Get current working directory.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
+=head2 dir_join(@dirs)
+
+=head3 Purpose
+
+Concatenate list of directories into a string path.
+
+=head3 Parameters
+
+=over
+
+=item @dirs
+
+Directory parts. List.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string directory path.
+
+=head2 dir_list([$directory])
+
+=head3 Purpose
+
+List subdirectories in directory. Uses current directory if no directory is
+supplied.
+
+=head3 Parameters
+
+=over
+
+=item $directory
+
+Directory from which to obtain file list.
+
+Optional. Default: current directory.
+
+=back
+
+=head3 Prints
+
+Nil (error message if dies).
+
+=head3 Returns
+
+List (dies if operation fails).
+
+=head2 dir_make(@paths)
+
+=head3 Purpose
+
+Create directory paths. Required.
+
+=head3 Parameters
+
+=over
+
+=item @paths
+
+One or more directory paths to create. Required.
+
+=back
+
+=head3 Prints
+
+Error messages if path creation is unsuccessful.
+
+=head3 Returns
+
+Scalar boolean indicating whether path creation was successful.
+
+The method dies if a fatal filesystem error occurs. See the documentation for
+L<File::Path/"DIAGNOSTICS"> for more details.
+
+=head2 dir_parent($dir)
+
+=head3 Purpose
+
+Returns parent of specified directory.
+
+=head3 Parameters
+
+=over
+
+=item $dir
+
+Directory path to analyse. Scalar string. Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
+The returned directory path is absolute regardless of whether the supplied
+directory path was absolute or relative.
+
+=head2 dir_temp( )
+
+Get path of temporary directory.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
+=head2 divider()
+
+=head3 Purpose
+
+Get divider string (consecutive dashes) as wide as the current terminal.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Feedback on error.
+
+=head3 Returns
+
+Scalar string. Dies on failure.
+
+=head2 dump_var($var1[, var2[, ...]])
+
+Formats variable(s) for display in terminal. The variable is pretty printed
+using L<Data::Dumper> with module variables $Terse and $Indent set to true and
+1, respectively, to minimise left-spacing (see L<Data::Dumper/"Configuration
+Variables or Methods">). Each output line is wrapped to fit in the current
+terminal.
+
+=head3 Parameters
+
+=over
+
+=item $var1[, $var2[, ...]]
+
+Variable(s) to be formatted. Any number of variables can be provided. If no
+variables are provided an empty value will be returned.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+List of scalar strings, each of which fits the current terminal.
+
+=head3 Usage
+
+    say $_ for $self->dump_var($my_var);
+
+=head2 file_base($filepath, $exists = $FALSE)
+
+Extracts base name from file path.
+
+=head3 Parameters
+
+=over
+
+=item $filepath
+
+File path from which to extract base name. Scalar string. Required.
+
+=item $exists
+
+Whether to die if the provided filepath does not exist. Boolean. Optional.
+Default: false.
+
+=back
+
+=head3 Prints
+
+Error messages.
+
+=head3 Returns
+
+Scalar string.
+
+=head2 file_cat_dir($filepath, $dirpath, $exists = $FALSE)
+
+Extract filename from filepath and add it to a dirpath.
+
+=head3 Parameters
+
+=over
+
+=item $filepath
+
+Path from which to extract file name. Scalar string. Required.
+
+=item $dirpath
+
+Path to which file is added. Scalar string. Required.
+
+=item $exists
+
+Die if either parameter does not exist. Scalar boolean. Optional. Default:
+false.
+
+=back
+
+=head3 Prints
+
+Error messages.
+
+=head3 Returns
+
+Scalar string.
+
+=head2 file_cmdline_args( )
+
+Assume all arguments in ARGV are file globs and expand them to obtain a list of
+file paths.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Error messages.
+
+=head3 Returns
+
+List of strings.
+
+=head2 file_copy($source_file, $target)
+
+Copy a file to a directory.
+
+=head3 Parameters
+
+=over
+
+=item $source_file
+
+Path of file to copy. The file must exist or this method dies. Scalar string.
+Required.
+
+=item $target
+
+Path of directory or file to copy to. If the directory component does not exist
+it is created, recursively if necessary. Scalar string. Required.
+
+=back
+
+=head3 Prints
+
+Error message on failure.
+
+=head3 Returns
+
+Nil. Dies on failure.
+
+=head2 file_identical($filepath_1, $filepath_2)
+
+Compare two files to see if they are identical.
+
+=head3 Parameters
+
+=over
+
+=item $filepath_1
+
+Path to file to compare. Scalar string. Required.
+
+=item $filepath_2
+
+Path to file to compare. Scalar string. Required.
+
+=back
+
+=head3 Prints
+
+Error message if unable to compare files.
+
+=head3 Returns
+
+Scalar boolean. Note that method dies if the file comparison fails.
+
+=head2 file_is_deb($filepath)
+
+=head3 Purpose
+
+Determine whether a file is a debian package file.
+
+=head3 Parameters
+
+=over
+
+=item $filepath
+
+File to analyse. Scalar string. Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar boolean.
+
+=head2 file_is_mimetype($filepath, $mimetype)
+
+=head3 Purpose
+
+Determine whether a given file is a specified mimetype.
+
+=head3 Parameters
+
+=over
+
+=item $filepath
+
+File to analyse. Scalar string. Required.
+
+Method dies if filepath is missing or invalid.
+
+=item $mimetype
+
+Mime type to test for. Scalar string. Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar boolean. Dies if filepath missing or invalid.
+
+=head2 file_list([$directory[, $pattern]])
+
+=head3 Purpose
+
+List files in directory. Uses current directory if no directory is supplied.
+
+=head3 Parameters
+
+=over
+
+=item $directory
+
+Directory path. Optional. Default: current directory.
+
+=item $pattern
+
+File name pattern to match. Regular expression (qr//). Optional. Default: all
+files.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+List. Dies if operation fails.
+
+=head2 file_mime_type($filepath)
+
+=head3 Purpose
+
+Determine a file's mime type.
+
+=head3 Parameters
+
+=over
+
+=item $filepath
+
+File to analyse. Scalar string. Required.
+
+Method dies if this parameter is missing or invalid.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
+=head3 Note
+
+The available modules for determining file mime type all have individual
+advantages and disadvantages. This method initially used the L<File::Type>
+module but it incorrectly identified some mp3 files as
+'application/octet-stream'. This method now uses the L<File::MimeInfo> module.
+Other alternatives include the L<File::MMagic> and L<File::MMagic:Magic>
+modules.
+
+=head2 file_move($source_file, $target)
+
+Move/rename a file.
+
+=head3 Parameters
+
+=over
+
+=item $source_file
+
+Path of file to move/rename. The file must exist or this method dies.
+
+Scalar string. Required.
+
+=item $target
+
+Path of directory or file to copy to. If the directory component does not exist
+it is created, recursively if necessary.
+
+Scalar string. Required.
+
+=back
+
+=head3 Prints
+
+Error message on failure.
+
+=head3 Returns
+
+Nil. Dies on failure.
+
+=head2 file_name($filepath, $exists = $FALSE)
+
+Extract filename from filepath.
+
+=head3 Parameters
+
+=over
+
+=item $filepath
+
+Path from which to extract file name. Scalar string. Required.
+
+=item $exists
+
+Die if file path does not exist. Scalar boolean. Optional. Default:
+false.
+
+=back
+
+=head3 Prints
+
+Error messages.
+
+=head3 Returns
+
+Scalar string.
+
+=head2 file_name_duplicates(@filepaths)
+
+Find duplicate file names in a set of filepaths, i.e., files in different
+directories that have the same name.
+
+=head3 Parameters
+
+=over
+
+=item @filepaths
+
+Filenames to analyse. List. Optional.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Hash reference. Has the structure:
+
+    {
+        filename => [filepath1, filepath2, ...],
+        ...,
+    }
+
+=head3 Usage
+
+    my %dupes = %{ $self->file_name_duplicates(@filepaths) };
+    if ( scalar keys %dupes) {
+        warn "Duplicate filename(s):\n";
+        while ( ( $name, $paths ) = each %dupes ) {
+            warn "- $name\n";
+            for my $path ( @{$paths} ) { warn "  - $path\n"; }
+        }
+    }
+
+
+=head2 file_name_parts($filepath, $exists = $FALSE)
+
+Get base name and extension from file name.
+
+=head3 Parameters
+
+=over
+
+=item $filepath
+
+File path from which to extract base name and extension. Scalar string.
+Required.
+
+=item $exists
+
+Whether to die if the provided filepath does not exist. Boolean. Optional.
+Default: false.
+
+=back
+
+=head3 Prints
+
+Error messages.
+
+=head3 Returns
+
+List of strings: ($base, $extension). Note that the extension includes the
+period separating base name and suffix, so that concatenating base name and
+suffix results in the original file name.
+
+=head2 file_readable(@filepaths)
+
+Determine whether paths are (symlinks to) valid plain files and are readable.
+
+=head3 Parameters
+
+=over
+
+=item @filepaths
+
+Paths to be analysed. List of strings. Required.
+
+=back
+
+=head3 Prints
+
+Error messages.
+
+=head3 Returns
+
+Scalar boolean. Dies on failure.
+
+=head2 file_write($content, $fp, [$perm])
+
+=head3 Parameters
+
+=over
+
+=item $content
+
+Content to be written to file. Do I<not> include terminal newlines. Array
+reference. Required.
+
+=item $fp
+
+Destination file path. Scalar string or L<Path::Tiny> object reference.
+Required.
+
+If the file exists it will be silently overwritten.
+
+=item $perm
+
+Permissions for file. Quoted octal string, e.g., "0755". Optional. Default:
+user's current umask.
+
+=back
+
+=head3 Prints
+
+Error message on failure.
+
+=head3 Returns
+
+N/A. Dies on file operation failure.
+
+=head2 image_add_border($image, $side, $top_bottom, $fill='none')
+
+Add borders to image. The same width is used for both left and right borders.
+The same width is used for both top and bottom borders. The borders are set to
+the specified fill color (default is 'none', i.e., transparent).
+
+The image is left unmodified if both side and top/bottom border widths are set
+to zero.
+
+=head3 Parameters
+
+=over
+
+=item $image
+
+Image::Magick object. Scalar object reference. Required.
+
+=item $side
+
+Width in pixels of each side border. Note: final image width will equal
+original width + (2 x side border width). Scalar integer. Required.
+
+=item $top_bottom
+
+Width in pixels of each of the top and bottom border. Note: final image height
+will equal original width + (2 x top/bottom border width). Scalar integer.
+Required.
+
+=item $fill
+
+Border color. Further details about color names and the imagemagick color
+specification can be found online
+L<here|http://www.imagemagick.org/script/color.php>. Scalar string. Optional.
+Default: 'none' (transparent).
+
+=back
+
+=head3 Prints
+
+Error messages.
+
+=head3 Returns
+
+Nil. Edits $image in place.
+
+=head2 image_create($filepath, $attributes)
+
+Create Image::Magick object from image file.
+
+Note that this method relies on Image::Magick reading the underlying image
+file. It is possible for this operation to exhaust cache resources and cause a
+fatal error. See L</"Exhausting cache resources"> for further details.
+
+=head3 Parameters
+
+=over
+
+=item $filepath
+
+Image file path. Scalar string. Required.
+
+=item $attributes
+
+Image::Magick attributes, e.g., 'density' and 'quality'. Further details about
+settings can be found online
+L<here|http://www.imagemagick.org/script/command-line-processing.php#setting>.
+Hash reference. Optional.
+
+=back
+
+=head3 Prints
+
+Error messages.
+
+=head3 Returns
+
+Image::Magick object.
+
+=head2 image_crop($image, $top_left_x, $top_left_y, $bottom_right_x,
+$bottom_right_y)
+
+Crop Image::Magick object.
+
+=head3 Parameters
+
+=over
+
+=item $image
+
+Image::Magick object. Scalar object reference. Required.
+
+=item $top_left_x
+
+X coordinate of top-left pixel of crop region. Scalar integer. Required.
+
+=item $top_left_y
+
+Y coordinate of top-left pixel of crop region. Scalar integer. Required.
+
+=item $bottom_right_x
+
+X coordinate of bottom-right pixel of crop region. Scalar integer. Required.
+
+=item $bottom_right_y
+
+X coordinate of bottom-right pixel of crop region. Scalar integer. Required.
+
+=back
+
+=head3 Prints
+
+Error messages.
+
+=head3 Returns
+
+Nil. Edits $image in place.
+
+=head2 image_files_valid(@filepaths)
+
+Determine whether all files can be opened as images, specifically, whether the
+files can be read into Image::Magick objects.
+
+Note that the Image::Magick module, which is called to read each image file,
+will die if it is unable to open the file as an image. Thus, this method will
+die if it encounters an invalid image file.
+
+=head3 Parameters
+
+=over
+
+=item @filepaths
+
+Image file paths. List of strings. Optional.
+
+=back
+
+=head3 Prints
+
+User feedback and error messages.
+
+=head3 Returns
+
+Scalar boolean. Note: returns true if no parameter provided. Also note that
+module crashes if it encounters an invalid image file.
+
+=head2 image_height($image)
+
+Get image height in pixels.
+
+=head3 Parameters
+
+=over
+
+=item $image
+
+Image::Magick object. Required.
+
+=back
+
+=head3 Prints
+
+Error messages on failure.
+
+=head3 Returns
+
+Scalar integer.
+
+=head2 image_label ($image, $text, :$font, :$size ,:$color, :$edge, :$space)
+
+Add text label to image.
+
+=head3 Parameters
+
+=over
+
+=item $image
+
+Image::Magick object. Required.
+
+=item $text
+
+Label text. String. Required.
+
+=item $font
+
+Label font name. String. Optional. Default font selected by Image::Magick.
+
+Font names known to ImageMagick can be listed using the shell command:
+
+    convert -list font
+
+=item $size
+
+Label font size in points. Integer. Optional. Default font size selected by
+Image::Magick.
+
+=item $color
+
+Label font color. String. Optional. Default cont color selected by
+Image::Magick.
+
+Further details about color names and the imagemagick color specification can
+be found online L<here|http://www.imagemagick.org/script/color.php>.
+
+=item $edge
+
+Label location. String. Must be one of 'north', 'south', 'east' or 'west'.
+Optional. Default: 'south'.
+
+=item $space
+
+Space, in points, added between image edge and label. Optional. Default: 0.
+
+=back
+
+=head3 Prints
+
+Error messages.
+
+=head3 Returns
+
+Nil. Edits $image in place.
+
+=head2 image_max_dimensions(@filepaths)
+
+Determine maximum width and height, in pixels, among a set of images. Note that
+the longest width and height may be from different images.
+
+=head3 Parameters
+
+=over
+
+=item @filepaths
+
+Image file paths. List of strings. Optional.
+
+=back
+
+=head3 Prints
+
+Error messages.
+
+=head3 Returns
+
+List of integers: ($width, $height). Note: returns (0, 0) if no file paths
+provided.
+
+=head2 image_max_x($image)
+
+Get maximum pixel x-coordinate from image, i.e., the x-coordinate of the
+S<< bottom-right >> pixel in the image.
+
+=head3 Parameters
+
+=over
+
+=item $image
+
+Image::Magick object. Scalar object reference. Required.
+
+=back
+
+=head3 Prints
+
+Error messages on failure.
+
+=head3 Returns
+
+Scalar integer.
+
+=head2 image_max_y($image)
+
+Get maximum pixel y-coordinate from image, i.e., the y-coordinate of the
+S<< bottom-right >> pixel in the image.
+
+=head3 Parameters
+
+=over
+
+=item $image
+
+Image::Magick object. Scalar object reference. Required.
+
+=back
+
+=head3 Prints
+
+Error messages on failure.
+
+=head3 Returns
+
+Scalar integer.
+
+=head2 image_object($object)
+
+=head3 Purpose
+
+Verify that a variable is an Image::Magick object.
+
+=head3 Parameters
+
+=over
+
+=item $object
+
+The variable to analyse. Scalar reference. Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar boolean.
+
+=head2 image_pixel_color($image, $x, $y, [@color])
+
+Set or get color of specified image pixel. If color values are supplied the
+pixel is set to that color. If no color values are supplied, the current pixel
+color values are retrieved.
+
+Color format is a list of three RGB color component values (red, green and
+blue), in the range 0-255.
+
+=head3 Parameters
+
+=over
+
+=item $image
+
+Image::Magick object. Scalar object reference. Required.
+
+=item $x
+
+X-coordinate of pixel. Note that origin is the top-left corner of the image.
+Scalar integer. Required.
+
+=item $y
+
+Y-coordinate of pixel. Note that origin is the top-left corner of the image.
+Scalar integer. Required.
+
+=item @color
+
+Three color component values (red, green and blue) in range 0-255. Note that
+this parameter is a list of three items, not an array reference to a list.
+
+=back
+
+=head3 Prints
+
+Error messages.
+
+=head3 Returns
+
+If called as setter, returns no value. The $image object is edited in place.
+
+If called as a getter, returns a list of integers: ($red, $green, $blue).
+
+=head2 image_resize($image, $width, $height, $fill='none' :$preserve=$TRUE)
+
+Resize image to the largest size that will fit in the target width and height.
+The aspect ratio can be preserved (default). This results in extra space being
+added to the sides, or top and bottom, of the image. The specified fill color
+is used for this additional added space. If aspect ratio is ignored the image
+is stretched in both dimensions as far as necessary to fill the entire target
+width and height; this can cause considerable image distortion.
+
+=head3 Parameters
+
+=over
+
+=item $image
+
+Image::Magick object. Scalar object reference. Required.
+
+=item $width
+
+Target width in pixels. Scalar integer. Required.
+
+=item $height
+
+Target height in pixels. Scalar integer. Required.
+
+=item $fill
+
+Color used for additional space added when aspect ratio is preserved. Further
+details about color names and the imagemagick color specification can be found
+online L<here|http://www.imagemagick.org/script/color.php>. Scalar string.
+Optional. Default: 'none' (transparent).
+
+=item $preserve
+
+Whether to preserve the aspect ratio. Scalar boolean. Optional. Default: true.
+
+=back
+
+=head3 Prints
+
+Error messages.
+
+=head3 Returns
+
+Nil. Edits $image in place.
+
+=head2 image_width($image)
+
+Get image width in pixels.
+
+=head3 Parameters
+
+=over
+
+=item $image
+
+Image::Magick object. Required.
+
+=back
+
+=head3 Prints
+
+Error messages on failure.
+
+=head3 Returns
+
+Scalar integer.
+
+=head2 image_write($image, $filemask)
+
+Write image to file. In some circumstances multiple output files can be
+generated; in these cases the filemask needs to contain printf-like format
+codes enabling assignation of distinguishing numbers.
+
+Note that this method relies on Image::Magick writing the output image files.
+It is possible for this operation to exhaust cache resources and cause a fatal
+error. See L</"Exhausting cache resources"> for further details.
+
+=head3 Parameters
+
+=over
+
+=item $image
+
+Image::Magick object. Scalar object reference. Required.
+
+=item $filemask
+
+Target file mask. If F<%0Nd>, F<%0No> or F<%0Nx> appears in the filemask it is
+interpreted as a printf format specification and replaced with the specified
+decimal, octal, or hexadecimal encoding of the scene number. For example,
+F<image%03d.png>. Scalar string. Required.
+
+=back
+
+=head3 Prints
+
+Error messages.
+
+=head3 Returns
+
+Nil. Dies on failure.
+
+=head2 int_pad_width($int)
+
+Determine width, in characters, of an integer sequence.
+
+Initially intended for use in determining the width of the largest integer in a
+set of integers. This width would determine how much padding is necessary to
+ensure all integers in the sequence are displayed with the same length.
+
+=head3 Parameters
+
+=over
+
+=item $int
+
+Integer to be analysed. Scalar. Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar integer.
+
+=head2 int_pos_valid($value)
+
+Determine whether a given value is a positive integer. Zero is considered a
+positive integer.
+
+=head3 Parameters
+
+=over
+
+=item $value
+
+Item to be analysed. Scalar. Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar boolean.
+
+=head2 int_valid($value)
+
+Determine whether a given value is an integer.
+
+=head3 Parameters
+
+=over
+
+=item $value
+
+Item to be analysed. Scalar. Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar boolean.
+
+=head2 internet_connection([$verbose])
+
+=head3 Purpose
+
+Determine whether an internet connection can be found. More specifically,
+checks whether it is possible to successfully ping one of the url addresses:
+
+=over
+
+=item *
+
+www.debian.org
+
+=item *
+
+www.uq.edu.au
+
+=back
+
+=head3 Parameters
+
+=over
+
+=item $verbose
+
+Whether to provide feedback. Optional. Default: false.
+
+=back
+
+=head3 Prints
+
+Feedback if requested.
+
+=head3 Returns
+
+Scalar boolean.
+
+=head2 list_duplicates(@values)
+
+Identify duplicate elements in a list. Note that non-scalar values are assumed
+to be unique and that element order is not preserved.
+
+=head3 Parameters
+
+=over
+
+=item @values
+
+Items to be analysed. List. Optional.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+List.
+
+=head2 pad($values, $width, $char, $side)
+
+Left- or right-pads a value, or list of values, with a character.
+
+=head3 Parameters
+
+=over
+
+=item $values
+
+Value or values to be padded. Simple scalar or arrayref.
+
+Optional. No default (returns null value if no value/values).
+
+Fatal error if provide other than simple scalar or arrayref.
+
+=item $width
+
+Pad width. Integer. Optional. Default: length of longest item.
+
+This value is ignored if it is less than the default length.
+
+=item $char
+
+Pad character. Single-character string. Optional.
+
+Default: 0 (zero) if all values are positive integers, otherwise ' ' (space).
+
+=item $side
+
+Whether to left or right pad. Must be 'left' or 'right'.
+
+Optional. Default: 'left'.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string if input is simple scalar.
+
+List if input is an array reference.
+
+=head3 Credit
+
+L<Tek-Tips: Pad a String|https://www.tek-tips.com/viewthread.cfm?qid=184815>.
+
+=head2 pager($lines, [$prefer])
+
+=head3 Purpose
+
+Display list of lines in terminal using pager. Unless a preferred pager is
+provided the pager used is determined by C<IO::Pager>.
+
+It does not matter whether or not the lines have terminal newlines or not.
+
+This method is often used with method 'wrap_text' to format screen display.
+
+=head3 Parameters
+
+=over
+
+=item $lines
+
+Content to display.
+
+Array reference. Required.
+
+=item $prefer
+
+Preferred pager. It is used if available.
+
+Scalar string. Optional. No default, i.e., normally follows
+L<IO::Pager|IO::Pager> algorithm.
+
+=back
+
+=head3 Prints
+
+Provided content, each line begins on a new line and is intelligently wrapped.
+
+The content is paged. See L<IO::Pager|IO::Pager> for details on the algorithm
+used to determine the pager used.
+
+=head3 Return
+
+N/A.
+
+=head2 path_canon($path)
+
+Get canonical path.
+
+Uses C<canonpath> method from the L<File::Spec> module to perform a light clean
+up of the path. This does not resolve symlinks and relative paths; see the
+L</"path_true"> method in this module if that is required.
+
+Also uses the perl C<glob> function (see L<perlfunc(1)>) in case a tilde is
+present in the path and needs to be resolved. This means, however, that a
+wildcard in the input string can potentially resolve to multiple matching
+files. This causes a fatal error.
+
+=head3 Parameters
+
+=over
+
+=item $path
+
+Path to be canonicalised. String. Required.
+
+=back
+
+=head3 Prints
+
+Error message if glob error referred to above should occur.
+
+=head3 Returns
+
+Scalar string.
+
+=head2 path_executable($exe)
+
+Find path to executable file.
+
+=head3 Parameters
+
+=over
+
+=item $exe
+
+Short name of executable. String. Required.
+
+=back
+
+=head3 Prints
+
+Error messages.
+
+=head3 Returns
+
+Scalar string, undef if not executable file not found in path.
+
+Dies if no parameter provided.
+
+=head2 path_join(@parts)
+
+=head3 Purpose
+
+Concatenate list of directories and a file name into a string path.
+
+=head3 Parameters
+
+=over
+
+=item @parts
+
+Path parts, i.e., directory parts followed by file name. List.
+
+Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string directory path.
+
+=head2 path_parts($filepath, $exists = $FALSE)
+
+Get directory path and file name from file path.
+
+=head3 Parameters
+
+=over
+
+=item $filepath
+
+File path from which to extract directory path and file name. Scalar string.
+Required.
+
+=item $exists
+
+Whether to die if the provided filepath does not exist. Boolean. Optional.
+Default: false.
+
+=back
+
+=head3 Prints
+
+Error messages.
+
+=head3 Returns
+
+List of strings: ($directory_path, $file_name). Note that the directory path
+includes the terminal path separator, so that concatenating directory path and
+file name results in the original file path.
+
+=head2 path_remove(@paths)
+
+=head3 Purpose
+
+Delete files and recursively delete directories.
+
+=head3 Parameters
+
+=over
+
+=item @paths
+
+One or more file paths or directory paths to recursively delete. Required.
+
+=back
+
+=head3 Prints
+
+Error messages if deletion is unsuccessful.
+
+=head3 Returns
+
+Scalar boolean indicating whether deletion was successful.
+
+The method dies if a fatal filesystem error occurs. See the documentation for
+L<File::Path/"DIAGNOSTICS"> for more details.
+
+=head2 path_true($path, $exists = $FALSE)
+
+Convert relative path to absolute path. Absolute filepaths are returned
+unchanged. Symlinks are followed and converted to their true filepaths.
+
+=head3 Parameters
+
+=over
+
+=item $path
+
+Path to convert. String. Required.
+
+Note: double quote this parameter value if it is a variable. If not, passing a
+value like F<./> results in an error as it is somehow reduced to an empty
+value.
+
+=item $exists
+
+Die if path does not exist. Boolean. Optional. Default: false.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Return
+
+Scalar string.
+
+=head2 pluralise($string, $numeric)
+
+=head3 Purpose
+
+Adjust a string based on a provided numerical value.
+
+=head3 Parameters
+
+=over
+
+=item $string
+
+Formatted string containing alterative word choices to use depending on the
+numeric value provided. See L<Text::Pluralize> for details of the string
+format. Scalar string. Required.
+
+=item $number
+
+Integer value determining whether the string represents a plural or not. See
+L<Text::Pluralize> for details. Scalar positive integer. Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
+=head2 run_command($err, @cmd)
+
+=head3 Purpose
+
+Run a shell command. On failure die with a custom error message.
+
+=head3 Parameters
+
+=over
+
+=item $err
+
+Error message to display if command fails. Scalar string. Required, but can be
+undef.
+
+=item @cmd
+
+Command and arguments to execute. List. Required.
+
+=back
+
+=head3 Prints
+
+Command output, plus supplied error message if the command fails.
+
+=head3 Returns
+
+N/A. Dies on failure.
+
+=head3 Usage
+
+This is example usage for executing a single shell command:
+
+    my @cmd = qw(debuild -i -us -uc -b);
+    say q{Running '} . join( q{ }, @cmd ) . q{':} or confess;
+    $self->run_command( undef, @cmd );
+
+This is example usage for executing a series of shell commands:
+
+    my @cmds = (
+        [qw( prove -l t )],
+        [qw( milla test )],
+        [qw( milla build )],
+    );
+    for my $cmd (@cmds) {
+        say q{Running '} . join( q{ }, @{$cmd} ) . q{':} or confess;
+        $self->run_command( undef, @{$cmd} );
+    }
+
+=head3 Note
+
+Displays command output in real time but does not capture it. Compare with
+C<shell_command> method.
+
+=head2 shell_command($cmd)
+
+=head3 Purpose
+
+Run shell command and capture exit status and output.
+
+Warning: If the command contains a pipe the command may execute successfully
+but not exit. In these cases using the C<timeout> parameter may help, but at
+the cost of causing the command to be stopped, generating a shell error.
+
+=head3 Parameters
+
+=over
+
+=item $cmd
+
+Command to run. Array reference or string, but note that array references are
+safer at handling whitespace in command elements. Required.
+
+=item $fatal
+
+Whether to croak if shell command fails. Optional. Default: true.
+
+=item timeout
+
+Maximum execution time for command (in seconds), after which command is stopped
+and exits with exit code 127. Optional. Default: 0 (means no timeout).
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Role::Utils::Dn::CommandResult object.
+
+=head3 Note
+
+The returned object can provide stdout output, stderr output and full output
+(stdout and stderr combined as initially output). In each case, the output is
+provided as a list, with each list element being a line of original output.
+
+=head3 Note
+
+Does not display command output in real time. Compare with C<run_command>
+method.
+
+=head2 stringify($val)
+
+Convert value to string. The resulting string may contain newlines.
+
+=head3 Parameters
+
+=over
+
+=item $val
+
+Value to convert. Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
+=head2 term_height( )
+
+Provides height of terminal in characters.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar integer.
+
+=head2 term_width( )
+
+Provides width of terminal in characters.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar integer.
+
+=head2 tools_available(@tools)
+
+=head3 Purpose
+
+Check that required executables are available on the system.
+
+=head3 Parameters
+
+=over
+
+=item @tools
+
+Required executables. List. Optional.
+
+=back
+
+=head3 Prints
+
+Message to stderr listing any unavailable tools. The error message is
+word-wrapped and looks like:
+
+    Required executable is not available: not-here
+    Required executables are not available: not-here, me-either
+
+=head3 Returns
+
+Scalar boolean.
+
+=head3 Usage
+
+    if ( not $cp->tools_available( 'tar', 'gzip' ) ) { return; }
+
+=head2 wrap_text($strings, [%options])
+
+=head3 Purpose
+
+Wrap strings at terminal (or provided) width. Lines that continue to the
+following line have an appended continuation character (U+21A9, leftwards arrow
+with hook).
+
+This method is often used with method 'pager' to format screen display.
+
+=head3 Parameters
+
+=over
+
+=item $strings
+
+Text to wrap. Single string or reference to array of strings.
+
+String or string arrayref. Required.
+
+=item %options
+
+Options hash. Optional.
+
+Hash members:
+
+=over
+
+=item width
+
+Width at which to wrap. Cannot be wider than terminal width; if it is, this
+width is silently discarded and the terminal width is used instead.
+
+Scalar integer. Optional. Default: terminal width.
+
+=item indent
+
+Size of indent. Can be indent of first line only (if $hang is also provided) or
+of all lines (if $hang is not provided). Text is indented with spaces.
+
+Scalar integer. Optional. Default: 0.
+
+=item hang
+
+Size of indent of second and subsequent lines. If not provided, $indent is used
+for all lines.
+
+There are two formats for $hang. The first format is the usual meaning of a
+hanging indent, where second and subsequent lines are indented by the nominated
+number of spaces. This format accepts an integer >= 0.
+
+The second format is referred to as an extended hanging indent. In this format
+the base hanging indent is equal to the number of leading spaces in the first
+row of input, optionally with an additional indent amount. This format accepts
+a string like "e=X" (or "E=X") where the "e" (or "E") is a flag indicating use
+of the extended hanging indent format and 'X' is an integer >= 0. As a special
+case, a simple "e" (or "E") is the same as "e=0" (or "E=0").
+
+Scalar integer. Optional. Default: $indent.
+
+=item break
+
+A regular expression defining the characters on which to break lines.
+
+If a "simple" regexp is used, the break characters used to break lines will be
+consumed. This is the preferred behaviour when the only break characters are
+whitespace, but can be problematic when characters with semantic significance,
+such as commas or dashes, are used. Here are examples of "simple" regexps
+defining break characters:
+
+    qr{[\s-]}    # space and dash
+    qr{[\s']}    # space and apostrophe
+
+If you do not want the break characters to be consumed, use a positive
+lookbehind construct (see L<perlre/"Lookaround Assertions">). Some examples
+are:
+
+    qr{(?<=[\\\/\+-])}    # backslash, slash, plus and dash
+
+In both simple and lookbehind regexps it may be necessary to experiment with
+escapes to determine when they are necessary. There has not yet been need to
+mix consumable and non-consumable break characters; if you manage to make it
+work, please send me the regular expressions you devise!
+
+Regexp. Optional. Default: qr{[\s]}.
+
+=item cont
+
+Whether to append a U+21A9 (leftwards arrow with hook) character to every line
+which is continued on the following line.
+
+Boolean. Optional. Default: $FALSE.
+
+=back
+
+=back
+
+=head3 Prints
+
+Nil, except error messages.
+
+=head3 Returns
+
+List of scalar strings (no terminal newlines).
+
+=head3 Usage
+
+    my @output = $self->term_wrap($long_string, indent => 2, hang => 4);
+    my @output = $self->term_wrap([@many_strings]);
+
+=head1 DIAGNOSTICS
+
+=head2 Unable to extract debhelper major version number from version: VERSION
+
+Occurs while attempting to extract the major part of the version number of the
+F<debhelper> debian package to use as the debian compatibility level.
+
+=head2 Unable to extract version information for package PKG
+
+=head2 Unable to extract PKG version from OUTPUT
+
+Occur when attempting to determine a debian packages current version by parsing
+the package's status information as returned by C<dpkg -s>.
+
+=head2 Unable to get 'debian-policy' status with dpkg
+
+=head2 Unable to extract 3-part version from 'VERSION'
+
+These errors occur while attempting to determine the current debian standards
+version, which is actually the current version of the F<debian-policy> debian
+package to the first three parts.
+
+=head2 Invalid integer 'VALUE'
+
+Occurs when a non-integer is provided to the C<int_pad_width> method.
+
+=head2 Empty color
+
+=head2 No top/bottom border width provided
+
+=head2 No side border width provided
+
+=head2 No bottom-right pixel y-coord provided
+
+=head2 No bottom-right pixel x-coord provided
+
+=head2 No top_left pixel y-coordinate provided
+
+=head2 No top_left pixel x-coordinate provided
+
+=head2 No fill color provided
+
+=head2 No width provided
+
+=head2 No height provided
+
+=head2 No y-coordinate provided
+
+=head2 No x-coordinate provided
+
+=head2 No label text provided
+
+=head2 No file mask provided
+
+=head2 No image provided
+
+=head2 No filepath provided
+
+These errors occur when a required parameter to an image-related method is not
+provided.
+
+=head2 Too many arguments
+
+Occurs when the wrong number of parameters is provided to a function.
+
+=head2 Non-integer border width 'WIDTH'
+
+=head2 Non-integer border width 'WIDTH'
+
+=head2 Not an image object
+
+=head2 Invalid filepath 'PATH'
+
+=head2 Invalid attributes var type 'TYPE'
+
+=head2 Invalid coordinate 'COORD'
+
+=head2 Not an image object
+
+=head2 Invalid space value 'SPACE'
+
+=head2 Invalid edge 'EDGE'
+
+=head2 Invalid size value 'SIZE'
+
+=head2 Non-integer y-coordinate 'Y'
+
+=head2 Non-integer x-coordinate 'X'
+
+=head2 X-coordinate $x > image's largest x-coord COORD
+
+=head2 Y-coordinate $y > image's largest y-coord COORD
+
+=head2 Incomplete color provided (COLOR)
+
+=head2 Non-integer color value (COLOR)
+
+=head2 Non-integer width 'WIDTH'
+
+=head2 Non-integer height 'HEIGHT'
+
+=head2 Color value out of range (COLOR)
+
+These errors occur when an invalid parameter value is provided to an
+image-related method.
+
+=head2 Image::Magick->METHOD failed: ERROR
+
+These errors occur if an L<Image::Magick> method fails.
+
+=head2 No source directory provided
+
+=head2 No target provided
+
+=head2 No source file provided
+
+=head2 No filepaths
+
+=head2 No target directory provided
+
+=head2 No filepath provided
+
+=head2 No dirpath provided
+
+=head2 Filepath 1 not provided
+
+=head2 Filepath 2 not provided
+
+Occurs when a path is required by a function but is not provided.
+
+=head2 Source directory 'PATH' does not exist
+
+=head2 Source file 'PATH' does not exist
+
+=head2 Filepath 'PATH' does not exist
+
+=head2 Directory path 'PATH' does not exist
+
+=head2 Invalid directory 'PATH'
+
+=head2 Comparison file 'PATH' does not exist
+
+Occurs when an existing path is required by a function but the provided path:
+
+=over
+
+=item does not exist, or
+
+=item the executing script does not have permission to detect the path.
+
+=back
+
+=head2 Unable to compare 'PATH' and 'PATH': ERROR
+
+Occurs when module function C<File::Compare::compare> issues an error.
+
+=head2 Multiple paths match 'GLOB'
+
+Occurs when a function requires a single path as a parameter, but also accepts
+a file glob as that parameter. In such circumstances the file glob must match
+only one file or this error is produced.
+
+=head2 No executable name provided
+
+Occurs when an executable name is required but not provided.
+
+=head2 System error
+
+When a disk operation, such as a file move or copy, fails, the underlying
+system error is captured and reported to the user.
+
+=head2 Not an array reference
+
+=head2 Input is not a string or array reference
+
+=head2 Invalid option 'OPTION'
+
+These errors occur when an invalid parameter value is provided.
+
+=head2 Values are 'TYPE' instead of 'ARRAY'";
+
+=head2 Invalid width 'WIDTH'
+
+=head2 Want single pad char, got 'STRING'
+
+=head2 Expect side is 'left' or 'right', got 'ARG'
+
+These errors occur when an invalid parameter value is provided.
+
+=head2 No lines provided
+
+=head2 No strings provided
+
+These errors occur when a required function parameter is not provided.
+
+=head2 Not an array reference
+
+=head2 Input is not a string or array reference
+
+=head2 Invalid option 'OPTION'
+
+These errors occur when an invalid parameter value is provided.
+
+=head1 CONFIGURATION AND ENVIRONMENT
+
+There are no configuration files used. There are no module/role settings.
+
+=head1 CONFIGURATION AND ENVIRONMENT
+
+There are no configuration files used. There are no module/role settings.
+
+=head1 DEPENDENCIES
+
+=head2 Perl modules
+
+autodie, Carp, Clipboard, Const::Fast, Curses, Data::Dumper::Simple,
+Date::Simple, English, Env, Feature::Compat::Try, File::Basename,
+File::Compare, File::Copy::Recursive, File::Path, File::Spec, File::Temp,
+File::Util, File::Which, Function::Parameters, IO::Pager, IPC::Cmd, IPC::Run,
+Image::Magick, List::MoreUtils, List::Util, Moo::Role, namespace::clean, POSIX,
+Path::Tiny, Scalar::Util, strictures, Symbol, Term::Clui,
+Term::ProgressBar::Simple, Text::Wrap, version.
+
+=head2 Other
+
+xclip.
+
+=head1 INCOMPATIBILITIES
+
+There are no known incompatibilities. If you discover any, please report them
+to the author.
+
+=head1 BUGS AND LIMITATIONS
+
+Please report any bugs to the author.
+
+=head2 Exhausting cache resources during image processing
+
+The methods C<image_create> and C<image_write> utilise Image::Magick C<Read>
+and C<Write> operations, respectively. Both operations can potentially exhaust
+Image::Magick's cache resources causing fatal errors.
+
+For example, reading a 30MB pdf file containing 30 pages has caused a fatal
+error on a mid-range desktop computer system, as has attempting to write each
+pdf page as a separate png image file. In each case the error is due to
+inability to read from or write to the pixel cache (Image::Magick error code
+445). A sample error message is:
+
+    Exception 445: cache resources exhausted
+
+To see the resources allocated to ImageMagick use this command:
+
+    identify -list resource
+
+One method of increasing the resources available to ImageMagick, and thus
+avoiding cache resource exhaustion, is to increase resources allocation. On
+debian systems this can be done by editing S<<
+F</etc/ImageMagick-6/policy.xml>. >> Look for lines like this and change the
+values appropriately:
+
+    <policy domain="resource" name="memory" value="256MiB"/>
+    <policy domain="resource" name="map" value="512MiB"/>
+    <policy domain="resource" name="width" value="16KP"/>
+    <policy domain="resource" name="height" value="16KP"/>
+    <policy domain="resource" name="area" value="128MB"/>
+    <policy domain="resource" name="disk" value="1GiB"/>
+
+
+=head1 AUTHOR
+
+David Nebauer E<lt>davidnebauer@hotkey.net.auE<gt>
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright (c) 2017 David Nebauer (david at nebauer dot org)
+
+This script is free software; you can redistribute it and/or modify it under
+the same terms as Perl itself.
+
+=cut
+
+# vim:fdm=marker

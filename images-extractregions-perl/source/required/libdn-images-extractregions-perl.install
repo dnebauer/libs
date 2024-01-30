@@ -1,0 +1,2 @@
+contrib/completion/zsh/_dn-images-extractregions /usr/share/zsh/vendor-completions
+contrib/usr/share/coords-nine-regions.ods /usr/share/libdn-images-extractregions-perl

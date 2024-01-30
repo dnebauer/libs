@@ -1,0 +1,196 @@
+# libdncommon-vars configuration file
+
+#####################################################################
+#                                                                   #
+# ROW FORMAT                                                        #
+#                                                                   #
+# Each row is a key-value pair separated by whitespace.             #
+#                                                                   #
+#####################################################################
+
+#####################################################################
+#                                                                   #
+# MULTIPLE VALUES:                                                  #
+#                                                                   #
+# Sometimes a variable holds multiple values, usually as an array.  #
+# There are two ways in which multiple values can be passed to the  #
+# same variable.                                                    #
+#                                                                   #
+# In one method each value is provided in its own key-value pair.   #
+# Each key-value pair associated with the same variable has the     #
+# same key.  The key is a singular noun.  It is up to the           #
+# processing application to ensure each value is added to an array  #
+# rather than overwriting an earlier value.  This method is often   #
+# used by shellscript-based applications.  An example is:           #
+# 		ping_url "www.google.com"                                   #
+# 		ping_url "www.debian.org"                                   #
+#                                                                   #
+# The other method passes all array elements in a single key-values #
+# line.  The values are written using syntax from the Perl module   #
+# Config::Simple.  Values are separated with commas.  If a value    #
+# contains a comma, enclose the value in double quotes.  If a value #
+# contains a literal quote ("), escape the quote with a backslash.  #
+# The keys used for this method are the same as the previous method #
+# but are plural nouns.  This method is often used by perl-based    #
+# applications.  An example is:                                     #
+# 		ping_url www.google.com, www.debian.org                     #
+#                                                                   #
+#####################################################################
+
+#####################################################################
+#                                                                   #
+# SYSTEM DEPENDENCE                                                 #
+#                                                                   #
+# Some of the variables are system-independent.  These include      #
+# URLs and bash formatting codes.                                   #
+#                                                                   #
+# Other variables are system-dependent.  These include device       #
+# paths and dvd application details.  It may be necessary to edit   #
+# these values on your system.                                      #
+#                                                                   #
+#####################################################################
+
+
+# SYSTEM-INDEPENDENT VARIABLES
+
+# URLs to check internet connectivity
+# -----------------------------------
+# [single value per key]
+ping_url                   "www.google.com"
+ping_url                   "www.debian.org"
+ping_url                   "www.uq.edu.au"
+# [multiple values per key]
+ping_urls                  "www.google.com", "www.debian.org", "www.uq.edu.au"
+
+# Dialog prefixes
+# ---------------
+# [single value per key]
+query_prefix               "Query: "
+prompt_prefix              "Prompt: "
+
+# Dividers
+# --------
+# [single value per key]
+divider                    "-----------------------------------------------------------"
+divider_bottom             "==========================================================="
+
+# Bash formatting
+# ---------------
+# reset all [single value per key]
+reset                      "\\033[0m"
+# font [single value per key]
+fm_bold                    "\\033[1m"
+fm_bold_off                "\\033[22m"
+fm_uline                   "\\033[4m"
+fm_uline_off               "\\033[24m"
+fm_blink                   "\\033[5m"
+fm_blink_off               "\\033[25m"
+fm_reverse                 "\\033[7m"
+fm_reverse_off             "\\033[27m"
+fm_conceal                 "\\033[8m"
+fm_conceal_off             "\\033[28m"
+# console foregound colours [single value per key]
+fg_black                   "\\033[0;30m"
+fg_dk_gray                 "\\033[1;30m"
+fg_lt_gray                 "\\033[0;37m"
+fg_red                     "\\033[0;31m"
+fg_lt_red                  "\\033[1;31m"
+fg_green                   "\\033[0;32m"
+fg_lt_green                "\\033[1;32m"
+fg_brown                   "\\033[0;33m"
+fg_yellow                  "\\033[1;33m"
+fg_blue                    "\\033[0;34m"
+fg_lt_blue                 "\\033[1;34m"
+fg_purple                  "\\033[0;35m"
+fg_lt_purple               "\\033[1;35m"
+fg_cyan                    "\\033[0;36m"
+fg_lt_cyan                 "\\033[1;36m"
+fg_white                   "\\033[1;37m"
+# console background colours
+# 40 = black, 41 = red,    42 = green, 43 = brown, 
+# 44 = blue,  45 = purple, 46 = cyan,  47 = light gray
+# must use with foreground colour using format: "\033[FG;BGm",
+# e.g., light red on green = "\033[0;31;42m"
+
+
+# SYSTEM-DEPENDENT VARIABLES
+
+# Dialogs
+# note: commands contain placeholders: title = <T>,
+#       message = <M>, icon = <I>, duration = <D>
+# note: popups do or do not honour '\n' token with newline
+# note: default units for popup duration are in seconds
+#       use multiplier if units smaller, i.e., if uses
+#       milliseconds then multiplier is 1,000
+# note: give command skeleton for info, warning, error
+#       and popup dialogs
+# note: preference indicates order of selection if no
+#       consideration determines selection
+# note: desktop indicates whether dialog associated with a
+#       particular desktop environment -- it is the value
+#       stored in the DESKTOP_SESSION environmental
+#       variable
+## - template [single value per key]
+#dlg_name                   ""
+#dlg_bin                    ""
+#dlg_cmd_info               ""
+#dlg_cmd_warn               ""
+#dlg_cmd_error              ""
+#dlg_cmd_confirm            ""
+#dlg_cmd_popup              ""
+#dlg_popup_does_newlines    ""
+#dlg_popup_delay_multiplier ""
+#dlg_preference             ""
+#dlg_desktop                ""
+
+## - kdialog [single value per key]
+dlg_name                   "KDialog"
+dlg_bin                    "kdialog"
+dlg_cmd_info               "kdialog --title \"<T>\" --msgbox \"<M>\""
+dlg_cmd_warn               "kdialog --title \"<T>\" --sorry  \"<M>\""
+dlg_cmd_error              "kdialog --title \"<T>\" --error  \"<M>\""
+dlg_cmd_confirm            "kdialog --title \"<T>\" --yesno  \"<M>\""
+dlg_cmd_popup              "kdialog --title \"<T>\" --passivepopup \"<M>\" <D>"
+dlg_popup_does_newlines    "1"
+dlg_popup_delay_multiplier "1"
+dlg_preference             "1"
+dlg_desktop                "kde"
+
+## - zenity [single value per key]
+dlg_name                   "Zenity"
+dlg_bin                    "zenity"
+dlg_cmd_info               "zenity  --info     --title \"<T>\" --text \"<M>\""
+dlg_cmd_warn               "zenity  --warning  --title \"<T>\" --text \"<M>\""
+dlg_cmd_error              "zenity  --error    --title \"<T>\" --text \"<M>\""
+dlg_cmd_confirm            "zenity  --question --title \"<T>\" --text \"<M>\""
+dlg_cmd_popup              "zenity  --info     --title \"<T>\" --text \"<M>\" --timeout <D> &"
+dlg_popup_does_newlines    "0"
+dlg_popup_delay_multiplier "1"
+dlg_preference             "2"
+dlg_desktop                "gnome"
+
+## - dialog [single value per key]
+dlg_name                   "Dialog"
+dlg_bin                    "dialog"
+dlg_cmd_info               "dialog  --title \"<T>\" --keep-window --msgbox \"<M>\" 0 0"
+dlg_cmd_warn               "dialog  --title \"<T>\" --keep-window --msgbox \"WARNING: <M>\" 0 0"
+dlg_cmd_error              "dialog  --title \"<T>\" --keep-window --msgbox \"ERROR: <M>\" 0 0"
+dlg_cmd_confirm            "dialog  --title \"<T>\" --keep-window --yesno  \"<M>\" 0 0"
+dlg_cmd_popup              "dialog  --title \"<T>\" --timeout <D> --msgbox \"<M>\" 0 0"
+dlg_popup_does_newlines    "0"
+dlg_popup_delay_multiplier "1"
+dlg_preference             "4"
+dlg_desktop                ""
+
+## [multiple values per key]
+dlg_names                   "KDialog", "Zenity", "Dialog"
+dlg_bins                    "kdialog", "zenity", "dialog"
+dlg_cmds_info               "kdialog --title \"<T>\" --msgbox \"<M>\"", "zenity --info --title \"<T>\" --text \"<M>\"", "dialog --title \"<T>\" --keep-window --msgbox \"<M>\" 0 0"
+dlg_cmds_warn               "kdialog --title \"<T>\" --sorry \"<M>\"", "zenity --warning --title \"<T>\" --text \"<M>\"", "dialog --title \"<T>\" --keep-window --msgbox \"WARNING: <M>\" 0 0"
+dlg_cmds_error              "kdialog --title \"<T>\" --error \"<M>\"", "zenity --error --title \"<T>\" --text \"<M>\"", "dialog --title \"<T>\" --keep-window --msgbox \"ERROR: <M>\" 0 0"
+dlg_cmds_confirm            "kdialog --title \"<T>\" --yesno \"<M>\"", "zenity --question --title \"<T>\" --text \"<M>\"", "dialog --title \"<T>\" --keep-window --yesno \"<M>\" 0 0"
+dlg_cmds_popup              "kdialog --title \"<T>\" --passivepopup \"<M>\" <D>", "zenity --info --title \"<T>\" --text \"<M>\" --timeout <D> &", "dialog --title \"<T>\" --timeout <D> --msgbox \"<M>\" 0 0"
+dlg_popups_doing_newlines   "1", "0", "0"
+dlg_popup_delay_multipliers "1", "1", "1"
+dlg_preferences             "1", "2", "4"
+dlg_desktops                "kde", "gnome", ""

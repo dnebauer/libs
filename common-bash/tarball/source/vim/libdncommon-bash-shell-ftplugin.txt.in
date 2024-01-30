@@ -1,0 +1,76 @@
+*libdncommon-bash-shell-ftplugin.txt*	For Vim version 7.3	Last changed: 2013 June 30
+
+Shell filetype plugin for the libdncommon-bash library
+
+Libdncommon-bash Shell Filetype Plugin    *libdncommon-bash-shell-ftplugin*
+                                            *ft-sh-libdncommon-bash-plugin*
+-------------------------------------------------------------------------
+                                   *ft-sh-libdncommon-bash-plugin-contents*
+1. Contents
+
+	1. Contents .................. |ft-sh-libdncommon-bash-plugin-contents|
+	2. Overview .................. |ft-sh-libdncommon-bash-plugin-overview|
+	3. Dictionary .................. |ft-sh-libdncommon-bash-plugin-select|
+	4. Display function details ... |ft-sh-libdncommon-bash-plugin-display|
+	5. Insert function call ........ |ft-sh-libdncommon-bash-plugin-insert|
+	5. Library only functions ..... |ft-sh-libdncommon-bash-plugin-libonly|
+
+-------------------------------------------------------------------------
+                                   *ft-sh-libdncommon-bash-plugin-overview*
+2. Overview                                              *libdncommon-bash*
+
+An auxiliary shell filetype plugin providing some useful features based on the
+dncommon-bash library.
+
+The dncommon-bash library is a varied collection of bash functions written by
+the author over time for his own use and later gathered together into a
+library. More information on the dncommon-bash library can be obtained from the
+library's man page (try 'man libdncommon-bash').
+
+This plugin aims to make it easier to use these functions when editing shell
+scripts.
+
+-------------------------------------------------------------------------
+                                 *ft-sh-libdncommon-bash-plugin-dictionary*
+3. Dictionary
+
+A dictionary of libdncommon-bash function names which is loaded. See
+|i_CTRL-X_CTRL-K| for keystrokes used to select dictionary keywords.
+-------------------------------------------------------------------------
+                                    *ft-sh-libdncommon-bash-plugin-display*
+4. Display Function Help
+
+The function 'displayFnHelp' displays help for the dncommon-bash library
+function name under the cursor. It has to be a full and correct function
+name -- there is no facility to select from partial matches.
+(It is assumed the user selected the function name from the plugin dictionary.)
+
+                                  *ft-sh-libdncommonbash-plugin-mapping-hf*
+This function is mapped by default to '<LocalLeader>hf', usually '\hf'.
+-------------------------------------------------------------------------
+                                     *ft-sh-libdncommon-bash-plugin-insert*
+5. Insert Function Call
+
+The function 'insertFn' inserts a call to one of the dncommon-bash library
+functions. It enables the user to select the function from a list. It then
+cycles through the function options and parameters enabling the user to supply
+option and parameter values. If the user does not supply a required parameter
+or option value a placeholder is inserted instead.
+
+                                  *ft-sh-libdncommonbash-plugin-mapping-if*
+The function is mapped by default to '<LocalLeader>if', usually '\if'.
+-------------------------------------------------------------------------
+                                    *ft-sh-libdncommon-bash-plugin-libonly*
+5. Library Only Functions
+
+                           *ft-sh-libdncommonbash-plugin-add-function-tags*
+The function 'dn:libdb:libAddFnTags' is available only when editing library
+files in this plugin. It aids the author in generating tag lines for individual
+functions. These specially formatted tag lines provide information used by
+library build tools in a number of ways, including constructing the library
+data store, dictionary and vim loader files.
+
+                                   *ft-sh-libdncommonbash-plugin-mapping-a*
+The function is mapped by default to '<LocalLeader>a', usually '\a'.
+-------------------------------------------------------------------------
+ vim:tw=78:fo=tcq2:ts=4:ft=help:

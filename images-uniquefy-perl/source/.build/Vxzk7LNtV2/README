@@ -1,0 +1,69 @@
+NAME
+
+    Dn::Cards - a library to aid in using images for game card production
+
+SYNOPSIS
+
+        use Dn::Cards;
+        ...
+
+DESCRIPTION
+
+    A collection of modules and scripts used to aid in processing images
+    for use in making game cards. The library was designed with a specific
+    use case in mind: preparing image files for upload to Printer's Studio
+    <http://www.printerstudio.com/unique-ideas/blank-playing-cards.html>
+    for manufacturing custom game cards.
+
+    This library contains the following primary modules: Dn::Cards,
+    Dn::Cards::ExtractPdfPages, Dn::Cards::Resize,
+    Dn::Cards::UniquefyImages and Dn::Cards::ExtractImages. Three of these
+    modules have submodules.
+
+    This library contains the following scripts: dn-cards-images-extract,
+    dn-cards-pdf-extract, dn-cards-resize and dn-cards-uniquefy.
+
+    See individual man pages for further details.
+
+    Although this library was designed with a specific use case in mind,
+    the scripts and, in particular, the modules, were designed to have as
+    wide an application as possible.
+
+ATTRIBUTES
+
+    None are provided.
+
+METHODS
+
+    None are provided.
+
+CONFIGURATION AND ENVIRONMENT
+
+    There are no configuration files used. There are no module/role
+    settings.
+
+DEPENDENCIES
+
+ Perl modules
+
+    Moo, namespace::clean, strictures, version.
+
+ INCOMPATIBILITIES
+
+    None known.
+
+BUGS AND LIMITATIONS
+
+    Please report any bugs to the author.
+
+AUTHOR
+
+    David Nebauer <davidnebauer@hotkey.net.au>
+
+LICENSE AND COPYRIGHT
+
+    Copyright (c) 2017 David Nebauer (david at nebauer dot org)
+
+    This script is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
+

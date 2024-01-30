@@ -1,0 +1,1246 @@
+#!/bin/bash
+
+# Suite: libdncommon-bash  # do not alter or delete -- required by vim plugin
+# File: libfiles
+# Author: David Nebauer
+# Purpose: Useful bash functions for dealing with files and directories
+
+
+# Function: dnNormalisePath                                          {{{1
+# Normalise path (make absolute)
+#   params: 1 - path
+#   prints: normalised path
+#   return: nil
+# fn_tag dnNormalisePath purpose Convert relative path to absolute path
+# fn_tag dnNormalisePath prints Normalised path
+# fn_tag dnNormalisePath returns NIL
+# fn_tag dnNormalisePath param path purpose Filepath to be normalised
+# fn_tag dnNormalisePath param path required yes
+# fn_tag dnNormalisePath param path multipart no
+# fn_tag dnNormalisePath param path type path
+dnNormalisePath () {
+	local path="${1}" previous_length=0 length=1 sed=
+	# deal with shorthand for home directory
+	path="$( echo ${path} | sed -e "s?^~?${HOME}?" )"
+	# deal with relative path
+	[ $( echo ${path} | grep -c -- "^/" ) -eq 0 ] && path="$( pwd )/${path}"
+	# expand to full path if starts with a relative directory
+	[ $( echo ${path} | grep -c -- "^\.\(\.\)\?\/" ) -eq 1 ] \
+		&& path="$( pwd )/${path}"
+	# remove the self directory: './'
+	# must loop because may miss ('./') when two joined together ('././')
+	while [ ${length} -ne ${previous_length} ] ; do
+		path="$( echo "${path}" | sed -e 's=\/\.\/=\/=g' )"
+		previous_length="${length}"
+		length="$( echo "${path}" | wc --bytes )"
+	done
+	previous_length=0 length=1
+	# remove relative parent directory ('../') and actual parent directory
+	# use ACK (octal 006) instead of '../' to avoid problems with '.'
+	path="$( echo "${path}" | tr -d '\006' | sed -e 's=\.\.\/=\o006=g' )"
+	while [ ${length} -ne ${previous_length} ] ; do
+		sed="\(\/[[:alnum:]._/-]\+\/\)"  # before parent directory
+		sed="${sed}[[:alnum:]._-]\+\/\o006"  # parent dir and relative dir
+		sed="${sed}\([[:alnum:][:cntrl:]._/-]\+\)$"  # after parent directory
+		path="$( echo "${path}" | sed -e "s,${sed},\1\2," )"
+		previous_length="${length}"
+		length="$( echo "${path}" | wc --bytes )"
+	done
+	# remove terminal slash from directory
+	path="$( dnRemoveEndSlash "${path}" )"
+	# return result
+	echo "${path}"
+}
+# Function: dnTerminalSubdir                                         {{{1
+# Extracts terminal subdirectory from directory path
+#   params: 1 - directory path
+#   prints: terminal subdirectory
+#   return: nil
+#   needs:  functions [dnRemoveEndSlash]
+# fn_tag dnTerminalSubdir purpose Extract terminal subdirectory from directory path
+# fn_tag dnTerminalSubdir prints Terminal subdirectory name
+# fn_tag dnTerminalSubdir returns NIL
+# fn_tag dnTerminalSubdir note Handles terminal slash if present
+# fn_tag dnTerminalSubdir note Use on dirpaths only -- if filepath supplied will return filename
+# fn_tag dnTerminalSubdir param directory_path purpose Directory path to be analysed
+# fn_tag dnTerminalSubdir param directory_path required yes
+# fn_tag dnTerminalSubdir param directory_path multipart no
+# fn_tag dnTerminalSubdir param directory_path type path
+dnTerminalSubdir () {
+	# ensure no terminal slash
+	local dir="${1}"
+	dir="$( dnRemoveEndSlash "${dir}" )"
+	# extract last directory name
+	echo "$( echo "${dir}" | awk -F '/' '{ print $NF }' )"
+}
+# Function: dnParentDir                                              {{{1
+# Extracts parent directory from directory path
+# e.g., from "/path/to/dir" extract "/path/to"
+#   params: 1 - directory path
+#   prints: parent directory
+#   return: nil
+#   needs:  functions [dnRemoveEndSlash]
+#   usage:  dnParentDir "/music/audio.wav"   # '/music'
+#           dnParentDir "/music/pop/"        # '/music'
+# fn_tag dnParentDir purpose Extract parent directory path from file or directory path
+# fn_tag dnParentDir prints Parent directory path
+# fn_tag dnParentDir returns NIL
+# fn_tag dnParentDir usage dnParentDir "/music/audio.wav"   # '/music'
+# fn_tag dnParentDir usage dnParentDir "/music/pop/"        # '/music'
+# fn_tag dnParentDir note Can be used on file or directory paths
+# fn_tag dnParentDir param path purpose Path to be analysed
+# fn_tag dnParentDir param path required yes
+# fn_tag dnParentDir param path multipart no
+# fn_tag dnParentDir param path type path
+dnParentDir () {
+	# ensure no terminal slash
+	local dir="$( dnRemoveEndSlash "${1}" )"
+	# only return result if slash present
+	[ $( echo "${dir}" | grep -c -- "\/" ) -eq 1 ] \
+		&& echo "$( echo "${dir}" \
+				| sed -e 's,^\([[:print:]]*\)\/[[:print:]]*$,\1,' )"
+}
+# Function: dnGetFilepath                                            {{{1
+# Select file from dialog
+#   params: 1 - dialog title (''|'-' = default to 'Select File')
+#           2 - initial directory (''|'-' = default to cwd)
+#           3 - filter [optional] (''|'-' = not used)
+#   prints: filepath
+#   return: nil
+#   invoke: filename="$( dnGetFilepath "${title}" "${start_dir}" )"
+#   notes:  file filter - uses same specifiers used with ls|dir commands
+#                       - must be enclosed in quotes if includes wildcards
+#                       - examples: '*.xpm', "lib*", '*.[1-9]'
+#                       - only works with some dialogs, e.g., with kdialog
+#                         but not [X]dialog
+#           selects only existing file
+# fn_tag dnGetFilePath purpose Select file using a dialog
+# fn_tag dnGetFilePath prints Filepath
+# fn_tag dnGetFilePath returns NIL
+# fn_tag dnGetFilePath note Can only select existing file
+# fn_tag dnGetFilePath usage filename="$( dnGetFilepath "${title}" "${start_dir}" )"
+# fn_tag dnGetFilePath param title purpose Dialog title
+# fn_tag dnGetFilePath param title required yes
+# fn_tag dnGetFilePath param title multipart no
+# fn_tag dnGetFilePath param title type string
+# fn_tag dnGetFilePath param title note If ''|'-' defaults to 'Select File'
+# fn_tag dnGetFilePath param initial_dir purpose Initial directory
+# fn_tag dnGetFilePath param initial_dir required yes
+# fn_tag dnGetFilePath param initial_dir multipart no
+# fn_tag dnGetFilePath param initial_dir type path
+# fn_tag dnGetFilePath param initial_dir note If ''|'-' defaults to current directory
+# fn_tag dnGetFilePath param filter purpose Specifies which files will be displayed in the dialog
+# fn_tag dnGetFilePath param filter required no
+# fn_tag dnGetFilePath param filter multipart no
+# fn_tag dnGetFilePath param filter type string
+# fn_tag dnGetFilePath param filter note Uses same specifiers as 'ls' and 'dir' commands
+# fn_tag dnGetFilePath param filter note If filter includes wildcard must enclose in quotes, e.g., '*.1'
+# fn_tag dnGetFilePath param filter note Only works with some dialogs, e.g., works with kdialog but not [X]dialog
+dnGetFilePath () {
+	# set and check variables
+	# - must have two or three parameters
+	[ ${#} -lt 2 ] \
+		&& dnEndScriptDlg 1 "Too few parameters supplied to fn '${FUNCNAME}'"
+	[ ${#} -gt 3 ] \
+		&& dnEndScriptDlg 1 "Too many parameters supplied to fn '${FUNCNAME}'"
+	# - set collections
+	local dlgs_using_filter='kdialog'
+	# - set defaults
+	local default_title='Select File' default_dir="$( pwd )"
+	# - title: use default if ''|'-'
+	title="${1}"
+	[ -z "${title}" -o "${title}" = '-' ] && title="${default_title}"
+	# - initial directory
+	local start_dir="${2}"
+	[ -z "${start_dir}" -o "${start_dir}" = '-' ] && start_dir="${default_dir}"
+	start_dir="$( dnNormalisePath "${start_dir}" )"
+	if ! [ -d "${start_dir}" ] ; then
+		dnErrorStderr "Invalid start directory:" "  '${start_dir}'" \
+		              "Using current directory:" "  '${default_dir}'"
+		start_dir="${default_dir}"
+	fi
+	# - dialog type: determine
+	local dlg_type= 
+	dlg_type="$( dnLowercase "$( dnDialogType )" )" || \
+		dnEndScript 1 "No dialog command available in fn '${FUNCNAME}'" \
+		              "Is this a non-graphical environment?"
+	# - filter
+	local filter="${3:-""}" using_filter=1
+	[ "${filter}" = '-' ] && filter=''
+	[ -n "${filter}" ] \
+		&& dnElementInList "${dlg_type}" "${dlgs_using_filter}" \
+			&& using_filter=0
+	# - help dialogs
+	local use_filter_dlg=1 filter_notice= dialog_help=
+	if [ -n "${filter}" ] && ! dnFlagTrue ${using_filter} ; then
+		use_filter_dlg=0
+		filter_notice="${filter_notice}UNABLE TO FILTER FILE DISPLAY"
+		filter_notice="${filter_notice}\n${dn_self} has requested only "
+		filter_notice="${filter_notice}files matching filter (${filter}) "
+		filter_notice="${filter_notice}be displayed."
+		filter_notice="${filter_notice}\nUnfortunately, ${dlg_type} is "
+		filter_notice="${filter_notice}unable to filter files for "
+		filter_notice="${filter_notice}selection and all files will be "
+		filter_notice="${filter_notice}displayed."
+	fi
+	if [ "${dlg_type}" = 'dialog' ] ; then  # dialog is not intuitive to use
+		dialog_help="${dialog_help}HOW TO SELECT A FILE"
+		dialog_help="${dialog_help}\nMoving between dialog parts: The "
+		dialog_help="${dialog_help}dialog consists of the Directories and "
+		dialog_help="${dialog_help}Files windows, the selection box (into "
+		dialog_help="${dialog_help}which you can type directly, and the "
+		dialog_help="${dialog_help}OK and Cancel buttons.  Use arrow and "
+		dialog_help="${dialog_help}Tab keys to navigate between dialog "
+		dialog_help="${dialog_help}parts.  The cursor indicates which "
+		dialog_help="${dialog_help}dialog part you are in.  It blinks "
+		dialog_help="${dialog_help}and, in the Directories and Files "
+		dialog_help="${dialog_help}windows, blinks a different colour to "
+		dialog_help="${dialog_help}the file/directory selection colour."
+		dialog_help="${dialog_help}\nMoving within a window: Inside the "
+		dialog_help="${dialog_help}Directories and Files windows use "
+		dialog_help="${dialog_help}UpArrow, DownArrow, PageUp and "
+		dialog_help="${dialog_help}PageDown to move."
+		dialog_help="${dialog_help}\nSelecting a directory: Type directly "
+		dialog_help="${dialog_help}into the selection box or select in "
+		dialog_help="${dialog_help}Directories window and press Space.  "
+		dialog_help="${dialog_help}Press Space a second time to open "
+		dialog_help="${dialog_help}selected directory."
+		dialog_help="${dialog_help}\nSelecting a file: Type directly into "
+		dialog_help="${dialog_help}the selection box or select in Files "
+		dialog_help="${dialog_help}window and press Space.  Press Enter "
+		dialog_help="${dialog_help}to accept selection."
+	fi
+	# execute dialog command
+	local retval= cmd= result= file=
+	result="$( dnTempFile )" || dnEndScript 1 "Can't make temp file"
+	dnTempTrap "${result}"
+	case ${dlg_type} in
+		'kdialog' ) cmd="kdialog --title \"${title}\" \
+		                         --getopenfilename \"${start_dir}\""
+					dnFlagTrue ${using_filter} && cmd="${cmd} \"${filter}\""
+					cmd="${cmd} > \"${result}\""
+					eval ${cmd}
+		            retval=${?};;
+		'dialog'  ) # Note: Following dialog does not display and also
+		            #       requires an Enter keypress to continue script
+					#       execution.  Cause of error is unknown.
+		            #dnFlagTrue ${use_filter_dlg} \
+		            #	&& dnWarnDlg "${filter_notice}" "Filter Failure"
+					# Note: Send warning to terminal stderr instead.
+		            dnFlagTrue ${use_filter_dlg} \
+		            	&& dnWarnStderr "${filter_notice}" \
+						                "UNABLE TO FILTER FILE DISPLAY" \
+						                "${dn_self} has requested only " \
+						                "files matching filter (${filter}) " \
+						                "be displayed." \
+						                "Unfortunately, ${dlg_type} is " \
+						                "unable to filter files for " \
+						                "selection and all files will be " \
+						                "displayed." \
+						&& dnPromptStderr
+					# Note: Cannot use help button option in following
+					#       command because dnInfoDlg display fails in the
+					#       same manner as the previous dnWarnDlg error.
+					#cmd="dialog  --stdout --help-button --title \"${title}\""
+					cmd="dialog  --stdout --title \"${title}\" \
+					             --fselect \"${start_dir}\" 0 0 \
+					     > \"${result}\""
+					eval ${cmd}
+					retval=${?}
+					while [ ${retval} -eq 2 ] ; do  # user requested help
+						# display help and re-ask question
+						dnInfoDlg "${dialog_help}" "HELP"
+						eval ${cmd}
+						retval=${?}
+					done;;
+		    *     ) dnFatal "No dialog match in '${FUNCNAME}' (2)" && exit 1;;
+	esac
+	file="$( cat "${result}" )"
+	dnTempKill "${result}"
+	file="$( dnNormalisePath "${file}" )"
+	[ -f "${file}" ] || retval=1
+	dnFlagTrue ${retval} || file=''
+	echo "${file}"
+	return ${retval}
+}
+# Function: dnGetDir                                                 {{{1
+# Select dir from dialog
+#   params: 1 - dialog title (''|'-' = default to 'Select Directory')
+#           2 - initial directory (''|'-' = default to cwd)
+#   prints: filepath
+#   return: nil
+#   invoke: filename="$( dnGetFilepath "${title}" "${start_dir}" )"
+#   note:   selects only existing dir
+# fn_tag dnGetDir purpose Select directory using a dialog
+# fn_tag dnGetDir prints Directory path
+# fn_tag dnGetDir returns NIL
+# fn_tag dnGetDir usage filename="$( dnGetFilepath "${title}" "${start_dir}" )"
+# fn_tag dnGetDir note Can select only existing directories
+# fn_tag dnGetDir param title purpose Dialog title
+# fn_tag dnGetDir param title required yes
+# fn_tag dnGetDir param title multipart no
+# fn_tag dnGetDir param title type string
+# fn_tag dnGetDir param title note If empty string or '-' defaults to 'Select Directory'
+# fn_tag dnGetDir param initial_dir purpose Initial directory
+# fn_tag dnGetDir param initial_dir required yes
+# fn_tag dnGetDir param initial_dir multipart no
+# fn_tag dnGetDir param initial_dir type path
+# fn_tag dnGetDir param initial_dir note If empty string or '-' defaults to current directory
+dnGetDir () {
+	# set and check variables
+	# - must have exactly two parameters
+	[ ${#} -lt 2 ] \
+		&& dnEndScriptDlg 1 "Too few parameters supplied to fn '${FUNCNAME}'"
+	[ ${#} -gt 2 ] \
+		&& dnEndScriptDlg 1 "Too many parameters supplied to fn '${FUNCNAME}'"
+	# - set defaults
+	local default_title='Select Directory' default_dir="$( pwd )"
+	# - title: use default if ''|'-'
+	title="${1}"
+	[ -z "${title}" -o "${title}" = '-' ] && title="${default_title}"
+	# - initial directory
+	local start_dir="${2}"
+	[ -z "${start_dir}" -o "${start_dir}" = '-' ] && start_dir="${default_dir}"
+	start_dir="$( dnNormalisePath "${start_dir}" )"
+	if ! [ -d "${start_dir}" ] ; then
+		dnErrorStderr "Invalid start directory:" "  '${start_dir}'" \
+		              "Using current directory:" "  '${default_dir}'"
+		start_dir="${default_dir}"
+	fi
+	# - dialog type: determine
+	local dlg_type= 
+	dlg_type="$( dnLowercase "$( dnDialogType )" )" || \
+		dnEndScript 1 "No dialog command available in fn '${FUNCNAME}'" \
+		              "Is this a non-graphical environment?"
+	# - help dialogs
+	local dialog_help=
+	if [ "${dlg_type}" = 'dialog' ] ; then  # dialog is not intuitive to use
+		dialog_help="${dialog_help}HOW TO SELECT A DIRECTORY"
+		dialog_help="${dialog_help}\nMoving between dialog parts: The "
+		dialog_help="${dialog_help}dialog consists of the Directories "
+		dialog_help="${dialog_help}window, the selection box (into "
+		dialog_help="${dialog_help}which you can type directly, and the "
+		dialog_help="${dialog_help}OK and Cancel buttons.  Use arrow and "
+		dialog_help="${dialog_help}Tab keys to navigate between dialog "
+		dialog_help="${dialog_help}parts.  The cursor indicates which "
+		dialog_help="${dialog_help}dialog part you are in.  It blinks "
+		dialog_help="${dialog_help}and, in the Directories window,"
+		dialog_help="${dialog_help}blinks a different colour to "
+		dialog_help="${dialog_help}the directory selection colour."
+		dialog_help="${dialog_help}\nMoving within a window: Inside the "
+		dialog_help="${dialog_help}Directories window use "
+		dialog_help="${dialog_help}UpArrow, DownArrow, PageUp and "
+		dialog_help="${dialog_help}PageDown to move."
+		dialog_help="${dialog_help}\nSelecting a directory: Type directly "
+		dialog_help="${dialog_help}into the selection box or select in "
+		dialog_help="${dialog_help}Directories window and press Space.  "
+		dialog_help="${dialog_help}Press Space a second time to open the "
+		dialog_help="${dialog_help}selected directory."
+		dialog_help="${dialog_help}Press Enter to accept selection."
+	fi
+	# execute dialog command
+	local retval= cmd= result= dir=
+	result="$( dnTempFile )" || dnEndScript 1 "Can't make temp file"
+	dnTempTrap "${result}"
+	case ${dlg_type} in
+		'kdialog' ) cmd="kdialog --title \"${title}\" \
+		                         --getexistingdirectory \"${start_dir}\" \
+		                 > \"${result}\""
+					eval ${cmd}
+		            retval=${?};;
+		'dialog'  ) # Note: Cannot use help button option in following
+					#       command because dnInfoDlg fails to display,
+					#       and also requires an Enter keypress to continue
+					#       script execution.
+					#cmd="dialog  --stdout --help-button --title \"${title}\""
+					cmd="dialog  --stdout --title \"${title}\" \
+		                         --dselect \"${start_dir}\" 0 0 \
+		                 > \"${result}\""
+					eval ${cmd}
+					retval=${?}
+					while [ ${retval} -eq 2 ] ; do  # user requested help
+						# display help and re-ask question
+						dnInfoDlg "HELP" "${dialog_help}"
+						eval ${cmd}
+						retval=${?}
+					done;;
+		    *     ) dnFatal "No dialog match in '${FUNCNAME}' (2)" && exit 1;;
+	esac
+	dir="$( cat "${result}" )"
+	dnTempKill "${result}"
+	dir="$( dnNormalisePath "${dir}" )"
+	[ -d "${dir}" ] || retval=1
+	dnFlagTrue ${retval} || dir=''
+	echo "${dir}"
+	return ${retval}
+}
+# Function: dnExtractPath                                            {{{1
+# Extract path from filepath
+#   params: 1 - filepath
+#   prints: directory path
+#   return: boolean (0=extracted path|1=file only)
+# fn_tag dnExtractPath purpose Extract directory path from file path
+# fn_tag dnExtractPath prints Directory path (empty string if only file name)
+# fn_tag dnExtractPath returns Whether string contains directory part, i.e., not just file name (Boolean)
+# fn_tag dnExtractPath param filepath purpose Filepath to analyse
+# fn_tag dnExtractPath param filepath required yes
+# fn_tag dnExtractPath param filepath multipart no
+# fn_tag dnExtractPath param filepath type path
+dnExtractPath () {
+	if [ $( echo "${1}" | grep -c "\/" ) -gt 0 ] ; then
+		echo "$( dirname "${1}" )"
+		return 0
+	else
+		echo ""
+		return 1
+	fi
+}
+# Function: dnExtractFilename                                        {{{1
+# Extract filename from path
+#   params: 1 - filepath
+#   prints: filename
+#   return: nil
+# fn_tag dnExtractFilename purpose Extract filename from filepath
+# fn_tag dnExtractFilename prints Filename
+# fn_tag dnExtractFilename returns NIL
+# fn_tag dnExtractFilename param filepath purpose Filepath to be analysed
+# fn_tag dnExtractFilename param filepath required yes
+# fn_tag dnExtractFilename param filepath multipart no
+# fn_tag dnExtractFilename param filepath type path
+dnExtractFilename () {
+	echo "$( echo "${1}" | awk -F '/' '{ print $NF }' )"
+}
+# Function: dnExtractFileBase                                        {{{1
+# Extract file basename (without extension) from path
+#   params: 1 - filepath
+#   prints: basename
+#   return: nil
+# fn_tag dnExtractFileBase purpose Extract file basename from filepath
+# fn_tag dnExtractFileBase prints Basename
+# fn_tag dnExtractFileBase returns NIL
+# fn_tag dnExtractFileBase note Basename is filename without extension
+# fn_tag dnExtractFileBase param filename purpose Filepath to be analysed
+# fn_tag dnExtractFileBase param filename required yes
+# fn_tag dnExtractFileBase param filename multipart no
+# fn_tag dnExtractFileBase param filename type path
+dnExtractFileBase () {
+	# strip directory
+	local base="$( basename "${1}" )"
+	# strip extension
+	base="$( echo "${base}" | \
+	         sed -e 's,^\([[:print:]]*\)\.[[:print:]]*$,\1,' )"
+	# print result
+	echo "${base}"
+}
+# Function: dnStripExtension                                         {{{1
+# Strip extension from filepath
+#   params: 1 - filepath
+#   prints: filepath without extension
+#   return: nil
+# fn_tag dnStripExtension purpose Strip extension from filepath
+# fn_tag dnStripExtension prints Filepath without extension, e.g., path plus basename
+# fn_tag dnStripExtension returns NIL
+# fn_tag dnStripExtension param filepath purpose Filepath to be analysed
+# fn_tag dnStripExtension param filepath required yes
+# fn_tag dnStripExtension param filepath multipart no
+# fn_tag dnStripExtension param filepath type path
+dnStripExtension () {
+	# get parent dir and basename
+	local parent="$( dnParentDir "${1}" )"
+	[ -n "${parent}" ] && parent="${parent}/"
+	local base="$( dnExtractFileBase "${1}" )"
+	# supply result
+	echo "${parent}${base}"
+}
+# Function: dnGetFirstFile                                           {{{1
+# Get first file from directory
+#   params: 1 - directory
+#           2 - extension [optional] (filters search)
+#   prints: first file from directory
+#   return: boolean (0=success|1=failure)
+# fn_tag dnGetFirstFile purpose Get first file from a directory
+# fn_tag dnGetFirstFile prints Filename
+# fn_tag dnGetFirstFile returns NIL
+# fn_tag dnGetFirstFile note Prints filename without path
+# fn_tag dnGetFirstFile param directory purpose Directory to analyse
+# fn_tag dnGetFirstFile param directory required yes
+# fn_tag dnGetFirstFile param directory multipart no
+# fn_tag dnGetFirstFile param directory type path
+# fn_tag dnGetFirstFile param extension purpose Extension used to filter files displayed for selection
+# fn_tag dnGetFirstFile param extension required no
+# fn_tag dnGetFirstFile param extension multipart no
+# fn_tag dnGetFirstFile param extension type string
+# fn_tag dnGetFirstFile param extension note Do not prepend with period
+dnGetFirstFile () {
+	local retval=0 dir="${1}" ext="${2:-""}" file= dir_cmd="dir -1"
+	# assemble directory command
+	[ -n "${ext}" ] && dir_cmd="${dir_cmd} *.${ext}"
+	# get filename
+	dir="$( dnNormalisePath "${dir}" )" &> /dev/null || retval=1
+	cd "${dir}" &> /dev/null || retval=1
+	file="$( ${dir_cmd} | head --lines=1 )" || retval=1
+	# print filename and indicate success
+	echo "${file}"
+	return ${retval}
+}
+# Function: dnExtractExtension                                       {{{1
+# Extract extension from path
+#   params: 1 - filepath
+#   prints: extension
+#   return: nil
+# fn_tag dnExtractExtension purpose Extract extension from filepath
+# fn_tag dnExtractExtension prints Extension
+# fn_tag dnExtractExtension returns NIL
+# fn_tag dnExtractExtension param filepath purpose Filepath to analyse
+# fn_tag dnExtractExtension param filepath required yes
+# fn_tag dnExtractExtension param filepath multipart no
+# fn_tag dnExtractExtension param filepath type string
+dnExtractExtension () {
+	echo "$( echo "${1}" | sed -e 's/[[:print:]]*\.\([[:print:]]*\)/\1/' )"
+}
+# Function: dnDirValid                                               {{{1
+# Directory exists and readable
+#   params: 1 - directory
+#   prints: nil
+#   return: 0|1 (exists|does not exist)
+#   invoke: if dnDirValid "${dirname}" ; then ...
+# fn_tag dnDirValid purpose Determine whether directory exists and is readable
+# fn_tag dnDirValid prints NIL
+# fn_tag dnDirValid returns Whether directory exists and is readable (Boolean)
+# fn_tag dnDirValid usage if dnDirValid "${dirname}" ; then ...
+# fn_tag dnDirValid param directory purpose Directory to be analysed
+# fn_tag dnDirValid param directory required yes
+# fn_tag dnDirValid param directory multipart no
+# fn_tag dnDirValid param directory type path
+dnDirValid () {
+	[ -d "${1}" -a -r "${1}" ]
+	return ${?}
+}
+# Function: dnDirValidNoSpaces                                       {{{1
+# Directory exists and readable and directory path contains no spaces
+#   params: 1 - directory
+#   prints: nil
+#   return: 0|1 (exists|does not exist)
+#   invoke: if dnDirValidNoSpaces "${dirname}" ; then ...
+#   needs:  functions [dnNoSpace]
+# fn_tag dnDirValidNoSpaces purpose Determine whether directory path exists, is readable and contains no spaces
+# fn_tag dnDirValidNoSpaces prints NIL
+# fn_tag dnDirValidNoSpaces returns Whether directory exists, is readable and contains no spaces (Boolean)
+# fn_tag dnDirValidNoSpaces usage if dnDirValidNoSpaces "${dirname}" ; then ...
+# fn_tag dnDirValidNoSpaces param directory purpose Directory to be analysed
+# fn_tag dnDirValidNoSpaces param directory required yes
+# fn_tag dnDirValidNoSpaces param directory multipart no
+# fn_tag dnDirValidNoSpaces param directory type path
+dnDirValidNoSpaces () {
+	[ -d "${1}" -a -r "${1}" && dnNoSpace "${1}" ]
+	return ${?}
+}
+# Function: dnBlockExist                                              {{{1
+# Block special exists
+#   params: 1 - file
+#   prints: nil
+#   return: boolean (0=exists, 1=does not exist)
+#   invoke: if dnBlockExist "${filename}" ; then ...
+# fn_tag dnBlockExist purpose Determine whether block special device exists
+# fn_tag dnBlockExist prints NIL
+# fn_tag dnBlockExist returns Whether block special device exists (Boolean)
+# fn_tag dnBlockExist usage if dnBlockExist "${filename}" ; then ...
+# fn_tag dnBlockExist param block purpose Block special device to be analysed
+# fn_tag dnBlockExist param block required yes
+# fn_tag dnBlockExist param block multipart no
+# fn_tag dnBlockExist param block type path
+dnBlockExist () {
+	[ -b "${1}" ]
+	return ${?}
+}
+# Function: dnBlockValid                                              {{{1
+# Block special exists and is readable
+#   params: 1 - file
+#   prints: nil
+#   return: boolean (0=exists, 1=does not exist)
+#   invoke: if dnBlockValid "${filename}" ; then ...
+# fn_tag dnBlockValid purpose Determine whether block special device exists and is readable
+# fn_tag dnBlockValid prints NIL
+# fn_tag dnBlockValid returns Whether block special device exists and is readable (Boolean)
+# fn_tag dnBlockValid usage if dnBlockValid "${filename}" ; then ...
+# fn_tag dnBlockValid param block purpose Block special device to be analysed
+# fn_tag dnBlockValid param block required yes
+# fn_tag dnBlockValid param block multipart no
+# fn_tag dnBlockValid param block type path
+dnBlockValid () {
+	[ -b "${1}" -a -r "${1}" ]
+	return ${?}
+}
+# Function: dnBlockValidNoSpaces                                      {{{1
+# Block special exists and readable and filepath contains no spaces
+#   params: 1 - file
+#   prints: nil
+#   return: boolean (0=exists, 1=does not exist)
+#   invoke: if dnBlockValidNoSpaces "${filename}" ; then ...
+#   needs:  functions [dnNoSpace]
+# fn_tag dnBlockValidNoSpaces purpose Determine whether block special device exists, is readable and contains no spaces
+# fn_tag dnBlockValidNoSpaces prints NIL
+# fn_tag dnBlockValidNoSpaces returns Whether block special device exists, is readable and contains no spaces (Boolean)
+# fn_tag dnBlockValidNoSpaces usage if dnBlockValidNoSpaces "${filename}" ; then ...
+# fn_tag dnBlockValidNoSpaces param block purpose Block special device to be analysed
+# fn_tag dnBlockValidNoSpaces param block required yes
+# fn_tag dnBlockValidNoSpaces param block multipart no
+# fn_tag dnBlockValidNoSpaces param block type path
+dnBlockValidNoSpaces () {
+	[ -b "${1}" -a -r "${1}" && dnNoSpace "${1}" ]
+	return ${?}
+}
+# Function: dnTrueFilepath                                           {{{1
+# Find true filepath if supplied with symlink
+#   params: 1 - filepath
+#   prints: 2 - true filepath
+#   return: nil
+#   invoke: file="$( dnTrueFilepath "${file}"
+# fn_tag dnTrueFilepath purpose Determine true filepath of supplied file
+# fn_tag dnTrueFilepath prints True filepath
+# fn_tag dnTrueFilepath returns NIL
+# fn_tag dnTrueFilepath note Intended for resolving symlinks to true filepaths
+# fn_tag dnTrueFilepath note Will return symlink target even if target does not exist
+# fn_tag dnTrueFilepath param filepath purpose Filepath to be resolved
+# fn_tag dnTrueFilepath param filepath required yes
+# fn_tag dnTrueFilepath param filepath multipart no
+# fn_tag dnTrueFilepath param filepath type path
+dnTrueFilepath () {
+	# set variables
+	local fp="$( dnNormalisePath "${1}" )" exit_status= true_fp=
+	# try to resolve symlinks
+	true_fp="$( readlink -m "${fp}" 2>/dev/null )"
+	exit_status=${?}
+	# if error then return supplied filepath
+	[ ${exit_status} -ne 0 -o -z "${true_fp}" ] && true_fp="${fp}"
+	# supply true filepath
+	echo "${true_fp}"
+}
+# Function: dnFilesystemMounted                                      {{{1
+# Determines whether a filesystem is mounted
+#   params: 1 - block special device or remote filesystem
+#   return: boolean (0=mounted, 1=not mounted)
+#   invoke: if dnFilesystemMounted "${fs}" ; then...
+# fn_tag dnFilesystemMounted purpose Determine whether a block special device or remote filesystem is mounted
+# fn_tag dnFilesystemMounted prints NIL
+# fn_tag dnFilesystemMounted returns Whether mounted (boolean)
+# fn_tag dnFilesystemMounted usage if dnFilesystemMounted "${fs}" ; then...
+# fn_tag dnFilesystemMounted param device-filesystem purpose Block special device or remote filesystem to be analysed
+# fn_tag dnFilesystemMounted param device-filesystem required yes
+# fn_tag dnFilesystemMounted param device-filesystem multipart no
+# fn_tag dnFilesystemMounted param device-filesystem type path
+dnFilesystemMounted () {
+	# set variables
+	local mtab="@sysconf_dir@/mtab"
+	local fs="$( dnTrueFilepath "${1}" )" matches=
+	fs="^$( echo "${fs}" | sed -e 's?\/?\\\/?g' )$"
+	# look for match in mtab
+	matches=$( cat "${mtab}" | cut -d ' ' -f 1 | grep -c "${fs}" )
+	# boolean return value is inverse of match count
+	return $( dnToggleFlag "${matches}" )
+}
+# Function: dnFileValid                                              {{{1
+# File exists and readable
+#   params: 1 - file
+#   prints: nil
+#   return: boolean (0=exists, 1=does not exist)
+#   invoke: if dnFileValid "${filename}" ; then ...
+# fn_tag dnFileValid purpose Determine whether file exists and is readable
+# fn_tag dnFileValid prints NIL
+# fn_tag dnFileValid returns Whether file exists and is readable (Boolean)
+# fn_tag dnFileValid usage if dnFileValid "${filename}" ; then ...
+# fn_tag dnFileValid param filepath purpose Filepath to be analysed
+# fn_tag dnFileValid param filepath required yes
+# fn_tag dnFileValid param filepath multipart no
+# fn_tag dnFileValid param filepath type path
+dnFileValid () {
+	[ -f "${1}" -a -r "${1}" ]
+	return ${?}
+}
+# Function: dnFileValidNoSpaces                                      {{{1
+# File exists and readable and filepath contains no spaces
+#   params: 1 - file
+#   prints: nil
+#   return: boolean (0=exists, 1=does not exist)
+#   invoke: if dnFileValidNoSpaces "${filename}" ; then ...
+#   needs:  functions [dnNoSpace]
+# fn_tag dnFileValidNoSpaces purpose Determine whether file exists, is readable and contains no spaces
+# fn_tag dnFileValidNoSpaces prints NIL
+# fn_tag dnFileValidNoSpaces returns Whether file exists, is readable and contains no spaces (Boolean)
+# fn_tag dnFileValidNoSpaces usage if dnFileValidNoSpaces "${filename}" ; then ...
+# fn_tag dnFileValidNoSpaces param filepath purpose Filepath to be analysed
+# fn_tag dnFileValidNoSpaces param filepath required yes
+# fn_tag dnFileValidNoSpaces param filepath multipart no
+# fn_tag dnFileValidNoSpaces param filepath type path
+dnFileValidNoSpaces () {
+	[ -f "${1}" -a -r "${1}" && dnNoSpace "${1}" ]
+	return ${?}
+}
+# Function: dnGlobValid                                              {{{1
+# Glob matches at least one file/directory
+#   params: 1 - file glob
+#   prints: nil
+#   return: boolean (0=matches, 1=no matches)
+#   invoke: if dnGlobValid "${Globname}" ; then ...
+# fn_tag dnGlobValid purpose Determine whether there are any matches for glob
+# fn_tag dnGlobValid prints NIL
+# fn_tag dnGlobValid returns Whether matches exist for glob (Boolean)
+# fn_tag dnGlobValid usage if dnGlobValid "${Globname}" ; then ...
+# fn_tag dnGlobValid param Globpath purpose glob to be analysed
+# fn_tag dnGlobValid param Globpath required yes
+# fn_tag dnGlobValid param Globpath multipart no
+# fn_tag dnGlobValid param Globpath type path
+dnGlobValid () {
+	return $( dnToggleFlag "$( dir ${1} 2>/dev/null | wc -l )" )
+}
+# Function: dnDirEmpty                                               {{{1
+# Tests whether directory empty (assume directory exists)
+#   params: 1 - directory
+#   prints: nil
+#   return: 0|1 (empty|not empty)
+#   needs:  functions [dnNormalisePath]
+# fn_tag dnDirEmpty purpose Detemine whether directory is empty
+# fn_tag dnDirEmpty prints NIL
+# fn_tag dnDirEmpty returns Whether directory is empty (Boolean)
+# fn_tag dnDirEmpty note Functions assumes directory exists
+# fn_tag dnDirEmpty param directory purpose Directory to be analysed
+# fn_tag dnDirEmpty param directory required yes
+# fn_tag dnDirEmpty param directory multipart no
+# fn_tag dnDirEmpty param directory type path
+dnDirEmpty () {
+	local dir="$( dnNormalisePath "${1}" )"
+	local content_count=$( dnDirFileDirCount "${dir}" )
+	[ ${content_count} -eq 0 ]
+	return ${?}
+}
+# Function: dnDirFileDirCount                                        {{{1
+# Counts files/directories in a directory
+#   params: 1 - directory name [optional] (default=current directory)
+#   prints: number of files and subdirectories in directory
+#   return: 0|1 (valid directory|invalid directory)
+# fn_tag dnDirFileDirCount purpose Count file and subdirectories in a directory
+# fn_tag dnDirFileDirCount prints Number of files and subdirectories in directory (Integer)
+# fn_tag dnDirFileDirCount returns Whether directory is valid (Boolean)
+# fn_tag dnDirFileDirCount param directory purpose Directory to be analysed
+# fn_tag dnDirFileDirCount param directory required no
+# fn_tag dnDirFileDirCount param directory multipart no
+# fn_tag dnDirFileDirCount param directory type path
+# fn_tag dnDirFileDirCount param directory note default to cwd if not supplied
+dnDirFileDirCount () {
+	local dir="${1:-"$(pwd)"}" grep="()$"
+	dir="$( dnNormalisePath "${dir}" )"
+	dnDirValid "${dir}" || return 1
+	# set directory command
+	local cmd="dir -1 -F -A -L"  # -1 = one file/line
+	                             # -F = append file type indicator
+								 # -A = show hidden files (not '.' and '..')
+								 # -L = follow symbolic links
+	# get and return count
+	echo "$( ${cmd} "${dir}" | grep -v "${grep}" | wc -l )"
+	return 0
+}
+# Function: dnDirFileOnlyCount                                       {{{1
+# Counts files in a directory
+#   params: 1 - directory name [optional] (default=current directory)
+#   prints: number of files in directory
+#   return: 0|1 (valid directory|invalid directory)
+# fn_tag dnDirFileOnlyCount purpose Counts files in a directory
+# fn_tag dnDirFileOnlyCount prints Number of files in a directory (Integer)
+# fn_tag dnDirFileOnlyCount returns Whether directory is valid (Boolean)
+# fn_tag dnDirFileOnlyCount note Does not include subdirectories
+# fn_tag dnDirFileOnlyCount param directory purpose Directory to be analysed
+# fn_tag dnDirFileOnlyCount param directory required no
+# fn_tag dnDirFileOnlyCount param directory multipart no
+# fn_tag dnDirFileOnlyCount param directory type path
+# fn_tag dnDirFileOnlyCount param directory note default to cwd if not supplied
+dnDirFileOnlyCount () {
+	local dir="${1:-"$(pwd)"}" grep="\/$"
+	dir="$( dnNormalisePath "${dir}" )"
+	dnDirValid "${dir}" || return 1
+	# set directory command
+	local cmd="dir -1 -F -A -L"  # -1 = one file/line
+	                             # -F = append file type indicator
+								 # -A = show hidden files (not '.' and '..')
+								 # -L = follow symbolic links
+	# get and return count
+	echo "$( ${cmd} "${dir}" | grep -v "${grep}" | wc -l )"
+	return 0
+}
+# Function: dnDirFileCountXoX                                        {{{1
+# Counts files in a directory with pattern 'xxx.x+'
+#   params: 1 - directory name [optional] (default=current directory)
+#   prints: number of files in directory matching pattern
+#   return: 0|1 (valid directory|invalid directory)
+#   needs:  functions [dnDirValid]
+# fn_tag dnDirFileCountXoX purpose Count number of files having extensions in directory
+# fn_tag dnDirFileCountXoX prints Number of files in directory matching pattern
+# fn_tag dnDirFileCountXoX returns Whether directory is valid (Boolean)
+# fn_tag dnDirFileCountXoX note Only counts files with extensions, e.g., 'file.ext'
+# fn_tag dnDirFileCountXoX param directory purpose Directory to be analysed
+# fn_tag dnDirFileCountXoX param directory required no
+# fn_tag dnDirFileCountXoX param directory multipart no
+# fn_tag dnDirFileCountXoX param directory type path
+# fn_tag dnDirFileCountXoX param directory note Defaults to current directory if not supplied
+dnDirFileCountXoX () {
+	local dir="${1:-"$(pwd)"}"
+	dir="$( dnNormalisePath "${dir}" )"
+	dnDirValid "${dir}" || return 1
+	# remove directories from count by using '-F' flag and 'grep -v "\/$"'
+	echo "$( \
+	         dir -1 -F -A -L "${dir}" | \
+	         grep "[[:alnum:]]*\.[[:alnum:]]\+\(\*\|\@\)\?$" | \
+		     grep -v "\/$" | wc -l \
+		   )"
+	return 0
+}
+# Function: dnFileEmpty                                              {{{1
+# Tests whether file empty (assume file exists)
+#   params: 1 - file
+#   prints: nil
+#   return: 0|1 (empty|not empty)
+# fn_tag dnFileEmpty purpose Determine whether file is empty
+# fn_tag dnFileEmpty prints NIL
+# fn_tag dnFileEmpty returns Whether file is empty (Boolean)
+# fn_tag dnFileEmpty note Function assumes file exists
+# fn_tag dnFileEmpty param filepath purpose File to be analysed
+# fn_tag dnFileEmpty param filepath required yes
+# fn_tag dnFileEmpty param filepath multipart no
+# fn_tag dnFileEmpty param filepath type path
+dnFileEmpty () {
+	# must cat file to 'wc' to avoid filename in 'wc' output
+	[ $( cat  "${1}" | wc --bytes ) -eq 0 ]
+	return ${?}
+}
+# Function: dnFileSize                                               {{{1
+# Return file size (bytes)
+#   params: 1 - filepath [required]
+#           2 - modify feedback (e|p|t|g|m|k|b|h) [optional]
+#                               (default=b)
+#   prints: size
+#   return: boolean (0=success|1=failure)
+#   note:   feedback modiers either:
+#           a) specify numeric result in particular units (e|p|t|g|m|k|b)
+#              (= exa-, peta-, tera-, giga-, mega-, kilobytes, bytes)
+#                              or
+#           b) or in human-readable format (h)
+#   needs:  apps [du]
+#           functions [dnNormalisePath]
+# fn_tag dnFileSize purpose Determine file size in bytes
+# fn_tag dnFileSize prints File size
+# fn_tag dnFileSize returns Whether able to determine file size (Boolean)
+# fn_tag dnFileSize note Requires utility 'du'
+# fn_tag dnFileSize param filepath purpose File to be analysed
+# fn_tag dnFileSize param filepath required yes
+# fn_tag dnFileSize param filepath multipart no
+# fn_tag dnFileSize param filepath type path
+# fn_tag dnFileSize param units purpose Units of size (in bytes)
+# fn_tag dnFileSize param units required no
+# fn_tag dnFileSize param units multipart no
+# fn_tag dnFileSize param units type string
+# fn_tag dnFileSize param units value e
+# fn_tag dnFileSize param units value p
+# fn_tag dnFileSize param units value t
+# fn_tag dnFileSize param units value g
+# fn_tag dnFileSize param units value m
+# fn_tag dnFileSize param units value k
+# fn_tag dnFileSize param units value b
+# fn_tag dnFileSize param units value h
+# fn_tag dnFileSize param units default b
+# fn_tag dnFileSize param units note e=exabyte, p=petabyte, t=terabyte, g=gigabyte, m=megabyte, k=kilobyte, b=byte, h=human-readable
+dnFileSize () {
+	# set and check variables
+	local size= msg= unit= units="b" human_readable=1 retval=1 du=
+	local file="$( dnNormalisePath "${1}" )" modifier="${2:-"b"}"
+	local du_mods="EPTGMK1" hr_mods="EPTGMKB"
+	local du_base="du --total --human-readable --dereference --apparent-size"
+	du_base="${du_base} --block-size="
+	modifier="$( echo "${modifier}" | tr '[:lower:]' '[:upper:]' )"
+	case ${modifier} in
+		'E'|'P'|'T'|'G'|'M'|'K' ) units="${modifier}";;
+		'B' ) units="1";;
+		'H' ) human_readable=0;;
+		*   ) dnFatal "Case mismatch: Funtion '${FUNCNAME}'" && exit 1;;
+	esac
+	dnFileValid "${file}" || exit 1
+	# first, deal with request for human-readable file size
+	if dnFlagTrue "${human_readable}" ; then
+		for unit in E P T G M K 1 ; do
+			du="${du_base}${unit}"
+			size="$( ${du} "${file}" | grep total \
+			                         | tr -d '[[:space:][:alpha:]]' )"
+			retval=${PIPESTATUS[0]}
+			if [ ${size} -gt 1 ] ; then  # if < 1 returns 1
+				size="${size}$( echo "${unit}" | tr "${du_mods}" "${hr_mods}" )"
+				break
+			fi
+		done
+	else  # here deal with request for integer result of nominated size
+		du="${du_base}${units}"
+		size="$( ${du} "${file}" | grep total \
+								 | tr -d '[[:space:][:alpha:]]' )"
+		retval=${PIPESTATUS[0]}
+	fi
+	# return result and exit status
+	echo "${size}"
+	return ${retval}
+}
+# Function: dnValidTarzip                                            {{{1
+# Checks whether archive is a valid tarzip
+#   params: 1 - archive filepath
+#   prints: nil
+#   return: 0|1 (valid|not valid)
+# fn_tag dnValidTarzip purpose Determine whether file is a valid tarzip archive
+# fn_tag dnValidTarzip prints NIL
+# fn_tag dnValidTarzip returns Whether file is a valid tarzip archive (Boolean)
+# fn_tag dnValidTarzip param filepath purpose Archive to be analysed
+# fn_tag dnValidTarzip param filepath required yes
+# fn_tag dnValidTarzip param filepath multipart no
+# fn_tag dnValidTarzip param filepath type path
+dnValidTarzip () {
+	# check it exists
+	local archive="$( dnNormalisePath "${1}" )"
+	dnFileValid "${archive}" || return 1
+	# check it has correct extension
+	[ $( echo "${archive}" | grep -c -- "\.tar\.gz$" ) -gt 0 ] || return 1
+	# check it is in correct format
+	tar --gunzip --list --file "${archive}" &> /dev/null || return 1
+	# done
+	return 0
+}
+# Function: dnCountTarzip                                            {{{1
+# Counts tarzip (*.tar.gz) archives in a directory
+#   params: 1 - directory
+#   prints: count
+#   return: 0|1 (result valid|result invalid)
+#   invoke: [ $( dnCountTarzip "${dir}" ) -eq 1 ] || ... 
+#   notes:  if invalid directory then printed result invalid
+#   needs:  functions [dnNormalisePath ; dnDirValid]
+# fn_tag dnCountTarzip purpose Count tarzipped archives in a directory
+# fn_tag dnCountTarzip prints Count of tarzipped archives in directory (Integer)
+# fn_tag dnCountTarzip returns Whether result is valid
+# fn_tag dnCountTarzip note Counts files matching pattern '*.tar.gz'
+# fn_tag dnCountTarzip usage [ $( dnCountTarzip "${dir}" ) -eq 1 ] || ... 
+# fn_tag dnCountTarzip param directory purpose Directory to be analysed
+# fn_tag dnCountTarzip param directory required yes
+# fn_tag dnCountTarzip param directory multipart no
+# fn_tag dnCountTarzip param directory type path
+# fn_tag dnCountTarzip param directory note If invalid directory then printed count also invalid
+dnCountTarzip () {
+	# normalise directory
+	local dir="$( dnNormalisePath "${1}" )"
+	# count tarzip files
+    echo "$(dir -1 ${dir}/*.tar.gz 2> /dev/null | wc -l)"
+	# return error code if directory invalid
+	dnDirValid "${dir}"
+	return ${?}
+}
+# Function: dnZeroFileSize                                           {{{1 
+# Is file of zero size?
+#   params: 1 - filepath
+#   prints: nil
+#   return: boolean (0|*)
+#   needs:  functions [dnGetFileSize]
+# fn_tag dnZeroFileSize purpose Determine whether file has zero size
+# fn_tag dnZeroFileSize prints NIL
+# fn_tag dnZeroFileSize returns Whether file has zero size (Boolean)
+# fn_tag dnZeroFileSize param filepath purpose File to be analysed
+# fn_tag dnZeroFileSize param filepath required yes
+# fn_tag dnZeroFileSize param filepath multipart no
+# fn_tag dnZeroFileSize param filepath type path
+dnZeroFileSize () {
+	return $( dnGetFileSize "${1}" )
+}
+# Function: dnIsCvsTree                                              {{{1 
+# Is this source tree a CVS tree?
+#   params: 1 - (optional) dirpath [default = cwd]
+#   prints: nil
+#   return: boolean (0|*)
+#   note:   check for 'Root' file in CVS subdir to determine if CVS tree
+#   needs:  functions [dnNormalisePath]
+# fn_tag dnIsCvsTree purpose Determine whether source tree is a CVS tree (Boolean)
+# fn_tag dnIsCvsTree prints NIL
+# fn_tag dnIsCvsTree returns Whether source tree is a CVS tree
+# fn_tag dnIsCvsTree note Assumes is CVS tree if finds 'Root' file in 'CVS' subdirectory
+# fn_tag dnIsCvsTree param directory purpose Root directory of source tree
+# fn_tag dnIsCvsTree param directory required no
+# fn_tag dnIsCvsTree param directory multipart no
+# fn_tag dnIsCvsTree param directory type path
+# fn_tag dnIsCvsTree param directory note default to cwd if not supplied
+dnIsCvsTree () {
+	# set directory
+    local dir="${1:-"$(pwd)"}"
+	dir="$( dnNormalisePath "${dir}" )"
+	# check whether cvs tree
+	return $( dir ${dir}/CVS/Root &> /dev/null )
+}
+# Function: dnIsSvnTree                                              {{{1 
+# Is this source tree a subversion tree?
+#   params: 1 - (optional) dirpath [default = cwd]
+#   prints: nil
+#   return: boolean (0|*)
+#   note:   check for 'all-wcprops' file in '.svn' subdir
+#   needs:  functions [dnNormalisePath]
+# fn_tag dnIsSvnTree purpose Determine whether source tree is a subversion tree
+# fn_tag dnIsSvnTree prints NIL
+# fn_tag dnIsSvnTree returns Whether source tree is a subversion tree (Boolean)
+# fn_tag dnIsSvnTree note Assumes is subversion tree if finds 'all-wcpropos' file in '.svn' subdirectory
+# fn_tag dnIsSvnTree param directory purpose Root directory of source tree
+# fn_tag dnIsSvnTree param directory required no
+# fn_tag dnIsSvnTree param directory multipart no
+# fn_tag dnIsSvnTree param directory type path
+# fn_tag dnIsSvnTree param directory note default to cwd if not supplied
+dnIsSvnTree () {
+	# set directory
+    local dir="${1:-"$(pwd)"}"
+	dir="$( dnNormalisePath "${dir}" )"
+	# check whether subversion tree
+	return $( dir ${dir}/.svn/all-wcprops &> /dev/null )
+}
+# Function: dnUniqueFileName                                         {{{1 
+# Get unique file name for given name template and directory
+#   params: 1 - directory (for unique file)
+#           2 - template (needs minimum 1 placeholder character)
+#           3 - placeholder (optional, default='X', cannot be'=')
+#   prints: unique file name
+#   return: boolean (0|*) on success
+# fn_tag dnUniqueFileName purpose Get a unique file name for a given name template in a specified directory
+# fn_tag dnUniqueFileName prints Unique file name
+# fn_tag dnUniqueFileName returns Whether unique file name determined successfully (Boolean)
+# fn_tag dnUniqueFileName param directory purpose Directory in which unique file name is to be used
+# fn_tag dnUniqueFileName param directory required yes
+# fn_tag dnUniqueFileName param directory multipart no
+# fn_tag dnUniqueFileName param directory type path
+# fn_tag dnUniqueFileName param directory note Can be relative or absolute
+# fn_tag dnUniqueFileName param template purpose Provide template for file name
+# fn_tag dnUniqueFileName param template required yes
+# fn_tag dnUniqueFileName param template multipart no
+# fn_tag dnUniqueFileName param template type string
+# fn_tag dnUniqueFileName param template note Must include one or more consecutive placeholder character which will be replaced with a number string to ensure uniqueness
+# fn_tag dnUniqueFileName param template note The placeholder character cannot occur anywhere else in the template
+# fn_tag dnUniqueFileName param placeholder_character purpose The placeholder character used in the file name template
+# fn_tag dnUniqueFileName param placeholder_character required no
+# fn_tag dnUniqueFileName param placeholder_character multipart no
+# fn_tag dnUniqueFileName param placeholder_character type string
+# fn_tag dnUniqueFileName param placeholder_character default X
+# fn_tag dnUniqueFileName param placeholder_character note If multiple characters are supplied only the first is used
+# fn_tag dnUniqueFileName param placeholder_character note Cannot be set to '/'
+dnUniqueFileName () {
+	# create variables
+	local dir="${1}" template="${2}" char="${3:-"X"}"
+	local length= count=0 prefix= suffix= filedir= tmpfile=
+	# - dir
+	dir="$( dnNormalisePath "${dir}" )"
+	if ! dnDirValid "${dir}" ; then
+		dnErrorStderr "directory '${1}' is not valid"
+		return 1
+	fi
+	# - char (placeholder character)
+	char="$( echo "${char}" | sed -e s'/^\(.\).*/\1/' )"  # ensure single char
+	if [ "${char}" = '/' ] ; then
+		dnErrorStderr "invalid placeholder character '${char}'"
+		return 1
+	fi
+	# - template
+	if [ $( echo "${template}" | grep -c \
+			"^[^${char}]*${char}\+[^${char}]*$" ) -ne 1 ] ; then
+		dnErrorStderr "invalid template '${template}' (placeholder='${char}')"
+		return 1
+	fi
+	# - placeholder length
+	length=$( dnStrLen "$( echo "${template}" | \
+		sed -e "s/^[^${char}]*\(${char}\+\)[^${char}]*$/\1/" )" )
+	# - prefix and suffix
+	prefix="$( echo "${template}" | \
+		sed -e "s/^\([^${char}]*\)${char}\+[^${char}]*$/\1/" )"
+	suffix="$( echo "${template}" | \
+		sed -e "s/^[^${char}]*${char}\+\([^${char}]*\)$/\1/" )"
+	# get unique filename
+	tmpfile="$( dnTempFile )"
+	dnTempTrap "${tmpfile}"
+	filedir="${tmpfile}"  # use file that must exist
+	while dnFileValid "${filedir}" ; do
+		count=$( dnIncrement ${count} )
+		if [ $( dnStrLen "${count}" ) -gt ${length} ] ; then
+			# have reached max placeholder with no unique filename obtained
+			dnErrorStderr "insufficient placeholder characters '${char}' ..." \
+			              "... in template '${template}' to get unique ..." \
+			              "... filename in directory '${dir}'"
+			return 1
+		fi
+		filedir="${dir}/${prefix}$( dnLeftPad "${length}" "${count}" "0" )${suffix}"
+	done
+	rm -fr "${tmpfile}"
+	dnTempKill "${tmpfile}"
+	# success!
+	echo "${prefix}$( dnLeftPad "${length}" "${count}" "0" )${suffix}"
+	return 0
+}
+# Function: dnTempFile                                               {{{1 
+# Create temporary file
+#   params: nil
+#   prints: temporary file name
+#   return: boolean (0|*) on success
+#   usage:  local tmp_dir
+#           tmp_file="$( dnTempFile )" || dnEndScript 1 "Can't make temp file"
+#           dnTempTrap "${tmp_file}"
+#           ...
+#           dnTempKill "${tmp_file}"
+# fn_tag dnTempFile purpose Create temporary file
+# fn_tag dnTempFile prints Temporary filename
+# fn_tag dnTempFile returns Whether temporary file successfully created (Boolean)
+# fn_tag dnTempFile usage local tmp_dir
+# fn_tag dnTempFile usage tmp_file="$( dnTempFile )" || dnEndScript 1 "Can't make temp file"
+# fn_tag dnTempFile usage dnTempTrap "${tmp_file}"
+# fn_tag dnTempFile usage ...
+# fn_tag dnTempFile usage dnTempKill "${tmp_file}"
+dnTempFile () {
+	local tmp_file=
+	tmp_file="$( mktemp )"  || return 1  # create temporary file
+	echo "${tmp_file}"                   # inform user
+}
+# Function: dnTempDir                                                {{{1 
+# Create temporary dir
+#   params: nil
+#   prints: temporary dir name
+#   return: boolean (0|*) on success
+#   usage:  local tmp_dir
+#           tmp_dir="$( dnTempDir )" || dnEndScript 1 "Can't make temp file"
+#           dnTempTrap "${tmp_dir}"
+#           ...
+#           dnTempKill "${tmp_dir}"
+# fn_tag dnTempDir purpose Create temporary directory
+# fn_tag dnTempDir prints Temporary directory name
+# fn_tag dnTempDir returns Whether temporary directory successfully created
+# fn_tag dnTempDir usage local tmp_dir
+# fn_tag dnTempDir usage tmp_dir="$( dnTempDir )" || dnEndScript 1 "Can't make temp file"
+# fn_tag dnTempDir usage dnTempTrap "${tmp_dir}"
+# fn_tag dnTempDir usage ...
+# fn_tag dnTempDir usage dnTempKill "${tmp_dir}"
+dnTempDir () {
+	local tmp_dir=
+	tmp_dir="$( mktemp -d )" || return 1  # create temporary dir
+	echo "${tmp_dir}"                     # inform user
+}
+# Function: dnTempTrap                                               {{{1 
+# Add new temporary file/dir and reset trap command
+#   params: temporary file or dir name to add
+#   prints: nil
+#   return: boolean (0=success|1=failed)
+#   note:   sets variables [ dn_temp_file_dirs[] ]
+#   usage:  local tmp_dir
+#           tmp_dir="$( dnTempDir )" || dnEndScript 1 "Can't make temp file"
+#           dnTempTrap "${tmp_dir}"
+#           ...
+#           dnTempKill "${tmp_dir}"
+# fn_tag dnTempTrap purpose Add temporary file/dir to list and reset trap command
+# fn_tag dnTempTrap prints NIL
+# fn_tag dnTempTrap returns Whether file/dir path supplied to function (Boolean)
+# fn_tag dnTempTrap note Adds file/dir path to array 'dn_temp_file_dirs'
+# fn_tag dnTempTrap note Resets trap command to delete cNILths in array when signal trapped
+# fn_tag dnTempTrap usage local tmp_dir
+# fn_tag dnTempTrap usage tmp_dir="$( dnTempDir )" || dnEndScript 1 "Can't make temp file"
+# fn_tag dnTempTrap usage dnTempTrap "${tmp_dir}"
+# fn_tag dnTempTrap usage ...
+# fn_tag dnTempTrap usage dnTempKill "${tmp_dir}"
+# fn_tag dnTempTrap param path purpose Path of temporary file or directory being processed
+# fn_tag dnTempTrap param path required yes
+# fn_tag dnTempTrap param path multipart no
+# fn_tag dnTempTrap param path type path
+dnTempTrap () {
+	[ ${#} -gt 0 ] || return 1  # sanity check
+	dn_temp_file_dirs[${#dn_temp_file_dirs[*]}]="${1}"  # add new file/dir
+	eval trap "\"rm -fr ${dn_temp_file_dirs[@]}\"" 1 3 9 11 15  # reset trap
+}
+# Function: dnTempKill                                               {{{1 
+# Remove file/dir from list of temporary file/dirs and reset trap
+#   params: temporary file or dir names to remove
+#   prints: nil
+#   return: boolean (0=success|1=failed)
+#   note:   sets variables [ dn_temp_file_dirs[] ]
+#   usage:  local tmp_dir
+#           tmp_dir="$( dnTempDir )" || dnEndScript 1 "Can't make temp file"
+#           dnTempTrap "${tmp_dir}"
+#           ...
+#           dnTempKill "${tmp_dir}"
+# fn_tag dnTempKill purpose Remove temporary file/dir from list and reset trap command
+# fn_tag dnTempKill prints NIL
+# fn_tag dnTempKill returns Whether operation succeeds (Boolean)
+# fn_tag dnTempKill note Removes file/dir from array 'dn_temp_file_dirs'
+# fn_tag dnTempKill note Resets trap command to delete paths in array when signal trapped
+# fn_tag dnTempKill usage local tmp_dir
+# fn_tag dnTempKill usage tmp_dir="$( dnTempDir )" || dnEndScript 1 "Can't make temp file"
+# fn_tag dnTempKill usage dnTempTrap "${tmp_dir}"
+# fn_tag dnTempKill usage ...
+# fn_tag dnTempKill usage dnTempKill "${tmp_dir}"
+# fn_tag dnTempKill param path purpose Path of temporary file/dir being processed
+# fn_tag dnTempKill param path required yes
+# fn_tag dnTempKill param path multipart no
+# fn_tag dnTempKill param path type path
+dnTempKill () {
+	# set and check variables
+	[ -n "$( dnStripWhitespace "${@}" )" ] || return 1
+	local i= 
+	local -a temps=()
+	# loop through files
+	while [ ${#} -gt 0 ] ; do
+		# delete file/dir
+		rm -fr "${1}"
+		# remove file/dir from list of temporary file/dirs
+		# -- duplicate and copy back only if non-null and not for removal
+		temp=()
+		for (( i=0 ; i<${#dn_temp_file_dirs[*]} ; i++ )) ; do
+			temps[${i}]="${dn_temp_file_dirs[${i}]}"
+		done
+		dn_temp_file_dirs=()
+		for (( i=0 ; i<${#temps[*]} ; i++ )) ; do
+			[ -n "${temps[${i}]}" -a "${temps[${i}]}" != "${1}]}" ] \
+				&& dn_temp_file_dirs[${#dn_temp_file_dirs[*]}]="${temps[${i}]}"
+		done
+		shift
+	done
+	# reset trap
+	if [ ${#dn_temp_file_dirs[*]} -eq 0 ] ; then  # no temp file/dirs remain
+		trap - 1 3 9 11 15
+	else  # at least one file/dir remains to be deleted on exit
+		eval trap "\"rm -fr ${dn_temp_file_dirs[@]}\"" 1 3 9 11 15
+	fi
+}
+
+# }}}1
+# Function: dnMimeType                                               {{{1 
+# Get mimetype of file
+#   params: filepath
+#   prints: mime type
+#   return: nil
+# fn_tag dnMimeType purpose Get mimetype of file
+# fn_tag dnMimeType prints File mime type
+# fn_tag dnMimeType returns NIL
+# fn_tag dnMimeType usage mime_type="$( dnMimeType "${file}" )"
+# fn_tag dnMimeType param file purpose File to be analysed
+# fn_tag dnMimeType param file required yes
+# fn_tag dnMimeType param file multipart no
+# fn_tag dnMimeType param file type path
+dnMimeType () {
+	# set and check variables
+    local file
+    file="$( dnNormalisePath "${1}" )"
+    [ -f "${file}" ] || return 1    # false
+    # special case: perlscript
+    local first_line
+    first_line="$( head -n 1 "${file}" )"
+    if [ $( echo "${first_line}" | \
+            grep -c "^#\!\/usr\/bin\/perl" ) -eq 1 ] ; then
+        echo "application/x-perl"
+        return
+    fi
+    # back to general case
+    local mime
+    mime="$( perl -M'File::MimeInfo' \
+        -e "print File::MimeInfo::mimetype('${file}')" )"
+    echo "$mime"
+    return 0    # true
+}
+
+# }}}1
+
+# vim: set foldmethod=marker :

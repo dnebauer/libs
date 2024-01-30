@@ -1,0 +1,197 @@
+#!/usr/bin/perl 
+
+use Moo;    #                                                          {{{1
+use strictures 2;
+use 5.014_002;
+use version; our $VERSION = qv('0.1');
+use namespace::clean;    #                                             }}}1
+
+{
+
+    package Dn::Internal;
+
+    use Moo;             # {{{1
+    use strictures 2;
+    use namespace::clean -except => [ '_options_data', '_options_config' ];
+    use Dn::MboxenSplit;
+    use English qw(-no_match_vars);
+    use Function::Parameters;
+    use MooX::HandlesVia;
+    use MooX::Options;
+    use Readonly;
+    binmode STDOUT, ':encoding(UTF-8)';
+
+    Readonly my $TRUE  => 1;
+    Readonly my $FALSE => 0;
+    Readonly my $COMMA => q{,};    #                                   }}}1
+
+    # options
+
+    # mbox_uris  (-m)                                                  {{{1
+    option 'mbox_uris' => (
+        is            => 'ro',
+        format        => 's@',
+        autosplit     => $COMMA,
+        default       => sub { [] },
+        required      => $TRUE,
+        short         => 'm',
+        documentation => 'Mbox file URIs (comma-separated)',
+    );
+
+    # output_dir (-o)                                                  {{{1
+    option 'output_dir' => (
+        is            => 'ro',
+        format        => 's',
+        required      => $TRUE,
+        short         => 'o',
+        documentation => 'Directory in which to output mbox files',
+    );
+
+    # replace    (-r)                                                  {{{1
+    option 'replace' => (
+        is            => 'ro',
+        short         => 'r',
+        documentation => 'Replace/overwrite existing files',
+    );    #                                                            }}}1
+
+    # methods
+
+    # main()                                                           {{{1
+    #
+    # does:   main method
+    # params: nil
+    # prints: feedback
+    # return: n/a, dies on failure
+    method main () {
+
+        # do preliminary checks
+        $self->_preliminary_checks;
+
+        # split mboxen into separate files
+        $self->_split_mboxen;
+    }
+
+    # _preliminary_checks()                                            {{{1
+    #
+    # does:   perform preliminary checks
+    #
+    # params: nil
+    # prints: error message on failure
+    # return: n/a, dies on failure
+    method _preliminary_checks () {
+
+        # output directory must exist
+        my $output_dir = $self->output_dir;
+        die "Invalid directory '$output_dir'\n" if not -d $output_dir;
+
+        return;
+    }
+
+    # _split_mboxen()                                                  {{{1
+    #
+    # does:   split mboxen into separate files
+    #
+    # params: nil
+    # prints: error message on failure
+    # return: scalar boolean, exit value of Dn::MboxenSplit
+    method _split_mboxen () {
+
+        # get required parameters
+        my @uris = @{ $self->mbox_uris };
+        die "No uris provided\n" if not @uris;
+        my $output_dir = $self->output_dir;
+        my $overwrite = $self->replace;
+
+        # use module to split mboxen
+        my $ms = Dn::MboxenSplit->new(
+            mbox_uris => [@uris],
+            output_dir => $output_dir,
+            overwrite => $overwrite,
+        );
+        my $succeed = $TRUE;
+        $ms->split or $succeed = $FALSE;
+
+        return $succeed;
+    }    #                                                             }}}1
+
+}
+
+my $p = Dn::Internal->new_with_options->main;
+
+1;
+
+# POD                                                                  {{{1
+__END__
+
+=head1 NAME
+
+dn-mboxen-split - split mbox files into single mbox files perl email
+
+=head1 USAGE
+
+B<dn-mboxen-split -m> mbox,mbox,... B<-o> dir [ B<-r> ]
+
+B<dn-mboxen-split -h>
+
+=head1 REQUIRED OPTIONS
+
+=over
+
+=item B<-m>  B<--mbox_uris>
+
+Comma-separated list of URIs of mbox files to split. Scalar string.
+
+Required.
+
+=item B<-o>  B<--output_dir>
+
+Output directory. Scalar string.
+
+Required.
+
+=back
+
+=head1 OPTIONS
+
+=over
+
+=item B<-r>
+
+Whether to replace (overwrite) existing output files. Boolean.
+
+Optional. Default: false.
+
+=item B<-h>
+
+Display help and exit.
+
+=back
+
+=head1 DESCRIPTION
+
+This script is a wrapper for the F<Dn::MboxenSplit> module. See the L<Dn::MboxenScript> documentation for the steps taken in splitting mbox files into separate files for each email. It also documents all errors and warnings produced by the module and this script.
+
+=head1 DEPENDENCIES
+
+=head2 Perl modules
+
+English, Function::Parameters, Moo, MooX::HandlesVia, MooX::Options, namespace::clean, Readonly, strictures, version.
+
+=head1 BUGS AND LIMITATIONS
+
+Please report any bugs to the author.
+
+=head1 AUTHOR
+
+David Nebauer E<lt>davidnebauer@hotkey.net.auE<gt>
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright (c) 2016 David Nebauer E<lt>davidnebauer@hotkey.net.auE<gt>
+
+This script is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut
+# vim:fdm=marker
+

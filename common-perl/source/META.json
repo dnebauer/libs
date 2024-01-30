@@ -1,0 +1,116 @@
+{
+  "abstract": "common methods for use by perl scripts",
+  "author": ["David Nebauer <davidnebauer@hotkey.net.au>"],
+  "dynamic_config": 0,
+  "generated_by": "Dist::Milla version v1.0.20, Dist::Zilla version 6.012, CPAN::Meta::Converter version 2.150010",
+  "license": ["perl_5"],
+  "meta-spec": {
+    "url": "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+    "version": 2
+  },
+  "name": "Dn-Common",
+  "no_index": {
+    "directory": ["eg", "examples", "inc", "share", "t", "xt"]
+  },
+  "prereqs": {
+    "configure": {
+      "requires": {
+        "Module::Build::Tiny": "0.034"
+      }
+    },
+    "develop": {
+      "requires": {
+        "Dist::Milla": "v1.0.20",
+        "Test::Pod": "1.41"
+      }
+    },
+    "runtime": {
+      "requires": {
+        "Carp": "0",
+        "Config::Simple": "0",
+        "Curses": "0",
+        "Cwd": "0",
+        "Data::Dumper::Simple": "0",
+        "Data::Structure::Util": "0",
+        "Data::Validate::URI": "0",
+        "Date::Simple": "0",
+        "DateTime": "0",
+        "DateTime::Format::Mail": "0",
+        "DateTime::TimeZone": "0",
+        "Desktop::Detect": "0",
+        "Email::Valid": "0",
+        "English": "0",
+        "Env": "0",
+        "File::Basename": "0",
+        "File::Copy": "0",
+        "File::Copy::Recursive": "0",
+        "File::Find::Rule": "0",
+        "File::MimeInfo": "0",
+        "File::Path": "0",
+        "File::Spec": "0",
+        "File::Temp": "0",
+        "File::Util": "0",
+        "File::Which": "0",
+        "File::chdir": "0",
+        "Function::Parameters": "0",
+        "HTML::Entities": "0",
+        "IO::Pager": "0",
+        "IPC::Cmd": "0",
+        "IPC::Open3": "0",
+        "IPC::Run": "0",
+        "List::MoreUtils": "0",
+        "Logger::Syslog": "0",
+        "Moo": "0",
+        "MooX::HandlesVia": "0",
+        "Net::DBus": "0",
+        "Net::Ping::External": "0",
+        "Proc::ProcessTable": "0",
+        "Readonly": "0",
+        "Scalar::Util": "0",
+        "Storable": "0",
+        "Term::ANSIColor": "0",
+        "Term::Clui": "0",
+        "Term::ReadKey": "0",
+        "Test::NeedsDisplay": "0",
+        "Text::Pluralize": "0",
+        "Text::Wrap": "0",
+        "Time::HiRes": "0",
+        "Time::Simple": "0",
+        "Type::Utils": "0",
+        "Types::Path::Tiny": "0",
+        "Types::Standard": "0",
+        "UI::Dialog": "0",
+        "experimental": "0",
+        "namespace::clean": "0",
+        "perl": "5.014002",
+        "strictures": "0",
+        "version": "0"
+      }
+    },
+    "test": {
+      "requires": {
+        "Test::More": "0.96"
+      }
+    }
+  },
+  "release_status": "stable",
+  "resources": {
+    "bugtracker": {
+      "web": "https://github.com/dnebauer/libdn-common-perl/issues"
+    },
+    "homepage": "https://github.com/dnebauer/libdn-common-perl",
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/dnebauer/libdn-common-perl.git",
+      "web": "https://github.com/dnebauer/libdn-common-perl"
+    }
+  },
+  "version": "1.1.3",
+  "x_contributors": [
+    "David Nebauer <david@nebauer,org>",
+    "David Nebauer <david@nebauer.org>"
+  ],
+  "x_generated_by_perl": "v5.28.1",
+  "x_serialization_backend": "Cpanel::JSON::XS version 4.12",
+  "x_static_install": 1
+}

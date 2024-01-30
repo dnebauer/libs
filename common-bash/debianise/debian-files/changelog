@@ -1,0 +1,597 @@
+libdncommon-bash (5.24-3) UNRELEASED; urgency=low
+
+  * Update build files to dn-build-deb v3.0
+
+ -- David Nebauer <david@nebauer.org>  Sat, 30 Oct 2021 01:16:43 +0930
+
+libdncommon-bash (5.24-2) UNRELEASED; urgency=low
+
+  * Change distro to UNRELEASED to prevent package signing
+  * Remove AUTHORS, ChangeLog, NEWS and README build files
+
+ -- David Nebauer <david@nebauer.org>  Mon, 08 Feb 2021 00:24:08 +0930
+
+libdncommon-bash (5.24-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Mon, 08 Feb 2021 00:24:08 +0930
+
+libdncommon-bash (5.23-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 07 Feb 2021 22:10:55 +0930
+
+libdncommon-bash (5.22-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 31 Jan 2021 11:49:07 +0930
+
+libdncommon-bash (5.21-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 31 Jan 2021 11:41:37 +0930
+
+libdncommon-bash (5.20-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 17 May 2020 19:54:36 +0930
+
+libdncommon-bash (5.19-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sat, 04 Apr 2020 14:14:46 +0930
+
+libdncommon-bash (5.18-2) unstable; urgency=low
+
+  * Remove dependency on mjpegtools
+
+ -- David Nebauer <david@nebauer.org>  Mon, 29 Oct 2018 19:41:22 +0930
+
+libdncommon-bash (5.18-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Mon, 29 Oct 2018 19:41:22 +0930
+
+libdncommon-bash (5.17-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 05 Aug 2018 17:10:58 +0930
+
+libdncommon-bash (5.16-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Tue, 22 Nov 2016 13:56:17 +0930
+
+libdncommon-bash (5.15-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 06 Nov 2016 23:26:36 +0930
+
+libdncommon-bash (5.14-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sat, 30 Jul 2016 14:59:56 +0930
+
+libdncommon-bash (5.13-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Fri, 28 Aug 2015 17:59:56 +0930
+
+libdncommon-bash (5.12-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 23 Aug 2015 23:24:08 +0930
+
+libdncommon-bash (5.11-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Fri, 17 Jul 2015 20:15:32 +0930
+
+libdncommon-bash (5.10-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Thu, 09 Jul 2015 19:55:47 +0930
+
+libdncommon-bash (5.09-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Wed, 10 Jun 2015 01:29:11 +0930
+
+libdncommon-bash (5.08-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sat, 06 Jun 2015 22:45:44 +0930
+
+libdncommon-bash (5.07-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Wed, 30 Jul 2014 22:38:40 +0930
+
+libdncommon-bash (5.06-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Mon, 28 Jul 2014 22:15:11 +0930
+
+libdncommon-bash (5.05-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 06 Jul 2014 22:39:17 +0930
+
+libdncommon-bash (5.04-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Tue, 21 Jan 2014 12:30:43 +0930
+
+libdncommon-bash (5.03-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 12 Jan 2014 14:05:24 +0930
+
+libdncommon-bash (5.02-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 01 Dec 2013 15:53:57 +0930
+
+libdncommon-bash (5.01-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 01 Dec 2013 00:07:39 +0930
+
+libdncommon-bash (5.00-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sat, 16 Nov 2013 15:05:27 +0930
+
+libdncommon-bash (4.08-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Mon, 28 Oct 2013 16:04:28 +0930
+
+libdncommon-bash (4.07-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Mon, 30 Sep 2013 09:31:20 +0930
+
+libdncommon-bash (4.06-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Mon, 09 Sep 2013 18:09:24 +0930
+
+libdncommon-bash (4.05-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 08 Sep 2013 18:11:05 +0930
+
+libdncommon-bash (4.04-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 08 Sep 2013 00:28:15 +0930
+
+libdncommon-bash (4.03-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 01 Sep 2013 22:22:56 +0930
+
+libdncommon-bash (4.02-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 30 Jun 2013 15:43:14 +0930
+
+libdncommon-bash (4.01-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 23 Jun 2013 17:02:13 +0930
+
+libdncommon-bash (3.41-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 16 Jun 2013 11:49:18 +0930
+
+libdncommon-bash (3.40-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sat, 15 Jun 2013 23:35:34 +0930
+
+libdncommon-bash (3.39-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sat, 15 Jun 2013 23:18:42 +0930
+
+libdncommon-bash (3.38-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Mon, 06 May 2013 23:33:10 +0930
+
+libdncommon-bash (3.37-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 05 May 2013 15:19:09 +0930
+
+libdncommon-bash (3.36-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 28 Apr 2013 18:46:26 +0930
+
+libdncommon-bash (3.35-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Tue, 07 Aug 2012 16:07:18 +0930
+
+libdncommon-bash (3.34-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 05 Aug 2012 14:21:05 +0930
+
+libdncommon-bash (3.33-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sat, 28 Jul 2012 15:53:53 +0930
+
+libdncommon-bash (3.32-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 24 Jun 2012 13:30:43 +0930
+
+libdncommon-bash (3.31-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 17 Jun 2012 00:18:44 +0930
+
+libdncommon-bash (3.30-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sat, 19 May 2012 12:13:18 +0930
+
+libdncommon-bash (3.29-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 13 Nov 2011 10:45:21 +0930
+
+libdncommon-bash (3.28-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Fri, 05 Aug 2011 00:05:33 +0930
+
+libdncommon-bash (3.27-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Mon, 13 Jun 2011 14:25:14 +0930
+
+libdncommon-bash (3.26-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sat, 15 Jan 2011 13:35:15 +0930
+
+libdncommon-bash (3.25-2) unstable; urgency=low
+
+  * Remove depends on awk and change depends on mkisofs to genisoimage
+
+ -- David Nebauer <david@nebauer.org>  Sun, 09 Jan 2011 16:55:10 +0930
+
+libdncommon-bash (3.25-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 09 Jan 2011 14:37:02 +0930
+
+libdncommon-bash (3.24-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Mon, 03 Jan 2011 15:42:46 +0930
+
+libdncommon-bash (3.23-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 02 Jan 2011 15:33:31 +0930
+
+libdncommon-bash (3.22-2) unstable; urgency=low
+
+  * Add dependencies to control file
+
+ -- David Nebauer <david@nebauer.org>  Sun, 02 Jan 2011 15:03:51 +0930
+
+libdncommon-bash (3.21-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 06 Jun 2010 13:32:21 +0930
+
+libdncommon-bash (3.20-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 06 Jun 2010 11:47:17 +0930
+
+libdncommon-bash (3.19-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Mon, 05 Apr 2010 15:20:51 +0930
+
+libdncommon-bash (3.17-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Tue, 23 Mar 2010 19:11:45 +0930
+
+libdncommon-bash (3.16-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sat, 03 Oct 2009 18:51:39 +0930
+
+libdncommon-bash (3.15-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Fri, 11 Sep 2009 22:30:19 +0930
+
+libdncommon-bash (3.14-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Wed, 09 Sep 2009 17:30:15 +0930
+
+libdncommon-bash (3.13-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 23 Aug 2009 00:14:57 +0930
+
+libdncommon-bash (3.12-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sat, 08 Aug 2009 17:00:59 +0930
+
+libdncommon-bash (3.11-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Mon, 20 Jul 2009 22:09:21 +0930
+
+libdncommon-bash (3.10-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Mon, 20 Jul 2009 20:43:44 +0930
+
+libdncommon-bash (3.09-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 19 Jul 2009 17:10:23 +0930
+
+libdncommon-bash (3.08-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sat, 09 May 2009 17:47:11 +0930
+
+libdncommon-bash (3.07-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 22 Mar 2009 18:26:04 +0930
+
+libdncommon-bash (3.06-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 22 Mar 2009 17:10:04 +0930
+
+libdncommon-bash (3.05-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Wed, 08 Oct 2008 18:27:45 +0930
+
+libdncommon-bash (3.04-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 21 Sep 2008 14:04:22 +0930
+
+libdncommon-bash (3.03-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Tue, 09 Sep 2008 16:50:09 +0930
+
+libdncommon-bash (3.02-1) unstable; urgency=low
+
+  * New upstream release
+  * Add dependency on libdncommon-vars
+
+ -- David Nebauer <david@nebauer.org>  Tue, 26 Aug 2008 18:47:18 +0930
+
+libdncommon-bash (3.01-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Tue, 12 Aug 2008 23:20:04 +0930
+
+libdncommon-bash (3.0-1) unstable; urgency=low
+
+  * New upstream release
+  * Install vim ftplugin as addon rather than direct ftplugin
+
+ -- David Nebauer <david@nebauer.org>  Mon, 28 Jul 2008 17:56:00 +0930
+
+libdncommon-bash (2.99d-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Tue, 01 Jul 2008 15:54:49 +0930
+
+libdncommon-bash (2.99c-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 22 Jun 2008 13:13:58 +0930
+
+libdncommon-bash (2.99b-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 22 Jun 2008 12:58:44 +0930
+
+libdncommon-bash (2.99a-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Wed, 11 Jun 2008 22:43:16 +0930
+
+libdncommon-bash (2.98-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Tue, 03 Jun 2008 17:54:41 +0930
+
+libdncommon-bash (2.97-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 01 Jun 2008 23:51:19 +0930
+
+libdncommon-bash (2.96-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 01 Jun 2008 23:21:21 +0930
+
+libdncommon-bash (2.95-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 01 Jun 2008 23:17:54 +0930
+
+libdncommon-bash (2.90-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 01 Jun 2008 20:52:00 +0930
+
+libdncommon-bash (2.80-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Fri, 11 Apr 2008 18:25:18 +0930
+
+libdncommon-bash (2.70-2) unstable; urgency=low
+
+  * Build without signing source package or .changes file
+
+ -- David Nebauer <david@nebauer.org>  Wed, 12 Mar 2008 18:27:37 +0930
+
+libdncommon-bash (2.70-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Wed, 12 Mar 2008 02:14:51 +0930
+
+libdncommon-bash (2.6-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Mon, 03 Mar 2008 22:41:19 +0930
+
+libdncommon-bash (2.5-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Thu, 28 Feb 2008 00:32:16 +0930
+
+libdncommon-bash (2.4-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 24 Feb 2008 14:56:44 +0930
+
+libdncommon-bash (2.3-1) unstable; urgency=low
+
+  * Corrected error reading optical drive and dvd player variables
+
+ -- David Nebauer <david@nebauer.org>  Mon, 18 Feb 2008 22:09:53 +0930
+
+libdncommon-bash (2.2-2) unstable; urgency=low
+
+  * Add dependency on vim-dbn-utils
+
+ -- David Nebauer <david@nebauer.org>  Wed, 12 Dec 2007 21:47:34 +0930
+
+libdncommon-bash (2.2-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 02 Dec 2007 13:02:54 +0930
+
+libdncommon-bash (2.1-1) unstable; urgency=low
+
+  * New upstream release (completed function tagging)
+
+ -- David Nebauer <david@nebauer.org>  Thu, 29 Nov 2007 21:48:21 +0930
+
+libdncommon-bash (2.0-1) unstable; urgency=low
+
+  * Catch up to current (pre-packaging) version
+
+ -- David Nebauer <david@nebauer.org>  Mon, 17 Sep 2007 21:53:41 +0930
+
+libdncommon-bash (1.0-1) unstable; urgency=low
+
+  * Initial release
+
+ -- David Nebauer <david@nebauer.org>  Sun, 16 Sep 2007 17:16:51 +0930
+

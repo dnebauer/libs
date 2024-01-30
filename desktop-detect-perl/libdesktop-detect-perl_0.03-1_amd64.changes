@@ -1,0 +1,31 @@
+Format: 1.8
+Date: Thu, 16 Apr 2015 23:26:02 +0930
+Source: libdesktop-detect-perl
+Binary: libdesktop-detect-perl
+Architecture: source all
+Version: 0.03-1
+Distribution: unstable
+Urgency: low
+Maintainer: David Nebauer <david@hezmana.cogito.loc>
+Changed-By: David Nebauer <david@hezmana.cogito.loc>
+Description:
+ libdesktop-detect-perl - Detect desktop environment currently running
+Changes:
+ libdesktop-detect-perl (0.03-1) unstable; urgency=low
+ .
+   * Initial Release.
+Checksums-Sha1:
+ f2e26b9689c8252cb48e691c5526fd0f5537ca44 1013 libdesktop-detect-perl_0.03-1.dsc
+ 02ab90b26f55d674442ede467139b76ca27792a7 13801 libdesktop-detect-perl_0.03.orig.tar.gz
+ 127940f5c6906c0f2006b31a4436cf80fc915dd7 1652 libdesktop-detect-perl_0.03-1.debian.tar.xz
+ 954d11850b29a0ed7cd8192e3160f3545fee7c0c 6738 libdesktop-detect-perl_0.03-1_all.deb
+Checksums-Sha256:
+ 3bf2b161e6ce79dc29624eb8fa1ce695b51929d1348ee99a090066db63c0a6c0 1013 libdesktop-detect-perl_0.03-1.dsc
+ c1cbf5feeec281406d6ac141e1df0b3fc3c42b2fe1f50610494c02a939789408 13801 libdesktop-detect-perl_0.03.orig.tar.gz
+ 73e64bacee01dd37aca5aac0ab1571c5798e10baa7febe5ffeaf7ebaf87ebec0 1652 libdesktop-detect-perl_0.03-1.debian.tar.xz
+ 3d3332705193ccbcc1ff34d0eecaf57b0352e79a49621de0e88c54f0e74c16f8 6738 libdesktop-detect-perl_0.03-1_all.deb
+Files:
+ 3b9294e59a3de960f1b08eaafc5214c8 1013 perl optional libdesktop-detect-perl_0.03-1.dsc
+ e5a631fec498c15170e6d5265ebb3a0c 13801 perl optional libdesktop-detect-perl_0.03.orig.tar.gz
+ af0d4e3112a974ea06b242b8a52ee06a 1652 perl optional libdesktop-detect-perl_0.03-1.debian.tar.xz
+ 27c9f9a238d389f4ab5d65cc5f0d64e0 6738 perl optional libdesktop-detect-perl_0.03-1_all.deb

@@ -1,0 +1,13 @@
+libdn-images-resize-perl (0.2-1) UNRELEASED; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Tue, 02 Nov 2021 23:02:42 +0930
+
+libdn-images-resize-perl (0.1-1) unstable; urgency=low
+
+  * Local package
+  * Initial release
+  * Closes: 2001
+
+ -- David Nebauer <david@nebauer.org>  Sun, 12 Mar 2017 15:36:09 +0930

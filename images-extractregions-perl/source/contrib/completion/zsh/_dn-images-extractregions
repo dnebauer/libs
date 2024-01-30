@@ -1,0 +1,17 @@
+#compdef dn-images-extract-regions
+
+local rc=1
+
+_arguments -S \
+  - '(help_options)' \
+    '-h[Show a compact help message]' \
+    '--help[Show a long help message]' \
+    '--usage[Show a short help message]' \
+    '--man[Show the manual]' \
+  - 'script_options' \
+    '(-c --coords_file)'{-c,--coords_file}'[Coordinates file (default\: "coords.yaml")]:coords:_files' \
+    '(-t --template)'{-t,--template}'[Write template to coordinates file (flag)]' \
+    '*:File(s) to extract images from:_files' \
+  && rc=0
+
+return rc

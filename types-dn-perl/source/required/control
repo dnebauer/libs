@@ -1,0 +1,24 @@
+Source: libtypes-dn-perl
+Section: perl
+Priority: optional
+Maintainer: David Nebauer <david@nebauer.org>
+Build-Depends: debhelper-compat (= 13),
+ perl
+Build-Depends-Indep: libdata-validate-uri-perl,
+ libemail-valid-perl,
+ libmodule-build-tiny-perl (>= 0.039),
+ libtype-tiny-perl
+Standards-Version: 3.9.7
+Homepage: https://metacpan.org/release/Types-Dn
+
+Package: libtypes-dn-perl
+Architecture: all
+Depends: ${misc:Depends}, ${perl:Depends},
+ libdata-validate-uri-perl,
+ libemail-valid-perl,
+ libtime-simple-perl,
+ libtype-tiny-perl
+Description: library of custom moo(se) types
+ Types::Dn is a library of custom Moose types. In the following explanations
+ of each type the error message may include the variable '$_', which
+ represents the value provided to the attribute.

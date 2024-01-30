@@ -1,0 +1,122 @@
+#!/bin/bash
+
+# Suite: libdncommon-bash  # do not alter or delete -- required by vim plugin
+# File: libdevices
+# Author: David Nebauer
+# Purpose: Useful bash functions for controlling devices
+
+
+# Function: dnTrayClose                                              {{{1
+# Common routine for loading tray
+#   params: 1 - drive name,
+#           2 - drive device
+#   prints: feedback (not for capture)
+#   return: 0|1 (success|failure)
+#   needs:  functions [dnReport]
+# fn_tag dnTrayClose purpose Close drive tray
+# fn_tag dnTrayClose prints Feedback
+# fn_tag dnTrayClose returns Whether tray successfully closed (Boolean)
+# fn_tag dnTrayClose param name purpose Human-readable rive name
+# fn_tag dnTrayClose param name required yes
+# fn_tag dnTrayClose param name multipart no
+# fn_tag dnTrayClose param name type string
+# fn_tag dnTrayClose param device purpose Drive device location
+# fn_tag dnTrayClose param device required yes
+# fn_tag dnTrayClose param device multipart no
+# fn_tag dnTrayClose param device type path
+dnTrayClose () {
+	local exit_status=""
+	dnInfon "loading ${1}... "
+	eject --trayclose ${2} &> /dev/null
+	exit_status=${?}
+	dnReport ${exit_status}
+	return ${exit_status}
+}
+# Function: dnDiscMount                                              {{{1
+# Common routine for mounting disc
+#   params: 1 - drive name,
+#           2 - drive device
+#   prints: feedback (not for capture)
+#   return: 0|1 (success|failure)
+#   needs:  functions [dnReport]
+# fn_tag dnDiscMount purpose Mount disc in drive
+# fn_tag dnDiscMount prints Feedback
+# fn_tag dnDiscMount returns Whether disc mounted successfully (Boolean)
+# fn_tag dnDiscMount note Attempts to close drive tray before mounting disc
+# fn_tag dnDiscMount param name purpose Human-readable drive name
+# fn_tag dnDiscMount param name required yes
+# fn_tag dnDiscMount param name multipart no
+# fn_tag dnDiscMount param name type string
+# fn_tag dnDiscMount param device purpose Drive device location
+# fn_tag dnDiscMount param device required yes
+# fn_tag dnDiscMount param device multipart no
+# fn_tag dnDiscMount param device type path
+dnDiscMount () {
+	local exit_status=""
+	# load disc
+	dnTrayClose "${1}" "${2}"
+	# mount
+	dnInfon "mounting ${1}... "
+	mount ${device} &> /dev/null
+	exit_status=${?}
+	dnReport ${exit_status}
+	return ${exit_status}
+}
+# Function: dnDiscUnmount                                            {{{1
+# Common routine for unmounting disc
+#   params: 1 - drive name,
+#           2 - drive device
+#   prints: feedback (not for capture)
+#   return: 0|1 (success|failure)
+#   needs:  functions [dnReport]
+# fn_tag dnDiscUnmount purpose Unmount disc in drive
+# fn_tag dnDiscUnmount prints Feedback
+# fn_tag dnDiscUnmount returns Whether disc successfully unmounted
+# fn_tag dnDiscUnmount param name purpose Human-readable drive name
+# fn_tag dnDiscUnmount param name required yes
+# fn_tag dnDiscUnmount param name multipart no
+# fn_tag dnDiscUnmount param name type string
+# fn_tag dnDiscUnmount param device purpose Drive device location
+# fn_tag dnDiscUnmount param device required yes
+# fn_tag dnDiscUnmount param device multipart no
+# fn_tag dnDiscUnmount param device type path
+dnDiscUnmount () {
+	local exit_status=""
+	dnInfon "unmounting ${1}... "
+	umount ${2} &> /dev/null
+	exit_status=${?}
+	echo $( dnReport ${exit_status} )
+	return ${exit_status}
+}
+# Function: dnTrayEject                                              {{{1
+# Common routine for ejecting tray
+#   params: 1 - drive name,
+#           2 - drive device
+#   prints: feedback (not for capture)
+#   return: 0|1 (success|failure)
+#   needs:  functions [dnDiscUnmount ; dnReport]
+# fn_tag dnTrayEject purpose Open drive tray
+# fn_tag dnTrayEject prints Feedback
+# fn_tag dnTrayEject returns Whether drive successfully ejected
+# fn_tag dnTrayEject note Attempts to unmount drive before opening tray
+# fn_tag dnTrayEject param name purpose Human-readable drive name
+# fn_tag dnTrayEject param name required yes
+# fn_tag dnTrayEject param name multipart no
+# fn_tag dnTrayEject param name type string
+# fn_tag dnTrayEject param device purpose Drive device location
+# fn_tag dnTrayEject param device required yes
+# fn_tag dnTrayEject param device multipart no
+# fn_tag dnTrayEject param device type path
+dnTrayEject () {
+	local exit_status
+	dnDiscUnmount "${1}" "${2}"
+	dnInfon "ejecting ${1}... "
+	eject --cdrom ${2} &> /dev/null
+	exit_status=${?}
+	dnReport ${exit_status}
+	return ${exit_status}
+}
+
+# }}}1
+
+# vim: set foldmethod=marker :

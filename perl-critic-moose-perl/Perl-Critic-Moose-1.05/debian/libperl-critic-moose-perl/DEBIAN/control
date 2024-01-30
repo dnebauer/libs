@@ -1,0 +1,16 @@
+Package: libperl-critic-moose-perl
+Version: 1.05-1
+Architecture: all
+Maintainer: David Nebauer <david@hezmana.cogito.ergo.sum>
+Installed-Size: 71
+Depends: perl:any, libnamespace-autoclean-perl, libperl-critic-perl, libreadonly-perl
+Section: perl
+Priority: optional
+Homepage: https://metacpan.org/release/Perl-Critic-Moose
+Description: Policies for Perl::Critic concerned with using Moose
+ Some Perl::Critic policies that will help you keep your code in good shape
+ with regards to Moose.
+ .
+ The included policies are:
+ .
+ This description was automagically extracted from the module by dh-make-perl.

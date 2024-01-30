@@ -1,0 +1,21 @@
+Source: libdncommon-vars
+Section: utils
+Priority: extra
+Maintainer: David Nebauer <david@nebauer.org>
+Build-Depends: debhelper-compat (= 13), autotools-dev
+Standards-Version: 4.6.0
+
+Package: libdncommon-vars
+Architecture: all
+Depends: ${shlibs:Depends}, ${misc:Depends},
+ konsole (>=4:3.5.9.dfsg.1-2+b1),
+ xine-ui (>= 0.99.6-1) | kaffeine (>= 1.0-2) | mplayer (>= 2:1.0~rc3++svn20100804-0.1),
+ kde-baseapps-bin (>= 4:4.7.4-2) | zenity (>= 2.30.0-1) | dialog (>= 1.1-20100428-1),
+ libnotify-bin (>= 0.5.0-2)
+Description: Useful variables for other libraries
+ Provides useful variables for use by other libraries (see
+ manpage for details).
+ .
+ Some variables, such as bash formatting codes, are system-
+ independent. Others, such as optical drive devices nodes, are
+ system-dependent.
