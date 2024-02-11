@@ -170,7 +170,9 @@ multiple input filepaths with identical file names.
 
 =head2 Perl modules
 
-Const::Fast, Dn::Images::Uniquefy, Dn::Role::HasPath, English, Function::Parameters, Getopt::Long::Descriptive, List::SomeUtils, Moo, MooX::HandlesVia, namespace::clean, strictures, Types::Standard, version.
+Const::Fast, Dn::Images::Uniquefy, English, Function::Parameters,
+Getopt::Long::Descriptive, List::SomeUtils, Moo, MooX::HandlesVia,
+namespace::clean, Role::Util::Dn, strictures, Types::Standard, version.
 
 =head1 BUGS AND LIMITATIONS
 

@@ -249,7 +249,7 @@ Role::Utils::Dn, strictures, Types::Standard, version.
 
 When processing large pdf files it is possible to exceed the cache resources
 available to the underlying ImageMagick application, resulting in a fatal
-error. See L<Dn::Role::HasImage/"Exhausting cache resources"> for further
+error. See L<Role::Utils::Dn/"Exhausting cache resources"> for further
 details.
 
 Please report any bugs to the author.
