@@ -24,13 +24,6 @@ None are provided.
 
 There are no configuration files used. There are no module/role settings.
 
-# DEPENDENCIES
-
-## Perl modules
-
-Dn::Role::HasImage, Dn::Role::HasNumber, Dn::Role::HasPath, Moo::Role,
-namespace::clean, strictures, version.
-
 ## INCOMPATIBILITIES
 
 None known.
