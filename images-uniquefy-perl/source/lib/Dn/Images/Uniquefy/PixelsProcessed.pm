@@ -1,109 +1,116 @@
 package Dn::Images::Uniquefy::PixelsProcessed;
 
-use Moo;    #                                                          {{{1
+use Moo;    # {{{1
 use strictures 2;
 use 5.006;
-use 5.22.1;
+use 5.022_001;
 use version; our $VERSION = qv('0.1');
 use namespace::clean;
 
 use Carp qw(confess);
+use Const::Fast;
 use English qw(-no_match_vars);
 use Function::Parameters;
 use MooX::HandlesVia;
-use Readonly;
 use Types::Standard;
 
 with qw(Role::Utils::Dn);
 
-Readonly my $TRUE  => 1;
-Readonly my $FALSE => 0;    #                                        }}}1
+const my $TRUE  => 1;
+const my $FALSE => 0;    # }}}1
 
 # attributes
 
 # clear_x_coords, _set_x_coord, _x_coord, _x_coord_exists              {{{1
 has '_pixels_list' => (
-    is          => 'rw',
-    isa         => Types::Standard::HashRef [Types::Standard::ArrayRef],
-    lazy        => $TRUE,
-    default     => sub { {} },
-    handles_via => 'Hash',
-    handles     => {
-        _set_x_coord    => 'set',
-        _x_coord        => 'get',
-        _x_coord_exists => 'exists',
-        clear_x_coords  => 'clear',
-    },
-    doc => 'X and y coordinates of processed pixels',
-);    #                                                                }}}1
+  is          => 'rw',
+  isa         => Types::Standard::HashRef [Types::Standard::ArrayRef],
+  lazy        => $TRUE,
+  default     => sub { {} },
+  handles_via => 'Hash',
+  handles     => {
+    _set_x_coord    => 'set',
+    _x_coord        => 'get',
+    _x_coord_exists => 'exists',
+    clear_x_coords  => 'clear',
+  },
+  doc => 'X and y coordinates of processed pixels',
+);    # }}}1
 
 # methods
 
-# mark_pixel_as_processed($x, $y)                                      {{{1
+# mark_pixel_as_processed($x, $y) {{{1
 #
 # does:   flag pixel as processed
 # params: x - pixel's x-coord [int, required]
 #         y - pixel's y-coord [int, required]
 # prints: error message on failure
 # return: n/a, die on failure
-method mark_pixel_as_processed ($x, $y) {
+method mark_pixel_as_processed ($x, $y)
+{ ## no critic (ProhibitSubroutinePrototypes Prototypes RequireInterpolationOfMetachars)
 
-    # check args
-    # - note that zero is a valid coordinate value, hence 'defined'
-    confess 'No y coordinate provided'      if not defined $y;
-    confess 'No x coordinate provided'      if not defined $x;
-    confess "Non-integer y coordinate '$y'" if not $self->int_pos_valid($y);
-    confess "Non-integer x coordinate '$x'" if not $self->int_pos_valid($x);
+  # check args
+  # - note that zero is a valid coordinate value, hence 'defined'
+  confess 'No y coordinate provided'      if not defined $y;
+  confess 'No x coordinate provided'      if not defined $x;
+  confess "Non-integer y coordinate '$y'" if not $self->int_pos_valid($y);
+  confess "Non-integer x coordinate '$x'" if not $self->int_pos_valid($x);
 
-    if ( $self->_x_coord_exists($x) ) {    # add y coord if necessary
+  if ($self->_x_coord_exists($x)) {    # add y coord if necessary
 
-        # get y-coords for this x-coord
-        my @y_coords = @{ $self->_x_coord($x) };
+    # get y-coords for this x-coord
+    my @y_coords = @{ $self->_x_coord($x) };
 
-        # see whether this y-coord is already included
-        my @match = grep { $_ == $y } @y_coords;
+    # see whether this y-coord is already included
+    my @match = grep { $_ == $y } @y_coords;
 
-        # if not, add to this x-coord
-        if ( not @match ) {
-            push @y_coords, $y;
-            $self->_set_x_coord( $x => [@y_coords] );
-        }
+    # if not, add to this x-coord
+    if (not @match) {
+      push @y_coords, $y;
+      $self->_set_x_coord($x => [@y_coords]);
     }
-    else {    # add both x and y coords
-        $self->_set_x_coord( $x => [$y] );
-    }
+  }
+  else {    # add both x and y coords
+    $self->_set_x_coord($x => [$y]);
+  }
+  return $TRUE;
 }
 
-# pixel_is_processed($x, $y)                                           {{{1
+# pixel_is_processed($x, $y) {{{1
 #
 # does:   determine whether pixel has been processed
 # params: x - pixel's x-coord [int, required]
 #         y - pixel's y-coord [int, required]
 # prints: error message on failure
 # return: boolean, dies on failure
-method pixel_is_processed ($x, $y) {
+method pixel_is_processed ($x, $y)
+{ ## no critic (ProhibitSubroutinePrototypes Prototypes RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
 
-    # check args
-    # - note that zero is a valid coordinate value, hence 'defined'
-    confess 'No y coordinate provided'      if not defined $y;
-    confess 'No x coordinate provided'      if not defined $x;
-    confess "Non-integer y coordinate '$y'" if not $self->int_pos_valid($y);
-    confess "Non-integer x coordinate '$x'" if not $self->int_pos_valid($x);
+  # check args
+  # - note that zero is a valid coordinate value, hence 'defined'
+  ## no critic (ProhibitDuplicateLiteral)
+  confess 'No y coordinate provided' if not defined $y;
+  confess 'No x coordinate provided' if not defined $x;
+  ## use critic
+  confess "Non-integer y coordinate '$y'" if not $self->int_pos_valid($y);
+  confess "Non-integer x coordinate '$x'" if not $self->int_pos_valid($x);
 
-    if ( not $self->_x_coord_exists($x) ) { return; }
+  if (not $self->_x_coord_exists($x)) { return $FALSE; }
 
-    # get y-coords for this x-coord
-    my @y_coords = @{ $self->_x_coord($x) };
+  # get y-coords for this x-coord
+  my @y_coords = @{ $self->_x_coord($x) };
 
-    # see whether this y-coord is already included
-    my @matches = grep { $_ == $y } @y_coords;
+  # see whether this y-coord is already included
+  my @matches = grep { $_ == $y } @y_coords;
 
-    return scalar @matches;
-}    #                                                                 }}}1
+  return scalar @matches;
+}    # }}}1
 
 1;
 
-# POD                                                                  {{{1
+# POD {{{1
+
+## no critic (RequirePodSections)
 
 __END__
 
@@ -209,8 +216,8 @@ There are no configuration files used. There are no module/role settings.
 
 =head2 Perl modules
 
-Role::Utils::Dn, English, Function::Parameters, Moo, MooX::HandlesVia,
-namespace::clean, Readonly, strictures, Types::Standard, version.
+Const::Fast, Role::Utils::Dn, English, Function::Parameters, Moo,
+MooX::HandlesVia, namespace::clean, strictures, Types::Standard, version.
 
 =head2 INCOMPATIBILITIES
 

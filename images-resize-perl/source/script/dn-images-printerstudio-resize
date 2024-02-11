@@ -3,212 +3,213 @@
 use Moo;    #                                                          {{{1
 use strictures 2;
 use 5.006;
-use 5.22.1;
+use 5.022_001;
 use version; our $VERSION = qv('0.1');
 use namespace::clean;    #                                             }}}1
 
 {
 
-    package Dn::Internal;
+  package Dn::Internal;
 
-    use Moo;             # {{{1
-    use strictures 2;
-    use namespace::clean -except => [ '_options_data', '_options_config' ];
-    use Dn::Images::Resize;
-    use English qw(-no_match_vars);
-    use Function::Parameters;
-    use List::MoreUtils qw(uniq);
-    use MooX::HandlesVia;
-    use MooX::Options protect_argv => 0;
-    use Readonly;
-    use Types::Standard;
+  use Moo;               # {{{1
+  use strictures 2;
+  use namespace::clean -except => [ '_options_data', '_options_config' ];
+  use Const::Fast;
+  use Dn::Images::Resize;
+  use English qw(-no_match_vars);
+  use Function::Parameters;
+  use List::SomeUtils;
+  use MooX::HandlesVia;
+  use MooX::Options protect_argv => 0;
+  use Types::Standard;
 
-    with qw(
-        Dn::Role::HasPath
-    );
+  with qw(Role::Utils::Dn);
 
-    Readonly my $TRUE  => 1;
-    Readonly my $FALSE => 0;    #                                      }}}1
+  const my $TRUE   => 1;
+  const my $FALSE  => 0;
+  const my $BORDER => 70;    #                                      }}}1
 
-    # options
+  # options
 
-    # card_type           (-t)                                         {{{1
-    option 'card_type' => (
-        is       => 'ro',
-        format   => 's',
-        required => $TRUE,
-        short    => 't',
-        doc      => q{Card type ('bridge', 'european', 'euromini', }
-            . q{'large', 'mini', 'poker', 'square', 'tarot')},
-    );
+  # card_type           (-t)                                         {{{1
+  option 'card_type' => (
+    is       => 'ro',
+    format   => 's',
+    required => $TRUE,
+    short    => 't',
+    doc      => q{Card type ('bridge', 'european', 'euromini', }
+        . q{'large', 'mini', 'poker', 'square', 'tarot')},
+  );
 
-    # ignore_aspect_ratio (-i)                                         {{{1
-    option 'ignore_aspect_ratio' => (
-        is    => 'ro',
-        short => 'i',
-        doc   => 'Ignore aspect ratio when resizing image',
-    );
+  # ignore_aspect_ratio (-i)                                         {{{1
+  option 'ignore_aspect_ratio' => (
+    is    => 'ro',
+    short => 'i',
+    doc   => 'Ignore aspect ratio when resizing image',
+  );
 
-    # fill_color          (-f)                                         {{{1
-    option 'fill_color' => (
-        is      => 'ro',
-        format  => 's',
-        default => 'none',
-        short   => 'f',
-        doc     => "Fill color (default: 'none' = transparent)",
-    );    #                                                            }}}1
+  # fill_color          (-f)                                         {{{1
+  option 'fill_color' => (
+    is      => 'ro',
+    format  => 's',      ## no critic (ProhibitDuplicateLiteral)
+    default => 'none',
+    short   => 'f',
+    doc     => 'Fill color (default: \'none\' = transparent)',
+  );    #                                                            }}}1
 
-    # attributes
+  # attributes
 
-    # _files                                                           {{{1
-    has '_file_list' => (
+  # _files                                                           {{{1
+  has '_file_list' => (
 
-        is          => 'lazy',
-        isa         => Types::Standard::ArrayRef [Types::Standard::Str],
-        handles_via => 'Array',
-        handles     => { _files => 'elements' },
-        doc         => 'Image files',
-    );
+    is          => 'lazy',
+    isa         => Types::Standard::ArrayRef [Types::Standard::Str],
+    handles_via => 'Array',
+    handles     => { _files => 'elements' },
+    doc         => 'Image files',
+  );
 
-    method _build__file_list () {
+  method _build__file_list ()
+  {    ## no critic (ProhibitUnusedPrivateSubroutines)
 
-        my @matches;              # get unique file names
-        for my $arg (@ARGV) { push @matches, glob "$arg"; }
-        my @unique_matches = List::MoreUtils::uniq @matches;
-        my @files = grep { $self->file_readable($_) }
-            @unique_matches;      # ignore non-files
-        if ( not( scalar @files ) ) {    # exit if no files specified
-            warn "No image files specified\n";
-            exit 1;
-        }
-
-        return [@files];
-
+    my @matches;    # get unique file names
+    for my $arg (@ARGV) { push @matches, glob "$arg"; }
+    my @unique_matches = List::SomeUtils::uniq @matches;
+    my @files =
+        grep { $self->file_readable($_) } @unique_matches;  # ignore non-files
+    if (not(scalar @files)) {    # exit if no files specified
+      warn "No image files specified\n";
+      exit 1;
     }
 
-   # _card, _valid_card                                                   {{{1
-    has '_card_dimensions' => (
-        is  => 'lazy',
-        isa => Types::Standard::HashRef [
-            Types::Standard::InstanceOf ['Dn::Images::Resize::Dimensions']
-        ],
-        handles_via => 'Hash',
-        handles     => {
-            _card       => 'get',
-            _valid_card => 'exists',
-        },
-        doc => q[ Card dimensions ],
+    return [@files];
+
+  }
+
+  # _card, _valid_card                                                   {{{1
+  has '_card_dimensions' => (
+    is  => 'lazy',                     ## no critic (ProhibitDuplicateLiteral)
+    isa => Types::Standard::HashRef [
+      Types::Standard::InstanceOf ['Dn::Images::Resize::Dimensions'],
+    ],
+    handles_via => 'Hash',
+    handles     => {
+      _card       => 'get',
+      _valid_card => 'exists',
+    },
+    doc => q[ Card dimensions ],
+  );
+
+  method _build__card_dimensions ()
+  {    ## no critic (ProhibitUnusedPrivateSubroutines)
+
+    # bridge                                                           {{{2
+    my $bridge = Dn::Images::Resize::Dimensions->new(
+      width             => 1346,
+      height            => 2100,
+      border_horizontal => $BORDER,
+      border_vertical   => $BORDER,
     );
 
-    method _build__card_dimensions () {
+    # european                                                         {{{2
+    my $european = Dn::Images::Resize::Dimensions->new(
+      width             => 1488,
+      height            => 2076,
+      border_horizontal => $BORDER,
+      border_vertical   => $BORDER,
+    );
 
-       # bridge                                                           {{{2
-        my $bridge = Dn::Images::Resize::Dimensions->new(
-            width             => 1346,
-            height            => 2100,
-            border_horizontal => 70,
-            border_vertical   => 70,
-        );
+    # european mini                                                    {{{2
+    my $euromini = Dn::Images::Resize::Dimensions->new(
+      width             => 1039,
+      height            => 1581,
+      border_horizontal => $BORDER,
+      border_vertical   => $BORDER,
+    );
 
-       # european                                                         {{{2
-        my $european = Dn::Images::Resize::Dimensions->new(
-            width             => 1488,
-            height            => 2076,
-            border_horizontal => 70,
-            border_vertical   => 70,
-        );
+    # large                                                            {{{2
+    my $large = Dn::Images::Resize::Dimensions->new(
+      width             => 2102,
+      height            => 3445,
+      border_horizontal => $BORDER,
+      border_vertical   => $BORDER,
+    );
 
-       # european mini                                                    {{{2
-        my $euromini = Dn::Images::Resize::Dimensions->new(
-            width             => 1039,
-            height            => 1581,
-            border_horizontal => 70,
-            border_vertical   => 70,
-        );
+    # mini                                                             {{{2
+    my $mini = Dn::Images::Resize::Dimensions->new(
+      width             => 1050,
+      height            => 1498,
+      border_horizontal => $BORDER,
+      border_vertical   => $BORDER,
+    );
 
-       # large                                                            {{{2
-        my $large = Dn::Images::Resize::Dimensions->new(
-            width             => 2102,
-            height            => 3445,
-            border_horizontal => 70,
-            border_vertical   => 70,
-        );
+    # poker                                                            {{{2
+    my $poker = Dn::Images::Resize::Dimensions->new(
+      width             => 1500,
+      height            => 2100,      ## no critic (ProhibitDuplicateLiteral)
+      border_horizontal => $BORDER,
+      border_vertical   => $BORDER,
+    );
 
-       # mini                                                             {{{2
-        my $mini = Dn::Images::Resize::Dimensions->new(
-            width             => 1050,
-            height            => 1498,
-            border_horizontal => 70,
-            border_vertical   => 70,
-        );
+    # square                                                           {{{2
+    my $square = Dn::Images::Resize::Dimensions->new(
+      width             => 1654,
+      height            => 1654,      ## no critic (ProhibitDuplicateLiteral)
+      border_horizontal => $BORDER,
+      border_vertical   => $BORDER,
+    );
 
-       # poker                                                            {{{2
-        my $poker = Dn::Images::Resize::Dimensions->new(
-            width             => 1500,
-            height            => 2100,
-            border_horizontal => 70,
-            border_vertical   => 70,
-        );
+    # tarot                                                            {{{2
+    my $tarot = Dn::Images::Resize::Dimensions->new(
+      width             => 1654,      ## no critic (ProhibitDuplicateLiteral)
+      height            => 2855,
+      border_horizontal => $BORDER,
+      border_vertical   => $BORDER,
+    );
 
-       # square                                                           {{{2
-        my $square = Dn::Images::Resize::Dimensions->new(
-            width             => 1654,
-            height            => 1654,
-            border_horizontal => 70,
-            border_vertical   => 70,
-        );
+    # return types                                                     {{{2
+    return {
+      bridge   => $bridge,
+      european => $european,
+      euromini => $euromini,
+      large    => $large,
+      mini     => $mini,
+      poker    => $poker,
+      square   => $square,
+      tarot    => $tarot,
+    };    #                                                            }}}2
 
-       # tarot                                                            {{{2
-        my $tarot = Dn::Images::Resize::Dimensions->new(
-            width             => 1654,
-            height            => 2855,
-            border_horizontal => 70,
-            border_vertical   => 70,
-        );
+  }    #                                                                 }}}1
 
-       # return types                                                     {{{2
-        return {
-            bridge   => $bridge,
-            european => $european,
-            euromini => $euromini,
-            large    => $large,
-            mini     => $mini,
-            poker    => $poker,
-            square   => $square,
-            tarot    => $tarot,
-        };   #                                                            }}}2
+  # methods
 
-    }   #                                                                 }}}1
+  # main()                                                           {{{1
+  #
+  # does:   main method
+  # params: nil
+  # prints: feedback
+  # return: n/a, dies on failure
+  method main () {
 
-    # methods
+    # check card type
+    my $type = $self->card_type;
+    die "Invalid card type '$type'\n" if not $self->_valid_card($type);
 
-    # main()                                                           {{{1
-    #
-    # does:   main method
-    # params: nil
-    # prints: feedback
-    # return: n/a, dies on failure
-    method main () {
+    # get card dimensions
+    my $card = $self->_card($type);
 
-        # check card type
-        my $type = $self->card_type;
-        die "Invalid card type '$type'\n" if not $self->_valid_card($type);
-
-        # get card dimensions
-        my $card = $self->_card($type);
-
-        # resize image
-        my $resize = Dn::Images::Resize->new(
-            preserve_aspect_ratio => ( not $self->ignore_aspect_ratio ),
-            width                 => $card->width,
-            height                => $card->height,
-            fill_color            => $self->fill_color,
-            border_horizontal     => $card->border_horizontal,
-            border_vertical       => $card->border_vertical,
-            image_files           => [ $self->_files ],
-        );
-        return $resize->resize_images;
-    }    #                                                             }}}1
+    # resize image
+    my $resize = Dn::Images::Resize->new(
+      preserve_aspect_ratio => (not $self->ignore_aspect_ratio),
+      width                 => $card->width,
+      height                => $card->height,
+      fill_color            => $self->fill_color,
+      border_horizontal     => $card->border_horizontal,
+      border_vertical       => $card->border_vertical,
+      image_files           => [ $self->_files ],
+    );
+    return $resize->resize_images;
+  }    #                                                             }}}1
 
 }
 
@@ -217,6 +218,8 @@ my $p = Dn::Internal->new_with_options->main;
 1;
 
 # POD                                                                  {{{1
+
+## no critic (RequirePodSections)
 
 __END__
 
@@ -361,9 +364,9 @@ filepaths with identical file names.
 
 =head2 Perl modules
 
-Dn::Images::Resize, Dn::Role::HasPath, English, Function::Parameters,
-List::MoreUtils, Moo, MooX::HandlesVia, MooX::Options, namespace::clean,
-Readonly, strictures, Types::Standard, version.
+Const::Fast, Dn::Images::Resize, English, Function::Parameters,
+List::SomeUtils, Moo, MooX::HandlesVia, MooX::Options, namespace::clean,
+Role::Utils::Dn, strictures, Types::Standard, version.
 
 =head1 BUGS AND LIMITATIONS
 

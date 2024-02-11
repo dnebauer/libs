@@ -39,14 +39,14 @@ See the script's man page for further information.
 
 # ATTRIBUTES
 
-## image\_files
+## image_files
 
 Paths of image files to process. Array reference of strings. Optional.
 Default: empty array.
 
 # METHODS
 
-## add\_image\_files(@filepaths)
+## add_image_files(@filepaths)
 
 Additional files to be processed.
 
@@ -54,8 +54,8 @@ Additional files to be processed.
 
 - @filepaths
 
-    Paths of additional files to be processed. Duplicate file paths are ignored.
-    List of string paths. Required.
+  Paths of additional files to be processed. Duplicate file paths are ignored.
+  List of string paths. Required.
 
 ### Prints
 
@@ -65,7 +65,7 @@ Nil.
 
 Nil.
 
-## uniquefy\_images()
+## uniquefy_images()
 
 Tweak files to ensure they are not identical but still appear identical to the
 human eye. Tweaked files are written to the current directory.
@@ -90,11 +90,11 @@ There are no configuration files used. There are no module/role settings.
 
 ## Perl modules
 
-autodie, Carp, Dn::Images::Uniquefy::ModifyImage,
-Dn::Images::Uniquefy::PixelsProcessed, Dn::Role::HasImage, Dn::Role::HasPath,
-English, experimental, Function::Parameters, Moo, MooX::HandlesVia,
-namespace::clean, Readonly, strictures, Term::ProgressBar::Simple,
-Types::Path::Tiny, Types::Standard, version.
+autodie, Carp, Const::Fast, Dn::Images::Uniquefy::ModifyImage,
+Dn::Images::Uniquefy::PixelsProcessed, English, experimental,
+Function::Parameters, Moo, MooX::HandlesVia, namespace::clean, Role::Utils::Dn,
+strictures, Term::ProgressBar::Simple, Types::Path::Tiny, Types::Standard,
+version.
 
 ## INCOMPATIBILITIES
 

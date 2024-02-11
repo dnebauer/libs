@@ -3,81 +3,84 @@ package Dn::Images::ExtractRegions;
 use Moo;    #                                                          {{{1
 use strictures 2;
 use 5.006;
-use 5.22.1;
+use 5.022_001;
 use version; our $VERSION = qv('0.1');
 use namespace::clean;
 
 use autodie qw(open close);
-use Carp qw(confess);
+use Carp    qw(croak confess);
+use Const::Fast;
 use Dn::Images::ExtractRegions::RegionCoords;
 use English qw(-no_match_vars);
 use Function::Parameters;
 use MooX::HandlesVia;
-use Readonly;
 use Term::ProgressBar::Simple;
-use Types::Path::Tiny qw(AbsFile);
+use Types::Path::Tiny;
 use Types::Standard;
 use YAML::Tiny;
 
 with qw(Role::Utils::Dn);
 
-Readonly my $TRUE  => 1;
-Readonly my $FALSE => 0;    #                                          }}}1
+const my $TRUE  => 1;
+const my $FALSE => 0;    #                                          }}}1
 
 # attributes
 
 # coords_file                                                          {{{1
 has 'coords_file' => (
-    is      => 'rw',
-    isa     => Types::Standard::Str,
-    default => 'coords.yaml',
-    doc     => 'Coordinates file path',
+  is      => 'rw',
+  isa     => Types::Standard::Str,
+  default => 'coords.yaml',
+  doc     => 'Coordinates file path',
 );
 
 # image_files, add_image_files, _image_files                           {{{1
 has 'image_files' => (
-    is          => 'rw',
-    isa         => Types::Standard::ArrayRef [Types::Path::Tiny::AbsFile],
-    coerce      => $TRUE,
-    default     => sub { [] },
-    handles_via => 'Array',
-    handles     => {
-        add_image_files => 'push',
-        _image_files    => 'elements'
-    },
-    doc => 'Image files',
+  is          => 'rw',
+  isa         => Types::Standard::ArrayRef [Types::Path::Tiny::AbsFile],
+  coerce      => $TRUE,
+  default     => sub { [] },
+  handles_via => 'Array',
+  handles     => {
+    add_image_files => 'push',
+    _image_files    => 'elements',
+  },
+  doc => 'Image files',
 );
 
 # _coords                                                              {{{1
 has '_coords_list' => (
-    is  => 'lazy',
-    isa => Types::Standard::ArrayRef [
-        Types::Standard::InstanceOf [
-            'Dn::Images::ExtractRegions::RegionCoords']
-    ],
-    handles_via => 'Array',
-    handles     => { _coords => 'elements' },
-    doc         => 'Coordinates of regions',
+  is  => 'lazy',
+  isa => Types::Standard::ArrayRef [
+    Types::Standard::InstanceOf [
+      'Dn::Images::ExtractRegions::RegionCoords'],
+  ],
+  ## no critic (ProhibitDuplicateLiteral)
+  handles_via => 'Array',
+  handles     => { _coords => 'elements' },
+  ## use critic
+  doc => 'Coordinates of regions',
 );
 
-method _build__coords_list () {
+method _build__coords_list ()
+{    ## no critic (ProhibitUnusedPrivateSubroutines)
 
-    # read coordinate data
-    my $file = $self->coords_file;
-    my $yaml = YAML::Tiny->read($file)
-        or confess "Unable to read file '$file'";
-    my @image_pairs = @{ $yaml->[0] };
+  # read coordinate data
+  my $file = $self->coords_file;
+  my $yaml = YAML::Tiny->read($file)
+      or confess "Unable to read file '$file'";
+  my @image_pairs = @{ $yaml->[0] };
 
-    # load geometry object list
-    my @coords_set;
-    for my $pair (@image_pairs) {
-        my $coords = Dn::Images::ExtractRegions::RegionCoords->new(
-            top_left_coords     => [ @{ $pair->{'top_left'} } ],
-            bottom_right_coords => [ @{ $pair->{'bottom_right'} } ],
-        );
-        push @coords_set, $coords;
-    }
-    return [@coords_set];
+  # load geometry object list
+  my @coords_set;
+  for my $pair (@image_pairs) {
+    my $coords = Dn::Images::ExtractRegions::RegionCoords->new(
+      top_left_coords     => [ @{ $pair->{'top_left'} } ],
+      bottom_right_coords => [ @{ $pair->{'bottom_right'} } ],
+    );
+    push @coords_set, $coords;
+  }
+  return [@coords_set];
 }    #                                                                 }}}1
 
 # methods
@@ -92,48 +95,50 @@ method _build__coords_list () {
 # note:   will not overwrite existing file
 method write_coords_file_template () {
 
-    my $filename = $self->coords_file;
+  my $filename = $self->coords_file;
 
-    # don't overwrite existing file
-    if ( -e $filename ) {
-        warn "'$filename' already exists\n";
-        return;
-    }
+  # don't overwrite existing file
+  if (-e $filename) {
+    warn "'$filename' already exists\n";
+    return $FALSE;
+  }
 
-    # example coordinates
-    my $data = [
-        { top_left => [ 100, 100 ], bottom_right => [ 300, 300 ], },
-        { top_left => [ 350, 100 ], bottom_right => [ 550, 300 ], },
-    ];
+  # example coordinates
+  my $data = [
+    ## no critic (ProhibitMagicNumbers ProhibitDuplicateLiteral)
+    { top_left => [ 100, 100 ], bottom_right => [ 300, 300 ], },
+    { top_left => [ 350, 100 ], bottom_right => [ 550, 300 ], },
+    ## use critic
+  ];
 
-    # user help
-    # - will be ignored when file is imported because only the first
-    #   "document", i.e., array element, is analysed by this script
-    my $help = [
-        {   help => [
-                q[ Above are example coordinates for two image regions. ],
-                q[ For each image specify the x and y coordinates of the ],
-                q[ top-left and bottom-right pixels. ],
-                q[],
-                q[ Pixels are numbered (positively) from the top-left ],
-                q[ corner of the image. For example, the coordinates of ],
-                q[ the top-left pixel are (1, 1) and the pixel with the ],
-                q[ greatest x and y values is in the bottom-right corner ],
-                q[ of the image. ],
-                q[],
-                q[ Provided you preserve the structure of this file this ],
-                q[ help text will be ignored by. This text can also be ],
-                q[ removed. ]
-            ],
-        },
-    ];
+  # user help
+  # - will be ignored when file is imported because only the first
+  #   "document", i.e., array element, is analysed by this script
+  my $help = [
+    { help => [
+        q[ Above are example coordinates for two image regions. ],
+        q[ For each image specify the x and y coordinates of the ],
+        q[ top-left and bottom-right pixels. ],
+        q[],
+        q[ Pixels are numbered (positively) from the top-left ],
+        q[ corner of the image. For example, the coordinates of ],
+        q[ the top-left pixel are (1, 1) and the pixel with the ],
+        q[ greatest x and y values is in the bottom-right corner ],
+        q[ of the image. ],
+        q[],
+        q[ Provided you preserve the structure of this file this ],
+        q[ help text will be ignored by. This text can also be ],
+        q[ removed. ],
+      ],
+    },
+  ];
 
-    # write template file
-    my $yaml = YAML::Tiny->new( $data, $help )
-        or confess 'Unable to instantiate YAML::Tiny object';
-    $yaml->write($filename) or confess "Unable to write file '$filename'";
+  # write template file
+  my $yaml = YAML::Tiny->new($data, $help)
+      or confess 'Unable to instantiate YAML::Tiny object';
+  $yaml->write($filename) or confess "Unable to write file '$filename'";
 
-    return $TRUE;
+  return $TRUE;
 }
 
 # extract_images()                                                     {{{1
@@ -144,26 +149,26 @@ method write_coords_file_template () {
 # return: n/a, dies on failure
 method extract_images () {
 
-    # check args
-    if ( not $self->_checks_ok ) { return; }
+  # check args
+  if (not $self->_checks_ok) { return $FALSE; }
 
-    # cycle through image files
-    my @files    = $self->_image_files;
-    my $count    = scalar @files;
-    my $progress = 0;
-    if ( $count == 1 ) { say "Processing image file '$files[0]'"; }
-    else {
-        say "\nProcessing $count image files:";
-        $progress = Term::ProgressBar::Simple->new($count);
-    }
-    for my $file (@files) {
-        $self->_extract_image_regions($file);
-        $progress++;
-    }
-    undef $progress;    # ensure final messages displayed
-    say 'Processing complete';
+  # cycle through image files
+  my @files    = $self->_image_files;
+  my $count    = @files;
+  my $progress = 0;
+  if ($count == 1) { say "Processing image file '$files[0]'" or croak; }
+  else {
+    say "\nProcessing $count image files:" or croak;
+    $progress = Term::ProgressBar::Simple->new($count);
+  }
+  for my $file (@files) {
+    $self->_extract_image_regions($file);
+    $progress++;
+  }
+  undef $progress;    # ensure final messages displayed
+  say 'Processing complete' or croak;
 
-    return $TRUE;
+  return $TRUE;
 }
 
 # _checks_ok()                                                         {{{1
@@ -174,64 +179,64 @@ method extract_images () {
 # return: n/a, dies on failure
 method _checks_ok () {
 
-    # need at least one file specified                                 {{{2
-    my @files = $self->_image_files;
-    my $count = scalar @files;
-    if ( not $count ) {
-        warn "No files specified\n";
-        return;
+  # need at least one file specified                                 {{{2
+  my @files = $self->_image_files;
+  my $count = @files;
+  if (not $count) {
+    warn "No files specified\n";
+    return $FALSE;
+  }
+
+  # check for output filename collisions                             {{{2
+  # - input image files are specified by filepaths
+  # - output files are in current working directory and share the
+  #   basename of the parent
+  # - it is therefor possible that multiple input file paths could
+  #   be from different directories but have the same filename
+  # - this would result in output files from those input files
+  #   having the same name
+  my %dupes = %{ $self->file_name_duplicates(@files) };
+  if (scalar keys %dupes) {
+    warn "Multiple input file paths have the same file name.\n";
+    warn "Input filepaths that have the same file name will\n";
+    warn "generate output files with the same name.\n";
+    warn "Since all output files are written to the current\n";
+    warn "directory, and existing files are silently overwritten,\n";
+    warn "this will result in some later output files overwriting\n";
+    warn "earlier output files.\n";
+    warn "Problem filename(s) are:\n";
+
+    foreach my $name (keys %dupes) {
+      my $paths = $dupes{$name};
+      warn "- $name\n";
+      for my $path (@{$paths}) { warn "  - $path\n"; }
     }
+    warn "Aborting.\n";
+    return $FALSE;
+  }
 
-    # check for output filename collisions                             {{{2
-    # - input image files are specified by filepaths
-    # - output files are in current working directory and share the
-    #   basename of the parent
-    # - it is therefor possible that multiple input file paths could
-    #   be from different directories but have the same filename
-    # - this would result in output files from those input files
-    #   having the same name
-    my %dupes = %{ $self->file_name_duplicates(@files) };
-    if ( scalar keys %dupes ) {
-        warn "Multiple input file paths have the same file name.\n";
-        warn "Input filepaths that have the same file name will\n";
-        warn "generate output files with the same name.\n";
-        warn "Since all output files are written to the current\n";
-        warn "directory, and existing files are silently overwritten,\n";
-        warn "this will result in some later output files overwriting\n";
-        warn "earlier output files.\n";
-        warn "Problem filename(s) are:\n";
+  # coordinate file must be valid                                    {{{2
+  my $coords_file = $self->coords_file;
+  if (not $coords_file) {
+    warn "Coordinate file not specified\n";
+    return $FALSE;
+  }
+  if (not $self->file_readable($coords_file)) {
+    warn q{Cannot read coordinate file '} . $coords_file . "'\n";
+    return $FALSE;
+  }
 
-        while ( my ( $name, $paths ) = each %dupes ) {
-            warn "- $name\n";
-            for my $path ( @{$paths} ) { warn "  - $path\n"; }
-        }
-        warn "Aborting.\n";
-        return;
-    }
+  # must have coordinates                                            {{{2
+  my @coords_set = $self->_coords;
+  if (not @coords_set) {
+    warn 'No coordinates provided by ' . "coordinates file '$coords_file'\n";
+    return $FALSE;
+  }
 
-    # coordinate file must be valid                                    {{{2
-    my $coords_file = $self->coords_file;
-    if ( not $coords_file ) {
-        warn "Coordinate file not specified\n";
-        return;
-    }
-    if ( not $self->file_readable($coords_file) ) {
-        warn q{Cannot read coordinate file '} . $coords_file . "'\n";
-        return;
-    }
+  # ensure all files can be opened as images                         {{{2
+  if (not $self->image_files_valid(@files)) { return $FALSE; }
 
-    # must have coordinates                                            {{{2
-    my @coords_set = $self->_coords;
-    if ( not @coords_set ) {
-        warn 'No coordinates provided by '
-            . "coordinates file '$coords_file'\n";
-        return;
-    }
-
-    # ensure all files can be opened as images                         {{{2
-    if ( not $self->image_files_valid(@files) ) { return; }
-
-    return $TRUE;
+  return $TRUE;
 }
 
 # _extract_image_regions($fp)                                          {{{1
@@ -240,39 +245,42 @@ method _checks_ok () {
 # params: $fp - path to parent image file
 # prints: feedback if fails
 # return: n/a, dies on failure
-method _extract_image_regions ($fp) {
-    confess 'No filepath provided' if not $fp;
-    confess 'Invalid image file'   if not $self->file_readable($fp);
+method _extract_image_regions ($fp)
+{ ## no critic (ProhibitPrototypeSubroutines Prototypes RequireInterpolationOfMetachars)
+  confess 'No filepath provided' if not $fp;
+  confess 'Invalid image file'   if not $self->file_readable($fp);
 
-    my ( $base, $suffix ) = $self->file_name_parts($fp);
+  my ($base, $suffix) = $self->file_name_parts($fp);
 
-    # cycle through coordinates
-    my @coords_set   = $self->_coords;
-    my $coords_count = scalar @coords_set;
-    my $count_width  = $self->int_pad_width($coords_count) + 1;
-    my $loop         = 1;
-    for my $coords (@coords_set) {
-        my $image = $self->image_create($fp);
+  # cycle through coordinates
+  my @coords_set   = $self->_coords;
+  my $coords_count = @coords_set;
+  my $count_width  = $self->int_pad_width($coords_count) + 1;
+  my $loop         = 1;
+  for my $coords (@coords_set) {
+    my $image = $self->image_create($fp);
 
-        # crop image to region boundary
-        my @args = ( $coords->top_left, $coords->bottom_right );
-        $self->image_crop( $image, @args );
+    # crop image to region boundary
+    my @args = ($coords->top_left, $coords->bottom_right);
+    $self->image_crop($image, @args);
 
-        # write cropped region image
-        my $mask = $base . '_%0' . $count_width . 'd' . $suffix;
-        my $output = sprintf "$mask", $loop;
-        $self->image_write( $image, $output );
+    # write cropped region image
+    my $mask   = $base . '_%0' . $count_width . 'd' . $suffix;
+    my $output = sprintf "$mask", $loop;
+    $self->image_write($image, $output);
 
-        undef $image;    # avoid memory cache overflow
-        $loop++;
-    }
+    undef $image;    # avoid memory cache overflow
+    $loop++;
+  }
 
-    return;
+  return;
 }    #                                                                 }}}1
 
 1;
 
 # POD                                                                  {{{1
+
+## no critic (RequirePodSections)
 
 __END__
 
@@ -452,10 +460,10 @@ There are no configuration files used. There are no module/role settings.
 
 =head2 Perl modules
 
-autodie, Carp, Dn::Images::ExtractRegions::RegionCoords, Role::Utils::Dn
-English, Function::Parameters, Moo, MooX::HandlesVia, namespace::clean,
-Readonly, strictures, Term::ProgressBar::Simple, Types::Path::Tiny,
-Types::Standard, version, YAML::Tiny.
+autodie,Carp, Const::Fast, Dn::Images::ExtractRegions::RegionCoords, English,
+Function::Parameters, Moo, MooX::HandlesVia, namespace::clean, Role::Utils::Dn,
+strictures, Term::ProgressBar::Simple, Types::Path::Tiny, Types::Standard,
+version, YAML::Tiny.
 
 =head2 INCOMPATIBILITIES
 

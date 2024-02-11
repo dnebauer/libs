@@ -1,63 +1,63 @@
 package Dn::Images::ExtractPdfPages;
 
-use Moo;    #                                                          {{{1
+use Moo;    # {{{1
 use strictures 2;
 use 5.006;
-use 5.22.1;
+use 5.022_001;
 use version; our $VERSION = qv('0.2');
 use namespace::clean;
 
 use autodie qw(open close);
-use Carp qw(confess);
+use Carp    qw(croak confess);
+use Const::Fast;
 use English qw(-no_match_vars);
 use Function::Parameters;
 use MooX::HandlesVia;
 use PDF::API2;
-use Readonly;
 use Try::Tiny;
-use Types::Path::Tiny qw(AbsFile);
+use Types::Path::Tiny;
 use Types::Standard;
 
 with qw(Role::Utils::Dn);
 
-Readonly my $TRUE  => 1;
-Readonly my $FALSE => 0;    #                                           }}}1
+const my $TRUE  => 1;
+const my $FALSE => 0;    # }}}1
 
 # attributes
 
-# density                                                              {{{1
+# density {{{1
 has 'density' => (
-    is      => 'rw',
-    isa     => Types::Standard::Int,
-    default => 300,
-    doc     => 'Image resolution (pixels per inch)',
+  is      => 'rw',
+  isa     => Types::Standard::Int,
+  default => 300,
+  doc     => 'Image resolution (pixels per inch)',
 );
 
-# quality                                                              {{{1
+# quality {{{1
 has 'quality' => (
-    is      => 'rw',
-    isa     => Types::Standard::Int,
-    default => 100,
-    doc     => 'Compression level (1=highest to 100=least)',
+  is      => 'rw',
+  isa     => Types::Standard::Int,
+  default => 100,
+  doc     => 'Compression level (1=highest to 100=least)',
 );
 
-# pdf_files, add_pdf_files, _pdf_files                                 {{{1
+# pdf_files, add_pdf_files, _pdf_files {{{1
 has 'pdf_files' => (
-    is          => 'rw',
-    isa         => Types::Standard::ArrayRef [Types::Path::Tiny::AbsFile],
-    coerce      => $TRUE,
-    default     => sub { [] },
-    handles_via => 'Array',
-    handles     => {
-        add_pdf_files => 'push',
-        _pdf_files    => 'elements',
-    },
-    doc => 'Image files',
-);    #                                                                }}}1
+  is          => 'rw',
+  isa         => Types::Standard::ArrayRef [Types::Path::Tiny::AbsFile],
+  coerce      => $TRUE,
+  default     => sub { [] },
+  handles_via => 'Array',
+  handles     => {
+    add_pdf_files => 'push',
+    _pdf_files    => 'elements',
+  },
+  doc => 'Image files',
+);    # }}}1
 
 # methods
 
-# extract_pdf_pages()                                                  {{{1
+# extract_pdf_pages() {{{1
 #
 # does:   main method
 # params: nil
@@ -65,38 +65,40 @@ has 'pdf_files' => (
 # return: n/a, dies on failure
 method extract_pdf_pages () {
 
-    # check files
-    if ( not $self->_file_checks_ok ) { return; }
+  # check files
+  if (not $self->_file_checks_ok) { return $FALSE; }
 
-    # cycle through files
-    my @pdf_files    = $self->_pdf_files;
-    my $count    = scalar @pdf_files;
-    my $progress = 0;
-    if ( $count == 1 ) { say "Extracting page images from '$pdf_files[0]'"; }
-    else {
-        say "Extracting page images from $count pdf files:";
-        $progress = Term::ProgressBar::Simple->new($count);
-    }
+  # cycle through files
+  my @pdf_files = $self->_pdf_files;
+  my $count     = @pdf_files;
+  my $progress  = 0;
+  if ($count == 1) {
+    say "Extracting page images from '$pdf_files[0]'" or croak;
+  }
+  else {
+    say "Extracting page images from $count pdf files:" or croak;
+    $progress = Term::ProgressBar::Simple->new($count);
+  }
 
-    # process image and extract pages as images
-    my $attributes = { density => $self->density, quality => $self->quality };
-    for my $file (@pdf_files) {
-        my $image = $self->image_create( $file, $attributes );
-        my $output = $self->_output_filemask($file);
-        $self->image_write( $image, $output );
-        undef $image;    # avoid memory cache overflow
+  # process image and extract pages as images
+  my $attributes = { density => $self->density, quality => $self->quality };
+  for my $file (@pdf_files) {
+    my $image  = $self->image_create($file, $attributes);
+    my $output = $self->_output_filemask($file);
+    $self->image_write($image, $output);
+    undef $image;    # avoid memory cache overflow
 
-        $progress++;
-    }
+    $progress++;
+  }
 
-    undef $progress;     # ensure final messages displayed
+  undef $progress;    # ensure final messages displayed
 
-    say 'Extraction complete';
+  say 'Extraction complete' or croak;
 
-    return $TRUE;
+  return $TRUE;
 }
 
-# _file_checks_ok()                                                    {{{1
+# _file_checks_ok() {{{1
 #
 # does:   check that files have been specified and that there will be
 #         no output filename collisions
@@ -105,78 +107,83 @@ method extract_pdf_pages () {
 # return: scalar boolean
 method _file_checks_ok () {
 
-    my @fps = $self->_pdf_files;
+  my @fps = $self->_pdf_files;
 
-    # check that files have been specified
-    if ( not @fps ) {
-        warn "No valid files specified\n";
-        return;
+  # check that files have been specified
+  if (not @fps) {
+    warn "No valid files specified\n";
+    return $FALSE;
+  }
+
+  # check for output filename collisions
+  # - input pdf files are specified by filepaths
+  # - output files are in current working directory and share the
+  #   basename of the parent
+  # - it is therefor possible that multiple input file paths could
+  #   be from different directories but have the same filename
+  # - this would result in output files from those input files
+  #   having the same name
+  my %dupes = %{ $self->file_name_duplicates(@fps) };
+  if (scalar keys %dupes) {
+    warn "Multiple input file paths have the same file name.\n";
+    warn "Input filepaths that have the same file name will\n";
+    warn "generate output files with the same name.\n";
+    warn "Since all output files are written to the current\n";
+    warn "directory, and existing files are silently overwritten,\n";
+    warn "this will result in some later output files overwriting\n";
+    warn "earlier output files.\n";
+    warn "Problem filename(s) are:\n";
+
+    foreach my $name (keys %dupes) {
+      my $paths = $dupes{$name};
+      warn "- $name\n";
+      for my $path (@{$paths}) { warn "  - $path\n"; }
     }
+    warn "Aborting.\n";
+    return $FALSE;
+  }
 
-    # check for output filename collisions
-    # - input pdf files are specified by filepaths
-    # - output files are in current working directory and share the
-    #   basename of the parent
-    # - it is therefor possible that multiple input file paths could
-    #   be from different directories but have the same filename
-    # - this would result in output files from those input files
-    #   having the same name
-    my %dupes = %{ $self->file_name_duplicates(@fps) };
-    if ( scalar keys %dupes ) {
-        warn "Multiple input file paths have the same file name.\n";
-        warn "Input filepaths that have the same file name will\n";
-        warn "generate output files with the same name.\n";
-        warn "Since all output files are written to the current\n";
-        warn "directory, and existing files are silently overwritten,\n";
-        warn "this will result in some later output files overwriting\n";
-        warn "earlier output files.\n";
-        warn "Problem filename(s) are:\n";
-
-        while ( my ( $name, $paths ) = each %dupes ) {
-            warn "- $name\n";
-            for my $path ( @{$paths} ) { warn "  - $path\n"; }
-        }
-        warn "Aborting.\n";
-        return;
-    }
-
-    # test successful
-    return $TRUE;
+  # test successful
+  return $TRUE;
 }
 
-# _output_filemask($fp)                                                {{{1
+# _output_filemask($fp) {{{1
 #
 # does:   derive output file name mask
 # params: $fp - (relative) path of file
 # prints: error message if invalid inputs
 # return: file name mask [Str], exits on failure
-method _output_filemask ($fp) {
+method _output_filemask ($fp)
+{ ## no critic (ProhibitSubroutinePrototypes Prototypes RequireInterpolationOfMetachars)
 
-    # check arg
-    confess 'No filepath provided'   if not $fp;
-    confess "Invalid filepath '$fp'" if not $self->file_readable($fp);
+  # check arg
+  confess 'No filepath provided'   if not $fp;
+  confess "Invalid filepath '$fp'" if not $self->file_readable($fp);
 
-    # need basename
-    my $base = $self->file_base($fp);
+  # need basename
+  my $base = $self->file_base($fp);
 
-    # need maximum width of page numbers to enable left zero-padding
-    # - e.g., 13 pages need 2 digits while 9 pages need 1 digit
-    try {
-        my $pdf   = PDF::API2->open($fp);
-        my $pages = $pdf->pages;
-        if ( not $pages ) { die; }
-        my $pad_width = $self->int_pad_width($pages);
-        return $base . '_%0' . $pad_width . 'd.png';
-    }
-    catch {
-        confess "\nUnable to process '$fp' as a pdf file";
-    }
-}    #                                                                 }}}1
+  # need maximum width of page numbers to enable left zero-padding
+  # - e.g., 13 pages need 2 digits while 9 pages need 1 digit
+  my $mask;
+  try {
+    my $pdf   = PDF::API2->open($fp);
+    my $pages = $pdf->pages;
+    if (not $pages) { croak; }
+    my $pad_width = $self->int_pad_width($pages);
+    $mask = $base . '_%0' . $pad_width . 'd.png';
+  }
+  catch {
+    confess "\nUnable to process '$fp' as a pdf file";
+  }
+  return $mask;
+}    # }}}1
 
 1;
 
-# POD                                                                  {{{1
+# POD {{{1
 
+## no critic (RequirePodSections)
 __END__
 
 =encoding utf8
@@ -299,8 +306,8 @@ There are no configuration files used. There are no module/role settings.
 
 =head2 Perl modules
 
-autodie, Carp, Role::Utils::Dn, English, Function::Parameters, Moo,
-MooX::HandlesVia, namespace::clean, PDF::API2, Readonly, strictures,
+autodie, Carp, Const::Fast, English, Function::Parameters, Moo,
+MooX::HandlesVia, namespace::clean, PDF::API2, Role::Utils::Dn, strictures,
 Term::ProgressBar::Simple, Try::Tiny, Types::Path::Tiny, Types::Standard,
 version.
 

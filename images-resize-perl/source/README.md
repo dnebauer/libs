@@ -80,11 +80,11 @@ Image width of resized image. Required. No default value.
 
 Image height of resized image. Required. No default value.
 
-## preserve\_aspect\_ratio
+## preserve_aspect_ratio
 
 Whether to preserve aspect ratio when resizing. Optional. Default: true.
 
-## fill\_color
+## fill_color
 
 Color used for additional space added to the image when resizing (when aspect
 ratio is preserved). This color is also used for borders. Optional. Default:
@@ -99,7 +99,7 @@ Note that setting fill color will have no effect on the final image if aspect
 ratio is ignored (because the image is stretched to cover the entirety of the
 resized dimensions) and borders are set to zero width.
 
-## border\_horizontal
+## border_horizontal
 
 Size in pixels of border for left and right sides of images. Optional.
 Default: 0.
@@ -107,7 +107,7 @@ Default: 0.
 Note that if `border_horizontal` remains set to zero no border will be added
 to the left and right sides of resized images.
 
-## border\_vertical
+## border_vertical
 
 Size in pixels of border for top and bottom sides of images. Optional.
 Default: 0.
@@ -115,7 +115,7 @@ Default: 0.
 Note that if `border_vertical` remains set to zero no border will be added to
 the top and bottom sides of resized images.
 
-## image\_files
+## image_files
 
 Images to be resized. Specifying files other than image files will result in
 the Image::Magick module dying when it attempts to load the image, which also
@@ -123,7 +123,7 @@ causes this module to die.
 
 # METHODS
 
-## add\_image\_files(@filepaths)
+## add_image_files(@filepaths)
 
 Specify additional image files to be resized.
 
@@ -131,8 +131,8 @@ Specify additional image files to be resized.
 
 - $param
 
-    Paths of additional image files to be resized. Duplicate filepaths will be
-    ignored. Scalar string. Required.
+  Paths of additional image files to be resized. Duplicate filepaths will be
+  ignored. Scalar string. Required.
 
 ### Prints
 
@@ -142,7 +142,7 @@ Nil.
 
 Nil.
 
-## resize\_images()
+## resize_images()
 
 Resize specified images and, optionally, add borders to them. Resized image
 files are written to the current working directory.
@@ -155,10 +155,9 @@ There are no configuration files used. There are no module/role settings.
 
 ## Perl modules
 
-autodie, Carp, Cwd, Dn::Images::Resize::Dimensions, Dn::Role::HasImage,
-Dn::Role::HasPath, English, Function::Parameters, Moo, MooX::HandlesVia,
-namespace::clean, Readonly, strictures, Term::ProgressBar::Simple,
-Types::Standard, version.
+autodie, Carp, Const::Fast, Cwd, Dn::Images::Resize::Dimensions, English,
+Function::Parameters, Moo, MooX::HandlesVia, namespace::clean, Role::Utils::Dn,
+strictures, Term::ProgressBar::Simple, Types::Standard, version.
 
 ## INCOMPATIBILITIES
 

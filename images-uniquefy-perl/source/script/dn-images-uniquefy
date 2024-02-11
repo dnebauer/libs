@@ -3,99 +3,95 @@
 use Moo;    #                                                          {{{1
 use strictures 2;
 use 5.006;
-use 5.22.1;
+use 5.022_001;
 use version; our $VERSION = qv('0.1');
 use namespace::clean;    #                                             }}}1
 
 {
 
-    package Dn::Internal;
+  package Dn::Internal;
 
-    use Moo;    # {{{1
-    use strictures 2;
-    use namespace::clean;
-    use Dn::Images::Uniquefy;
-    use English qw(-no_match_vars);
-    use Function::Parameters;
-    use Getopt::Long::Descriptive;
-    use List::MoreUtils qw(uniq);
-    use MooX::HandlesVia;
-    use Readonly;
-    use Types::Standard;
+  use Moo;               # {{{1
+  use strictures 2;
+  use namespace::clean;
+  use Carp qw(croak);
+  use Const::Fast;
+  use Dn::Images::Uniquefy;
+  use English qw(-no_match_vars);
+  use Function::Parameters;
+  use Getopt::Long::Descriptive;
+  use List::SomeUtils;
+  use MooX::HandlesVia;
+  use Types::Standard;
 
-    with qw(
-        Dn::Role::HasPath
+  with qw(Role::Utils::Dn);
+
+  const my $TRUE  => 1;
+  const my $FALSE => 0;    #                                      }}}1
+
+  # attributes
+
+  # _files                                                           {{{1
+  has '_file_list' => (
+    is          => 'lazy',
+    isa         => Types::Standard::ArrayRef [Types::Standard::Str],
+    handles_via => 'Array',
+    handles     => { _files => 'elements' },
+    doc         => 'Image files',
+  );
+
+  method _build__file_list ()
+  {    ## no critic (ProhibitUnusedPrivateSubroutines)
+
+    my @matches;    # get unique file names
+    for my $arg (@ARGV) { push @matches, glob "$arg"; }
+    my @unique_matches = List::SomeUtils::uniq @matches;
+    my @files =
+        grep { $self->file_readable($_) } @unique_matches;  # ignore non-files
+
+    return [@files];
+
+  }    #                                                             }}}1
+
+  # methods
+
+  # main()                                                           {{{1
+  #
+  # does:   main method
+  # params: nil
+  # prints: feedback
+  # return: n/a, dies on failure
+  method main () {
+
+    # print usage message if help requested
+    $self->_usage;
+
+    # uniquefy images
+    my $uniquefy =
+        Dn::Images::Uniquefy->new(image_files => [ $self->_files ],);
+    return $uniquefy->uniquefy_images;
+  }
+
+  # _usage()                                                         {{{1
+  #
+  # does:   print usage message if requested
+  # params: nil
+  # prints: feedback
+  # return: n/a, dies on failure
+  method _usage () {
+
+    # handle args
+    my ($opt, $usage) = Getopt::Long::Descriptive::describe_options(
+      '%c %o <file_glob> [<file_glob> ...]',
+      [], [ 'help|h', 'print usage message and exit', { shortcircuit => 1 } ],
     );
-
-    Readonly my $TRUE  => 1;
-    Readonly my $FALSE => 0;    #                                      }}}1
-
-    # attributes
-
-    # _files                                                           {{{1
-    has '_file_list' => (
-        is          => 'lazy',
-        isa         => Types::Standard::ArrayRef [Types::Standard::Str],
-        handles_via => 'Array',
-        handles     => { _files => 'elements' },
-        doc         => 'Image files',
-    );
-
-    method _build__file_list () {
-
-        my @matches;              # get unique file names
-        for my $arg (@ARGV) { push @matches, glob "$arg"; }
-        my @unique_matches = List::MoreUtils::uniq @matches;
-        my @files = grep { $self->file_readable($_) }
-            @unique_matches;      # ignore non-files
-
-        return [@files];
-
-    }    #                                                             }}}1
-
-    # methods
-
-    # main()                                                           {{{1
-    #
-    # does:   main method
-    # params: nil
-    # prints: feedback
-    # return: n/a, dies on failure
-    method main () {
-
-        # print usage message if help requested
-        $self->_usage;
-
-        # uniquefy images
-        my $uniquefy = Dn::Images::Uniquefy->new(
-            image_files => [ $self->_files ], );
-        return $uniquefy->uniquefy_images;
+    if ($opt->help) {
+      print $usage->text or croak;
+      exit;
     }
 
-    # _usage()                                                         {{{1
-    #
-    # does:   print usage message if requested
-    # params: nil
-    # prints: feedback
-    # return: n/a, dies on failure
-    method _usage () {
-
-        # handle args
-        my ( $opt, $usage ) = Getopt::Long::Descriptive::describe_options(
-            '%c %o <file_glob> [<file_glob> ...]',
-            [],
-            [   'help|h',
-                'print usage message and exit',
-                { shortcircuit => 1 }
-            ],
-        );
-        if ( $opt->help ) {
-            print $usage->text;
-            exit;
-        }
-
-        return;
-    }    #                                                             }}}1
+    return;
+  }    #                                                             }}}1
 
 }
 
@@ -104,6 +100,8 @@ my $p = Dn::Internal->new->main;
 1;
 
 # POD                                                                  {{{1
+
+## no critic (RequirePodSections)
 
 __END__
 
@@ -172,9 +170,7 @@ multiple input filepaths with identical file names.
 
 =head2 Perl modules
 
-Dn::Images::Uniquefy, Dn::Role::HasPath, English, Function::Parameters,
-Getopt::Long::Descriptive, List::MoreUtils, Moo, MooX::HandlesVia,
-namespace::clean, Readonly, strictures, Types::Standard, version.
+Const::Fast, Dn::Images::Uniquefy, Dn::Role::HasPath, English, Function::Parameters, Getopt::Long::Descriptive, List::SomeUtils, Moo, MooX::HandlesVia, namespace::clean, strictures, Types::Standard, version.
 
 =head1 BUGS AND LIMITATIONS
 

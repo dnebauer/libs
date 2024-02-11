@@ -56,7 +56,7 @@ information](file:///usr/share/doc/libimage-magick-perl/html/www/command-line-op
 
 Integer. Optional. Default: 100.
 
-## pdf\_files
+## pdf_files
 
 PDF files to extract page images from.
 
@@ -64,7 +64,7 @@ Array reference. Optional. Default: empty array.
 
 # METHODS
 
-## add\_pdf\_files(@filepaths)
+## add_pdf_files(@filepaths)
 
 Add to the list of pdf files to extract images from. The module will allow the
 same file to be added multiple times.
@@ -73,7 +73,7 @@ same file to be added multiple times.
 
 - @filepaths
 
-    Paths of pdf files to process. List of filepaths. Required.
+  Paths of pdf files to process. List of filepaths. Required.
 
 ### Prints
 
@@ -83,7 +83,7 @@ Nil.
 
 Nil.
 
-## extract\_pdf\_pages()
+## extract_pdf_pages()
 
 Generates a png image file in the current directory for each page in each input
 filepath. The created image files have the same base name as their parent pdf
@@ -112,10 +112,10 @@ There are no configuration files used. There are no module/role settings.
 
 ## Perl modules
 
-autodie, Carp, Dn::Role::HasImage, Dn::Role::HasNumber, Dn::Role::HasPath,
-English, Function::Parameters, Moo, MooX::HandlesVia, namespace::clean,
-PDF::API2, Readonly, strictures, Term::ProgressBar::Simple, Try::Tiny,
-Types::Path::Tiny, Types::Standard, version.
+autodie, Carp, Const::Fast, English, Function::Parameters, Moo,
+MooX::HandlesVia, namespace::clean, PDF::API2, Role::Utils::Dn, strictures,
+Term::ProgressBar::Simple, Try::Tiny, Types::Path::Tiny, Types::Standard,
+version.
 
 ## INCOMPATIBILITIES
 

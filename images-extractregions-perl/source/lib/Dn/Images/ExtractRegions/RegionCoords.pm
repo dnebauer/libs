@@ -3,51 +3,53 @@ package Dn::Images::ExtractRegions::RegionCoords;
 use Moo;    #                                                          {{{1
 use strictures 2;
 use 5.006;
-use 5.22.1;
+use 5.022_001;
 use version; our $VERSION = qv('0.1');
 use namespace::clean;
 
+use Const::Fast;
 use English qw(-no_match_vars);
 use MooX::HandlesVia;
-use Readonly;
 use Types::Standard;
 
-Readonly my $TRUE  => 1;
-Readonly my $FALSE => 0;    #                                        }}}1
+const my $TRUE  => 1;
+const my $FALSE => 0;    #                                        }}}1
 
 # attributes
 
 # top_left_coords, [add|clear]_top_left, top_left,                     {{{1
 has 'top_left_coords' => (
-    is          => 'rw',
-    isa         => Types::Standard::ArrayRef [Types::Standard::Int],
-    default     => sub { [] },
-    handles_via => 'Array',
-    handles     => {
-        top_left       => 'elements',
-        add_top_left   => 'push',
-        clear_top_left => 'clear',
-    },
-    documentation => 'X and Y coordinates of top-left pixel',
+  is          => 'rw',
+  isa         => Types::Standard::ArrayRef [Types::Standard::Int],
+  default     => sub { [] },
+  handles_via => 'Array',
+  handles     => {
+    top_left       => 'elements',
+    add_top_left   => 'push',
+    clear_top_left => 'clear',
+  },
+  documentation => 'X and Y coordinates of top-left pixel',
 );
 
 # bottom_right_coords, [add|clear]_bottom_right, bottom_right         _{{{1
 has 'bottom_right_coords' => (
-    is          => 'rw',
-    isa         => Types::Standard::ArrayRef [Types::Standard::Int],
-    default     => sub { [] },
-    handles_via => 'Array',
-    handles     => {
-        bottom_right       => 'elements',
-        add_bottom_right   => 'push',
-        clear_bottom_right => 'clear',
-    },
-    documentation => 'X and Y coordinates of bottom right pixel',
+  is          => 'rw',
+  isa         => Types::Standard::ArrayRef [Types::Standard::Int],
+  default     => sub { [] },
+  handles_via => 'Array',    ## no critic (ProhibitDuplicateLiteral)
+  handles     => {
+    bottom_right       => 'elements',  ## no critic (ProhibitDuplicateLiteral)
+    add_bottom_right   => 'push',      ## no critic (ProhibitDuplicateLiteral)
+    clear_bottom_right => 'clear',     ## no critic (ProhibitDuplicateLiteral)
+  },
+  documentation => 'X and Y coordinates of bottom right pixel',
 );    #                                                                }}}1
 
 1;
 
 # POD                                                                  {{{1
+
+## no critic (RequirePodSections)
 
 __END__
 
@@ -201,7 +203,7 @@ There are no configuration files used. There are no module/role settings.
 
 =head2 Perl modules
 
-English, Moo, MooX::HandlesVia, namespace::clean, Readonly, strictures,
+Const::Fast, English, Moo, MooX::HandlesVia, namespace::clean, strictures,
 Types::Standard, version.
 
 =head2 INCOMPATIBILITIES

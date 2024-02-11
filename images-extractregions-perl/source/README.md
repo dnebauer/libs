@@ -86,19 +86,19 @@ multiple input filepaths with identical file names.
 
 # ATTRIBUTES
 
-## coords\_file
+## coords_file
 
 Path to coordinates file. Used when writing or reading the coordinates file.
 Scalar string. Optional. Default: 'coords.yaml'.
 
-## image\_files
+## image_files
 
 Image files to process. Array reference containing strings. Required. No
 default value.
 
 # METHODS
 
-## add\_image\_files(@filepaths)
+## add_image_files(@filepaths)
 
 Add image files to be processed.
 
@@ -106,7 +106,7 @@ Add image files to be processed.
 
 - @filepaths
 
-    Paths to image files to be processed. List of strings. Required.
+  Paths to image files to be processed. List of strings. Required.
 
 ### Prints
 
@@ -116,7 +116,7 @@ Error messages.
 
 Scalar boolean indicating success or failure of operation.
 
-## write\_coords\_file\_template()
+## write_coords_file_template()
 
 Write a template coordinates file. The filepath used is that set in the
 `coords_file` attribute. Note that if the output filepath already exists the
@@ -126,7 +126,7 @@ method will exit _without_ overwriting it. Duplicate filepaths are ignored.
 
 - @filepaths
 
-    Additional image files to be processed.
+  Additional image files to be processed.
 
 ### Prints
 
@@ -136,7 +136,7 @@ Nil.
 
 Nil.
 
-## extract\_images()
+## extract_images()
 
 From each image extract the rectangular regions specified in the coordinates
 file and write them to image files in the current directory.
@@ -149,11 +149,10 @@ There are no configuration files used. There are no module/role settings.
 
 ## Perl modules
 
-autodie, Carp, Dn::Images::ExtractRegions::RegionCoords, Dn::Role::HasImage,
-Dn::Role::HasNumber, Dn::Role::HasPath, English, Function::Parameters, Moo,
-MooX::HandlesVia, namespace::clean, Readonly, strictures,
-Term::ProgressBar::Simple, Types::Path::Tiny, Types::Standard, version,
-YAML::Tiny.
+autodie, Carp, Const::Fast, Dn::Images::ExtractRegions::RegionCoords, English,
+Function::Parameters, Moo, MooX::HandlesVia, namespace::clean, Role::Utils::Dn,
+strictures, Term::ProgressBar::Simple, Types::Path::Tiny, Types::Standard,
+version, YAML::Tiny.
 
 ## INCOMPATIBILITIES
 
