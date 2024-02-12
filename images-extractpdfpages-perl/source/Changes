@@ -1,5 +1,8 @@
 Revision history for Dn-Images-ExtractPdfPages
 
+0.4
+    Replace Function::Parameters with v5.36 function signatures
+
 0.3
     Remove dependency on Dn::Role::HasPath from script
     Fix/suppress Perl::Critic warnings

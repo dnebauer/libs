@@ -3,7 +3,7 @@ package Dn::Images::ExtractPdfPages;
 use Moo;    # {{{1
 use strictures 2;
 use 5.006;
-use 5.022_001;
+use 5.036_001;
 use version; our $VERSION = qv('0.2');
 use namespace::clean;
 
@@ -11,7 +11,6 @@ use autodie qw(open close);
 use Carp    qw(croak confess);
 use Const::Fast;
 use English qw(-no_match_vars);
-use Function::Parameters;
 use MooX::HandlesVia;
 use PDF::API2;
 use Try::Tiny;
@@ -63,7 +62,7 @@ has 'pdf_files' => (
 # params: nil
 # prints: feedback
 # return: n/a, dies on failure
-method extract_pdf_pages () {
+sub extract_pdf_pages ($self) { ## no critic (RequireInterpolationOfMetachars)
 
   # check files
   if (not $self->_file_checks_ok) { return $FALSE; }
@@ -105,7 +104,8 @@ method extract_pdf_pages () {
 # params: nil
 # prints: error message if check fails
 # return: scalar boolean
-method _file_checks_ok () {
+sub _file_checks_ok ($self)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
 
   my @fps = $self->_pdf_files;
 
@@ -147,14 +147,14 @@ method _file_checks_ok () {
   return $TRUE;
 }
 
-# _output_filemask($fp) {{{1
+# _output_filemask($self, $fp) {{{1
 #
 # does:   derive output file name mask
 # params: $fp - (relative) path of file
 # prints: error message if invalid inputs
 # return: file name mask [Str], exits on failure
-method _output_filemask ($fp)
-{ ## no critic (ProhibitSubroutinePrototypes Prototypes RequireInterpolationOfMetachars)
+sub _output_filemask ($self, $fp)
+{    ## no critic (RequireInterpolationOfMetachars)
 
   # check arg
   confess 'No filepath provided'   if not $fp;
@@ -167,15 +167,15 @@ method _output_filemask ($fp)
   # - e.g., 13 pages need 2 digits while 9 pages need 1 digit
   my $mask;
   try {
-    my $pdf   = PDF::API2->open($fp);
+    my $pdf   = PDF::API2->open($fp->canonpath);
     my $pages = $pdf->pages;
     if (not $pages) { croak; }
     my $pad_width = $self->int_pad_width($pages);
     $mask = $base . '_%0' . $pad_width . 'd.png';
   }
   catch {
-    confess "\nUnable to process '$fp' as a pdf file";
-  }
+    confess "\nUnable to process '$fp' as a pdf file: $_";
+  };
   return $mask;
 }    # }}}1
 

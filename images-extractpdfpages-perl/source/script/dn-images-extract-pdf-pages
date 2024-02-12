@@ -1,23 +1,23 @@
 #!/usr/bin/perl
 
-use Moo;                 # {{{1
+use Moo;                       # {{{1
 use strictures 2;
 use 5.006;
-use 5.022_001;
+use 5.036_001;
 use version; our $VERSION = qv('0.1');
-use namespace::clean;    # }}}1
+use namespace::clean;
+use feature qw(signatures);    # }}}1
 
 {
 
   package Dn::Internal;
 
-  use Moo;               # {{{1
+  use Moo;                     # {{{1
   use strictures 2;
   use namespace::clean -except => [ '_options_data', '_options_config' ];
   use Const::Fast;
   use Dn::Images::ExtractPdfPages;
   use English qw(-no_match_vars);
-  use Function::Parameters;
   use List::SomeUtils;
   use MooX::HandlesVia;
   use MooX::Options protect_argv => 0;
@@ -59,8 +59,8 @@ use namespace::clean;    # }}}1
     doc         => 'Image files',
   );
 
-  method _build__file_list ()
-  {    ## no critic (ProhibitUnusedPrivateSubroutines)
+  sub _build__file_list ($self)
+  { ## no critic (RequireInterpolationOfMetachars ProhibitUnusedPrivateSubroutines)
     my @matches;
     for my $arg (@ARGV) { push @matches, glob "$arg"; }
     my @unique_matches = List::SomeUtils::uniq @matches;
@@ -76,7 +76,8 @@ use namespace::clean;    # }}}1
   # params: nil
   # prints: feedback
   # return: n/a, dies on failure
-  method main () {
+  sub main ($self)
+  {    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
 
     my $extract = Dn::Images::ExtractPdfPages->new(
       pdf_files => [ $self->_files ],
