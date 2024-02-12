@@ -112,8 +112,8 @@ There are no configuration files used. There are no module/role settings.
 
 ## Perl modules
 
-autodie, Carp, Const::Fast, English, Function::Parameters, Moo,
-MooX::HandlesVia, namespace::clean, PDF::API2, Role::Utils::Dn, strictures,
+autodie, Carp, Const::Fast, English, Parameters, Moo, MooX::HandlesVia,
+namespace::clean, PDF::API2, Role::Utils::Dn, strictures,
 Term::ProgressBar::Simple, Try::Tiny, Types::Path::Tiny, Types::Standard,
 version.
 

@@ -306,10 +306,9 @@ There are no configuration files used. There are no module/role settings.
 
 =head2 Perl modules
 
-autodie, Carp, Const::Fast, English, Function::Parameters, Moo,
-MooX::HandlesVia, namespace::clean, PDF::API2, Role::Utils::Dn, strictures,
-Term::ProgressBar::Simple, Try::Tiny, Types::Path::Tiny, Types::Standard,
-version.
+autodie, Carp, Const::Fast, English, Moo, MooX::HandlesVia, namespace::clean,
+PDF::API2, Role::Utils::Dn, strictures, Term::ProgressBar::Simple, Try::Tiny,
+Types::Path::Tiny, Types::Standard, version.
 
 =head2 INCOMPATIBILITIES
 

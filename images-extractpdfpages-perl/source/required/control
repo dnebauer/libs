@@ -6,7 +6,6 @@ Build-Depends: debhelper-compat (= 13),
                libmodule-build-perl,
                perl
 Build-Depends-Indep: libconst-fast-perl (>= 0.014),
-                     libfunction-parameters-perl (>= 1.0705),
                      liblist-someutils-perl (>= 0.59),
                      libmodule-build-tiny-perl (>= 0.034),
                      libmoo-perl (>= 2.002005),
@@ -27,7 +26,6 @@ Package: libdn-images-extractpdfpages-perl
 Architecture: all
 Depends: ${misc:Depends}, ${perl:Depends},
          libconst-fast-perl (>= 0.014),
-         libfunction-parameters-perl (>= 1.0705),
          liblist-someutils-perl (>= 0.59),
          libmoo-perl (>= 2.002005),
          libmoox-handlesvia-perl (>= 0.001008),

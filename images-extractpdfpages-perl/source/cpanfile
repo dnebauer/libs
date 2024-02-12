@@ -3,7 +3,6 @@ requires 'autodie', '2.29';
 requires 'Carp', '1.40';
 requires 'Const::Fast', '0.014';
 requires 'English', '1.10';
-requires 'Function::Parameters', '1.0705';
 requires 'List::MoreUtils', '0.416';
 requires 'Moo', '2.002005';
 requires 'MooX::HandlesVia', '0.001008';

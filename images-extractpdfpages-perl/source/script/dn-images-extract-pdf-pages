@@ -180,9 +180,9 @@ detects multiple input filepaths with identical file names.
 
 =head2 Perl modules
 
-Const::Fast, Dn::Images::ExtractPdfPages, English, Function::Parameters,
-List::SomeUtils, Moo, MooX::HandlesVia, MooX::Options, namespace::clean,
-Role::Utils::Dn, strictures, Types::Standard, version.
+Const::Fast, Dn::Images::ExtractPdfPages, English, List::SomeUtils, Moo,
+MooX::HandlesVia, MooX::Options, namespace::clean, Role::Utils::Dn, strictures,
+Types::Standard, version.
 
 =head1 BUGS AND LIMITATIONS
 
