@@ -1,262 +1,276 @@
-package Dn::Images::Resize;
+package Dn::Images::Resize;    ## no critic (PodSpelling)
 
-use Moo;    #                                                          {{{1
+use Moo;                       # {{{1
 use strictures 2;
 use 5.006;
-use 5.22.1;
+use 5.036_001;
 use version; our $VERSION = qv('0.1');
 use namespace::clean;
 
 use autodie qw(open close);
-use Carp qw(confess);
+use Carp    qw(confess croak);
+use Const::Fast;
 use Cwd;
 use Dn::Images::Resize::Dimensions;
 use English qw(-no_match_vars);
-use Function::Parameters;
 use MooX::HandlesVia;
-use Readonly;
 use Term::ProgressBar::Simple;
 use Types::Standard;
 
 with qw(Role::Utils::Dn);
 
-Readonly my $TRUE  => 1;
-Readonly my $FALSE => 0;    #                                           }}}1
+const my $TRUE  => 1;
+const my $FALSE => 0;
+const my $LAZY  => 'lazy';    # }}}1
 
 # attributes
 
-# width                                                                {{{1
+# width {{{1
 has 'width' => (
-    is      => 'rw',
-    isa     => Types::Standard::Int,
-    default => 0,
-    doc     => q[Width of resized image (in pixels)],
+  is      => 'rw',
+  isa     => Types::Standard::Int,
+  default => 0,
+  doc     => q[Width of resized image (in pixels)],
 );
 
-# height                                                                {{{1
+# height {{{1
 has 'height' => (
-    is      => 'rw',
-    isa     => Types::Standard::Int,
-    default => 0,
-    doc     => q[ Height of resized image (in pixels) ],
+  is      => 'rw',
+  isa     => Types::Standard::Int,
+  default => 0,
+  doc     => q[ Height of resized image (in pixels) ],
 );
 
-# preserve_aspect_ratio                                    {{{1
+# preserve_aspect_ratio {{{1
 has 'preserve_aspect_ratio' => (
-    is      => 'rw',
-    isa     => Types::Standard::Bool,
-    default => $TRUE,
-    doc     => q[ Whether to preserve aspect ratio (default: true) ],
+  is      => 'rw',
+  isa     => Types::Standard::Bool,
+  default => $TRUE,
+  doc     => q[ Whether to preserve aspect ratio (default: true) ],
 );
 
-# fill_color                                                           {{{1
+# fill_color {{{1
 has 'fill_color' => (
-    is      => 'rw',
-    isa     => Types::Standard::Str,
-    default => 'none',
-    doc     => q[ Fill color (default: 'none' = transparent) ],
+  is      => 'rw',
+  isa     => Types::Standard::Str,
+  default => 'none',
+  doc     => q[ Fill color (default: 'none' = transparent) ],
 );
 
-# border_horizontal                                                    {{{1
+# border_horizontal {{{1
 has 'border_horizontal' => (
-    is      => 'rw',
-    isa     => Types::Standard::Int,
-    default => 0,
-    doc     => q[ Size of left and right borders (in pixels) ],
+  is      => 'rw',
+  isa     => Types::Standard::Int,
+  default => 0,
+  doc     => q[ Size of left and right borders (in pixels) ],
 );
 
-# border_vertical                                                      {{{1
+# border_vertical {{{1
 has 'border_vertical' => (
-    is      => 'rw',
-    isa     => Types::Standard::Int,
-    default => 0,
-    doc     => q[ Size of top and bottom borders (in pixels) ],
+  is      => 'rw',
+  isa     => Types::Standard::Int,
+  default => 0,
+  doc     => q[ Size of top and bottom borders (in pixels) ],
 );
 
-# image_files, add_image_files, _files                                 {{{1
+# image_files, add_image_files, _files {{{1
 has 'image_files' => (
-    is          => 'rw',
-    isa         => Types::Standard::ArrayRef [Types::Standard::Str],
-    default     => sub { [] },
-    handles_via => 'Array',
-    handles     => {
-        add_image_files => 'push',
-        _files          => 'elements',
-    },
-    doc => q[ Image filepaths ],
+  is          => 'rw',
+  isa         => Types::Standard::ArrayRef [Types::Standard::Str],
+  default     => sub { [] },
+  handles_via => 'Array',
+  handles     => {
+    add_image_files => 'push',
+    _files          => 'elements',
+  },
+  doc => q[ Image filepaths ],
 );
 
-# _dimensions                                                          {{{1
+# _dimensions {{{1
 has '_dimensions' => (
-    is  => 'lazy',
-    isa => Types::Standard::InstanceOf ['Dn::Images::Resize::Dimensions'],
-    doc => q[ Final dimensions of image ],
+  is  => $LAZY,
+  isa => Types::Standard::InstanceOf ['Dn::Images::Resize::Dimensions'],
+  doc => q[ Final dimensions of image ],
 );
 
-method _build__dimensions () {
+sub _build__dimensions ($self)
+{ ## no critic (RequireInterpolationOfMetachars ProhibitUnusedPrivateSubroutines)
 
-    return Dn::Images::Resize::Dimensions->new(
-        width             => $self->width,
-        height            => $self->height,
-        border_horizontal => $self->border_horizontal,
-        border_vertical   => $self->border_vertical,
-    );
+  return Dn::Images::Resize::Dimensions->new(
+    width             => $self->width,
+    height            => $self->height,
+    border_horizontal => $self->border_horizontal,
+    border_vertical   => $self->border_vertical,
+  );
 }
 
-# _orig_dir                                                            {{{1
+# _orig_dir {{{1
 has '_orig_dir' => (
-    is  => 'lazy',
-    isa => Types::Standard::Str,
-    doc => q[ Directory in which script is run ],
+  is  => $LAZY,
+  isa => Types::Standard::Str,
+  doc => q[ Directory in which script is run ],
 );
 
-method _build__orig_dir () {
-    return Cwd::getcwd();
+sub _build__orig_dir () {    ## no critic (ProhibitUnusedPrivateSubroutines)
+  return Cwd::getcwd();
 }
 
-# _temp_dir                                                            {{{1
+# _temp_dir {{{1
 has '_temp_dir' => (
-    is  => 'lazy',
-    isa => Types::Standard::Str,
-    doc => q[ Temporary working directory ],
+  is  => $LAZY,
+  isa => Types::Standard::Str,
+  doc => q[ Temporary working directory ],
 );
 
-method _build__temp_dir () {
-    return $self->dir_temp();
-}    #                                                                 }}}1
+sub _build__temp_dir ($self)
+{ ## no critic (RequireInterpolationOfMetachars ProhibitUnusedPrivateSubroutines ProhibitDuplicateLiteral)
+  return $self->dir_temp();
+}    # }}}1
 
 # methods
 
-# resize_images()                                                      {{{1
+# resize_images() {{{1
 #
 # does:   main method
 # params: nil
 # prints: feedback
 # return: n/a, dies on failure
-method resize_images () {
+sub resize_images ($self)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
 
-    # pre-flight check
-    if ( not $self->_checks_ok ) { return; }
+  # pre-flight check
+  if (not $self->_checks_ok) { return $FALSE; }
 
-    my $dimensions = $self->_dimensions;
+  my $dimensions = $self->_dimensions;
 
-    # cycle through image files
-    my @files    = $self->_files;
-    my $count    = scalar @files;
-    my $progress = 0;
-    if ( $count == 1 ) { say "Resizing image file '$files[0]'"; }
-    else {
-        say "\nResizing $count image files:";
-        $progress = Term::ProgressBar::Simple->new($count);
-    }
-    for my $file (@files) {
+  # cycle through image files
+  my @files    = $self->_files;
+  my $count    = @files;
+  my $progress = 0;
+  if ($count == 1) { say "Resizing image file '$files[0]'" or croak; }
+  else {
+    say "\nResizing $count image files:" or croak;
+    $progress = Term::ProgressBar::Simple->new($count);
+  }
+  for my $file (@files) {
 
-        my $image = $self->image_create($file);
+    my $image = $self->image_create($file);
 
-        # resize image and add borders
-        $self->image_resize( $image, $dimensions->width, $dimensions->height,
-            $self->fill_color, preserve => $self->preserve_aspect_ratio, );
-        $self->image_add_border(
-            $image,
-            $dimensions->border_horizontal,
-            $dimensions->border_vertical,
-            $self->fill_color,
-        );
-        $self->_write_to_temp_dir( $image, $file );
-        undef $image;    # avoid memory cache overflow
+    # resize image and add borders
+    my $opts = {
+      width    => $dimensions->width,
+      height   => $dimensions->height,
+      fill     => $self->fill_color,
+      preserve => $self->preserve_aspect_ratio,
+    };
+    $self->image_resize($image, $opts);
+    $self->image_add_border(
+      $image,
+      $dimensions->border_horizontal,
+      $dimensions->border_vertical,
+      $self->fill_color,
+    );
+    $self->_write_to_temp_dir($image, $file);
+    undef $image;    # avoid memory cache overflow
 
-        $progress++;
-    }
+    $progress++;
+  }
 
-    undef $progress;     # ensure final messages displayed
+  undef $progress;    # ensure final messages displayed
 
-    # copy temporary files over original files (dies on failure)
-    say 'Overwriting with resized files';
-    $self->dir_copy( $self->_temp_dir, $self->_orig_dir );
+  # copy temporary files over original files (dies on failure)
+  say 'Overwriting with resized files' or croak;
+  $self->dir_copy($self->_temp_dir, $self->_orig_dir);
 
-    say 'Processing complete';
+  say 'Processing complete' or croak;
 
-    return $TRUE;
+  return $TRUE;
 }
 
-# _checks_ok()                                                         {{{1
+# _checks_ok() {{{1
 #
 # does:   check validity of files and requested operations
 # params: nil
 # prints: feedback
 # return: n/a, dies on failure
-method _checks_ok () {
+sub _checks_ok ($self,) {    ## no critic (RequireInterpolationOfMetachars)
 
-    my @files = $self->_files;
+  my @files = $self->_files;
 
-    # check for output filename collisions                             {{{2
-    # - input image files are specified by filepaths
-    # - output files are in current working directory and share the
-    #   basename of the parent
-    # - it is therefor possible that multiple input file paths could
-    #   be from different directories but have the same filename
-    # - this would result in output files from those input files
-    #   having the same name
-    my %dupes = %{ $self->file_name_duplicates(@files) };
-    if ( scalar keys %dupes ) {
-        warn "Multiple input file paths have the same file name.\n";
-        warn "Input filepaths that have the same file name will\n";
-        warn "generate output files with the same name.\n";
-        warn "Since all output files are written to the current\n";
-        warn "directory, and existing files are silently overwritten,\n";
-        warn "this will result in some later output files overwriting\n";
-        warn "earlier output files.\n";
-        warn "Problem filename(s) are:\n";
+  # check for output filename collisions {{{2
+  # - input image files are specified by filepaths
+  # - output files are in current working directory and share the
+  #   basename of the parent
+  # - it is therefor possible that multiple input file paths could
+  #   be from different directories but have the same filename
+  # - this would result in output files from those input files
+  #   having the same name
+  my %dupes = %{ $self->file_name_duplicates(@files) };
+  if (scalar keys %dupes) {
+    warn "Multiple input file paths have the same file name.\n";
+    warn "Input filepaths that have the same file name will\n";
+    warn "generate output files with the same name.\n";
+    warn "Since all output files are written to the current\n";
+    warn "directory, and existing files are silently overwritten,\n";
+    warn "this will result in some later output files overwriting\n";
+    warn "earlier output files.\n";
+    warn "Problem filename(s) are:\n";
 
-        while ( my ( $name, $paths ) = each %dupes ) {
-            warn "- $name\n";
-            for my $path ( @{$paths} ) { warn "  - $path\n"; }
-        }
-        warn "Aborting.\n";
-        return;
+    foreach my $name (keys %dupes) {
+      my $paths = $dupes{$name};
+      warn "- $name\n";
+      for my $path (@{$paths}) { warn "  - $path\n"; }
     }
+    warn "Aborting.\n";
+    return $FALSE;
+  }
 
-    # ensure all files can be opened as images                         {{{2
-    if ( not $self->image_files_valid(@files) ) {
-        warn "Invalid image file(s) specified\n";
-        return;
-    }
+  # ensure all files can be opened as images {{{2
+  if (not $self->image_files_valid(@files)) {
+    warn "Invalid image file(s) specified\n";
+    return $FALSE;
+  }
 
-    # require dimensions and/or borders                                {{{2
-    if (    ( not( $self->width and $self->height ) )
-        and ( not( $self->border_horizontal and $self->border_vertical ) ) )
-    {
-        warn "No dimensions or borders provided\n";
-        warn "No resizing will be performed\n";
-        return;
-    }    #                                                             }}}2
+  # require dimensions and/or borders {{{2
+  if (  (not($self->width and $self->height))
+    and (not($self->border_horizontal and $self->border_vertical)))
+  {
+    warn "No dimensions or borders provided\n";
+    warn "No resizing will be performed\n";
+    return $FALSE;
+  }    # }}}2
 
-    return $TRUE;
+  return $TRUE;
 }
 
-# _write_to_temp_dir($image, $orig_fp)                                 {{{1
+# _write_to_temp_dir($image, $orig_fp) {{{1
 #
 # does:   write image to temporary directory
 # params: $orig_fp - original path of image file
 # prints: feedback if fails
 # return: n/a, dies on failure
-method _write_to_temp_dir ($image, $orig_fp) {
+sub _write_to_temp_dir ($self, $image, $orig_fp)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # check args
-    confess 'No filepath provided' if not $orig_fp;
-    confess 'No image provided'    if not $image;
-    confess 'Not an image object'  if not $self->image_object($image);
+  # check args
+  confess 'No filepath provided' if not $orig_fp;
+  confess 'No image provided'    if not $image;
+  confess 'Not an image object'  if not $self->image_object($image);
 
-    # get target filepath
-    my $temp_fp = $self->file_cat_dir( $orig_fp, $self->_temp_dir );
+  # get target filepath
+  my $temp_fp = $self->file_cat_dir($orig_fp, $self->_temp_dir);
 
-    # write image file to temporary directory
-    $self->image_write( $image, $temp_fp );
-}    #                                                                 }}}1
+  # write image file to temporary directory
+  $self->image_write($image, $temp_fp);
+
+  return $TRUE;
+}    # }}}1
 
 1;
 
-# POD                                                                  {{{1
+# POD {{{1
+
+## no critic (RequirePodSections)
 
 __END__
 
@@ -427,9 +441,9 @@ There are no configuration files used. There are no module/role settings.
 
 =head2 Perl modules
 
-autodie, Carp, Cwd, Dn::Images::Resize::Dimensions, Role::Utils::Dn, English,
-Function::Parameters, Moo, MooX::HandlesVia, namespace::clean, Readonly,
-strictures, Term::ProgressBar::Simple, Types::Standard, version.
+autodie, Carp, Const::Fast, Cwd, Dn::Images::Resize::Dimensions,
+Role::Utils::Dn, English, Moo, MooX::HandlesVia, namespace::clean, strictures,
+Term::ProgressBar::Simple, Types::Standard, version.
 
 =head2 INCOMPATIBILITIES
 

@@ -1,51 +1,53 @@
-package Dn::Images::Resize::Dimensions;
+package Dn::Images::Resize::Dimensions;    ## no critic (PodSpelling)
 
-use Moo;    #                                                          {{{1
+use Moo;                                   # {{{1
 use strictures 2;
 use 5.006;
-use 5.22.1;
-use version; our $VERSION = qv('0.1');
+use 5.036_001;
+use version; our $VERSION = qv('0.2');
 use namespace::clean;
 use English qw(-no_match_vars);
-use Types::Standard;    #                                              }}}1
+use Types::Standard;                       # }}}1
 
 # attributes
 
-# width                                                                {{{1
+# width {{{1
 has 'width' => (
-    is      => 'rw',
-    isa     => Types::Standard::Int,
-    default => 0,
-    doc     => 'Width of resized image (in pixels)',
+  is      => 'rw',
+  isa     => Types::Standard::Int,
+  default => 0,
+  doc     => 'Width of resized image (in pixels)',
 );
 
-# height                                                                {{{1
+# height {{{1
 has 'height' => (
-    is      => 'rw',
-    isa     => Types::Standard::Int,
-    default => 0,
-    doc     => 'Height of resized image (in pixels)',
+  is      => 'rw',
+  isa     => Types::Standard::Int,
+  default => 0,
+  doc     => 'Height of resized image (in pixels)',
 );
 
-# border_horizontal                                                     {{{1
+# border_horizontal {{{1
 has 'border_horizontal' => (
-    is      => 'rw',
-    isa     => Types::Standard::Int,
-    default => 0,
-    doc     => 'Size of left and right borders (in pixels)',
+  is      => 'rw',
+  isa     => Types::Standard::Int,
+  default => 0,
+  doc     => 'Size of left and right borders (in pixels)',
 );
 
-# border_vertical                                                       {{{1
+# border_vertical {{{1
 has 'border_vertical' => (
-    is      => 'rw',
-    isa     => Types::Standard::Int,
-    default => 0,
-    doc     => 'Size of top and bottom borders (in pixels)',
-);    #                                                                }}}1
+  is      => 'rw',
+  isa     => Types::Standard::Int,
+  default => 0,
+  doc     => 'Size of top and bottom borders (in pixels)',
+);    # }}}1
 
 1;
 
-# POD                                                                  {{{1
+# POD {{{1
+
+## no critic (RequirePodSections)
 
 __END__
 
