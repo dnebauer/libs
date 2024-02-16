@@ -1,16 +1,15 @@
-package Dn::Images::Uniquefy::PixelsProcessed;
+package Dn::Images::Uniquefy::PixelsProcessed;    ## no critic (PodSpelling)
 
-use Moo;    # {{{1
+use Moo;                                          # {{{1
 use strictures 2;
 use 5.006;
-use 5.022_001;
+use 5.036_001;
 use version; our $VERSION = qv('0.1');
 use namespace::clean;
 
 use Carp qw(confess);
 use Const::Fast;
 use English qw(-no_match_vars);
-use Function::Parameters;
 use MooX::HandlesVia;
 use Types::Standard;
 
@@ -21,7 +20,7 @@ const my $FALSE => 0;    # }}}1
 
 # attributes
 
-# clear_x_coords, _set_x_coord, _x_coord, _x_coord_exists              {{{1
+# clear_x_coords, _set_x_coord, _x_coord, _x_coord_exists {{{1
 has '_pixels_list' => (
   is          => 'rw',
   isa         => Types::Standard::HashRef [Types::Standard::ArrayRef],
@@ -46,7 +45,7 @@ has '_pixels_list' => (
 #         y - pixel's y-coord [int, required]
 # prints: error message on failure
 # return: n/a, die on failure
-method mark_pixel_as_processed ($x, $y)
+sub mark_pixel_as_processed ($self, $x, $y)
 { ## no critic (ProhibitSubroutinePrototypes Prototypes RequireInterpolationOfMetachars)
 
   # check args
@@ -83,8 +82,8 @@ method mark_pixel_as_processed ($x, $y)
 #         y - pixel's y-coord [int, required]
 # prints: error message on failure
 # return: boolean, dies on failure
-method pixel_is_processed ($x, $y)
-{ ## no critic (ProhibitSubroutinePrototypes Prototypes RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+sub pixel_is_processed ($self, $x, $y)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
 
   # check args
   # - note that zero is a valid coordinate value, hence 'defined'
@@ -216,8 +215,8 @@ There are no configuration files used. There are no module/role settings.
 
 =head2 Perl modules
 
-Const::Fast, Role::Utils::Dn, English, Function::Parameters, Moo,
-MooX::HandlesVia, namespace::clean, strictures, Types::Standard, version.
+Const::Fast, Role::Utils::Dn, English, Moo, MooX::HandlesVia, namespace::clean,
+strictures, Types::Standard, version.
 
 =head2 INCOMPATIBILITIES
 

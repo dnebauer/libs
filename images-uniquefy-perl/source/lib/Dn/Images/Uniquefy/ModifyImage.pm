@@ -1,9 +1,11 @@
+## no critic (RequireTidyCode PodSpelling)
 package Dn::Images::Uniquefy::ModifyImage;
+## use critic
 
 use Moo;    # {{{1
 use strictures 2;
 use 5.006;
-use 5.022_001;
+use 5.036_001;
 use version; our $VERSION = qv('0.1');
 use namespace::clean;
 
@@ -11,7 +13,6 @@ use autodie qw(open close);
 use Carp    qw(confess);
 use Const::Fast;
 use English qw(-no_match_vars);
-use Function::Parameters;
 use MooX::HandlesVia;
 use Types::Standard;
 
@@ -19,10 +20,14 @@ with qw(Role::Utils::Dn);
 
 const my $TRUE              => 1;
 const my $FALSE             => 0;
+const my $HEIGHT            => 'height';
+const my $IMAGE_NOT_CREATED => 'Image is not created';
+const my $LAZY              => 'lazy';
 const my $MAX_RGB           => 255;
-const my $RGB_COMPONENT_MAX => 127;
+const my $NEG_SIX           => -6;
 const my $POS_SIX           => 6;
-const my $NEG_SIX           => -6;    # }}}1
+const my $RGB_COMPONENT_MAX => 127;
+const my $WIDTH             => 'width';                  # }}}1
 
 # attributes
 
@@ -35,29 +40,54 @@ has 'filepath' => (
 );
 
 # width {{{1
-has 'width' => (
-  is  => 'lazy',
-  isa => Types::Standard::Int,
+has $WIDTH => (
+
+  #is  => $LAZY,
+  is      => 'ro',
+  isa     => Types::Standard::Int,
+  lazy    => $TRUE,
+  default => sub {
+    my $self = $_[0];
+    if (not $self->_image) {
+      confess $IMAGE_NOT_CREATED;
+    }
+    return $self->_image->get($WIDTH);
+  },
   doc => 'Image width',
 );
 
-method _build_width () {    ## no critic (ProhibitUnusedPrivateSubroutines)
-  confess 'Image is not created' if not $self->_image;
-  return $self->_image->Get('width');  ## no critic (ProhibitDuplicateLiteral)
-}
+#sub _build_width ($self)
+#{ ## no critic (ProhibitUnusedPrivateSubroutines RequireInterpolationOfMetachars)
+#  if (not $self->_image) {
+#    confess $IMAGE_NOT_CREATED;
+#  }
+#  return $self->_image->get($WIDTH);
+#}
 
 # height {{{1
-has 'height' => (
-  is  => 'lazy',                       ## no critic (ProhibitDuplicateLiteral)
-  isa => Types::Standard::Int,
+has $HEIGHT => (
+
+  #is  => $LAZY,
+  is      => 'ro',
+  isa     => Types::Standard::Int,
+  lazy    => $TRUE,
+  default => sub {
+    my $self = $_[0];
+    if (not $self->_image) {
+      confess $IMAGE_NOT_CREATED;
+    }
+    return $self->_image->Get($HEIGHT);
+  },
   doc => 'Image height',
 );
 
-method _build_height () {    ## no critic (ProhibitUnusedPrivateSubroutines)
-  confess 'Image is not created'    ## no critic (ProhibitDuplicateLiteral)
-      if not $self->_image;
-  return $self->_image->Get('height'); ## no critic (ProhibitDuplicateLiteral)
-}
+#sub _build_height ($self)
+#{ ## no critic (ProhibitUnusedPrivateSubroutines RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+#  if (not $self->_image) {
+#    confess $IMAGE_NOT_CREATED;
+#  }
+#  return $self->_image->Get($HEIGHT);
+#}
 
 # _[set|get]_pixel_properties, _has_pixel_property {{{1
 # - properties: x, y, rgb_component_value, rgb_component_index
@@ -77,15 +107,28 @@ has '_pixel_coords_hash' => (
 
 # _image {{{1
 has '_image' => (
-  is  => 'lazy',    ## no critic (ProhibitDuplicateLiteral)
-  isa => Types::Standard::InstanceOf ['Image::Magick'],
+
+  #is  => $LAZY,
+  is      => 'ro',
+  isa     => Types::Standard::InstanceOf ['Image::Magick'],
+  lazy    => $LAZY,
+  default => sub {
+    my $self = $_[0];
+    if (not $self->filepath) {
+      confess 'No image filepath provided';
+    }
+    return $self->image_create($self->filepath);
+  },
   doc => 'ImageMagick object',
 );
 
-method _build__image () {    ## no critic (ProhibitUnusedPrivateSubroutines)
-  confess 'No image filepath provided' if not $self->filepath;
-  return $self->image_create($self->filepath);
-}                            # }}}1
+#sub _build__image ($self)
+#{ ## no critic (ProhibitUnusedPrivateSubroutines RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+#  if (not $self->filepath) {
+#    confess 'No image filepath provided';
+#  }
+#  return $self->image_create($self->filepath);
+#}    # }}}1
 
 # methods
 
@@ -95,7 +138,8 @@ method _build__image () {    ## no critic (ProhibitUnusedPrivateSubroutines)
 # params: nil
 # prints: feedback if fails
 # return: n/a, dies on failure
-method modify_pixel () {
+sub modify_pixel ($self)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
 
   # increment RGB value
   my $rgb_value = $self->_pixel_rgb_component_value
@@ -130,8 +174,8 @@ method modify_pixel () {
 # prints: nil
 # return: integer if getter
 #         nil if setter
-method pixel_rgb_component_index ($index = undef)
-{ ## no critic (ProhibitSubroutinePrototypes Prototypes RequireInterpolationOfMetachars)
+sub pixel_rgb_component_index ($self, $index = undef)
+{    ## no critic (RequireInterpolationOfMetachars)
 
   # take care because $index legitimately can be 0
 
@@ -166,19 +210,22 @@ method pixel_rgb_component_index ($index = undef)
 # prints: nil
 # return: list of integers ($x, $y) if getter
 #         nil if setter
-method pixel_coords (@coords)
-{ ## no critic (ProhibitSubroutinePrototypes Prototypes RequireInterpolationOfMetachars)
+sub pixel_coords ($self, @coords)
+{    ## no critic (RequireInterpolationOfMetachars)
 
   if (@coords) {    # setter
 
     # need two coords
     my $count = @coords;
-    confess "Need 2 arguments (got $count)" if $count != 2;
+    if ($count != 2) {
+      confess "Need 2 arguments (got $count)";
+    }
 
     # need integer coords
     for my $coord (@coords) {
-      confess "Non-integer coordinate '$coord'"
-          if not $self->int_pos_valid($coord);
+      if (not $self->int_pos_valid($coord)) {
+        confess "Non-integer coordinate '$coord'";
+      }
     }
 
     # set coords
@@ -189,7 +236,9 @@ method pixel_coords (@coords)
   else {    # getter
 
     # check that coords have been set
-    confess 'Pixel coordinates not set' if not $self->has_pixel_coords;
+    if (not $self->has_pixel_coords) {
+      confess 'Pixel coordinates not set';
+    }
 
     # return coords
     my @pixel_coords = $self->_get_pixel_properties(qw(x y));
@@ -203,9 +252,11 @@ method pixel_coords (@coords)
 # params: $filepath - path of file to write
 # prints: feedback if fails
 # return: n/a, dies on failure
-method write_file ($filepath)
-{ ## no critic (ProhibitSubroutinePrototypes Prototypes RequireInterpolationOfMetachars)
-  confess 'No filepath provided' if not $filepath;
+sub write_file ($self, $filepath)
+{    ## no critic (RequireInterpolationOfMetachars)
+  if (not $filepath) {
+    confess 'No filepath provided';
+  }
   $self->image_write($self->_image, $filepath);
   return;
 }
@@ -216,7 +267,8 @@ method write_file ($filepath)
 # params: nil
 # prints: nil
 # return: scalar boolean
-method has_pixel_coords () {
+sub has_pixel_coords ($self)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
   return (  $self->_has_pixel_property(q{x})
         and $self->_has_pixel_property(q{y}));
 }
@@ -251,24 +303,27 @@ method has_pixel_coords () {
 #                    component value; if one increment does not result in a
 #                    change to the value in the file, repeated modifications
 #                    eventually will
-method _pixel_rgb_component_value ($value = undef)
-{ ## no critic (ProhibitSubroutinePrototypes Prototypes RequireInterpolationOfMetachars)
+sub _pixel_rgb_component_value ($self, $value = undef)
+{  ## no critic (ProhibitSubroutinePrototypes RequireInterpolationOfMetachars)
 
   # take care because $value legitimately can be 0
 
   if (defined $value) {    # setter
 
     # can only be 0-255
-    confess "Value '$value' is not a positive integer"
-        if not $self->int_pos_valid($value);
-    confess "Value '$value' not in range 0-255" if $value > $MAX_RGB;
+    if (not $self->int_pos_valid($value)) {
+      confess "Value '$value' is not a positive integer";
+    }
+    if ($value > $MAX_RGB) {
+      confess "Value '$value' not in range 0-255";
+    }
 
     # set value
     $self->_set_pixel_properties(rgb_component_value => $value);
 
     return $TRUE;
   }
-  else {                   # getter
+  else {    # getter
 
     # return value if set; if not ...
     if ($self->_has_pixel_property('rgb_component_value')) {
@@ -279,8 +334,9 @@ method _pixel_rgb_component_value ($value = undef)
     else {    # ... initialise value and return it
 
       # need pixel x and y coordinates
-      confess 'Pixel coordinates not available'
-          if not $self->has_pixel_coords;
+      if (not $self->has_pixel_coords) {
+        confess 'Pixel coordinates not available';
+      }
 
       # get rgb component of pixel
       my $image  = $self->_image;
@@ -304,7 +360,8 @@ method _pixel_rgb_component_value ($value = undef)
 # params: nil
 # prints: nil
 # return: scalar integer
-method _pixel_rgb_component_increment () {
+sub _pixel_rgb_component_increment ($self)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
   return ($self->_pixel_rgb_component_value <= $RGB_COMPONENT_MAX)
       ? $POS_SIX
       : $NEG_SIX;
@@ -314,7 +371,7 @@ method _pixel_rgb_component_increment () {
 
 # POD {{{1
 
-## no critic (RequirePodSections ProhibitUnbalancedParens)
+## no critic (RequirePodSections)
 
 __END__
 
@@ -400,8 +457,6 @@ If called as setter: no meaningful value is returned.
 
 If called as getter: scalar integer is returned.
 
-method pixel_rgb_component_index ($index = undef) {
-
 =head2 pixel_coords([$x], [$y])
 
 Setter and getter for x and y coordinates of pixel to be modified.
@@ -478,9 +533,8 @@ There are no configuration files used. There are no module/role settings.
 
 =head2 Perl modules
 
-autodie, Carp, Const::Fast, English, Function::Parameters, Moo,
-MooX::HandlesVia, namespace::clean, Role::Utils::Dn, strictures,
-Types::Standard,  version.
+autodie, Carp, Const::Fast, English, Moo, MooX::HandlesVia, namespace::clean,
+Role::Utils::Dn, strictures, Types::Standard,  version.
 
 =head2 INCOMPATIBILITIES
 
