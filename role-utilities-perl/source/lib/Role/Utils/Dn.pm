@@ -140,7 +140,8 @@ sub array_push ($self, $arrayref, @items)
 #                 my $version = "$LAST_PAREN_MATCH{'version'}";
 #                 # ...
 #             }
-sub changelog_version_regex () {
+sub changelog_version_regex ($self = undef)
+{    ## no critic (RequireInterpolationOfMetachars)
 
   # building blocks
   my $any = qr/.*?/xsm;
@@ -214,7 +215,8 @@ sub changelog_version_regex () {
 #                 my $version = "$LAST_PAREN_MATCH{'version'}";
 #                 # ...
 #             }
-sub configure_ac_version_regex () {
+sub configure_ac_version_regex ($self = undef)
+{    ## no critic (RequireInterpolationOfMetachars)
 
   # building blocks
   my $any = qr/.*?/xsm;
@@ -328,7 +330,7 @@ sub copy_to_clipboard ($self, $val)
 # params: nil
 # prints: nil
 # return: scalar string
-sub cwd () {
+sub cwd ($self = undef) {    ## no critic (RequireInterpolationOfMetachars)
   return Path::Tiny::path($DOT)->realpath;
 }
 
@@ -339,7 +341,8 @@ sub cwd () {
 # prints: nil
 # return: scalar string
 # uses:   Date::Simple
-sub date_current_iso () {
+sub date_current_iso ($self = undef)
+{    ## no critic (RequireInterpolationOfMetachars)
   return Date::Simple->today()->format('%Y-%m-%d');
 }
 
@@ -350,7 +353,8 @@ sub date_current_iso () {
 # params: nil
 # prints: nil
 # return: scalar string - version (undef if problem encountered)
-sub debhelper_compat ($self) {  ## no critic (RequireInterpolationOfMetachars)
+sub debhelper_compat ($self = undef)
+{    ## no critic (RequireInterpolationOfMetachars)
 
   # get full version
   # - called method dies on failure
@@ -505,7 +509,7 @@ sub debian_package_version ($self, $pkg)
 # params: nil
 # prints: nil
 # return: scalar string - version
-sub debian_standards_version ($self)
+sub debian_standards_version ($self = undef)
 {    ## no critic (RequireInterpolationOfMetachars)
 
   # get full version
@@ -615,7 +619,8 @@ sub dir_copy ($self, $source_dir, $target_dir)
 # params: nil
 # prints: nil
 # return: scalar string
-sub dir_current () {
+sub dir_current ($self = undef)
+{    ## no critic (RequireInterpolationOfMetachars)
   return Path::Tiny::path($DOT)->absolute->canonpath;
 }
 
@@ -698,7 +703,7 @@ sub dir_parent ($self, $dir) {  ## no critic (RequireInterpolationOfMetachars)
 # params: nil
 # prints: nil
 # return: scalar string
-sub dir_temp () {
+sub dir_temp ($self = undef) {  ## no critic (RequireInterpolationOfMetachars)
   return File::Temp::tempdir(CLEANUP => $TRUE);
 }
 
@@ -708,7 +713,7 @@ sub dir_temp () {
 # params: nil
 # prints: nil
 # return: scalar string
-sub divider ($self) {    ## no critic (RequireInterpolationOfMetachars)
+sub divider ($self = undef) {   ## no critic (RequireInterpolationOfMetachars)
   my $width = $self->term_width;
   if ($width < $TERM_MIN_WIDTH) {
     confess "Terminal < $TERM_MIN_WIDTH chars($width)";
@@ -803,8 +808,9 @@ sub file_cat_dir ($self, $filepath, $dirpath, $exists = $FALSE)
 # params: nil
 # prints: error messages
 # return: list of strings
-sub file_cmdline_args ($self) { ## no critic (RequireInterpolationOfMetachars)
-  my @matches;                  # get unique file names
+sub file_cmdline_args ($self = undef)
+{    ## no critic (RequireInterpolationOfMetachars)
+  my @matches;    # get unique file names
   for my $arg (@ARGV) { push @matches, glob "$arg"; }
   my @unique_matches = List::SomeUtils::uniq @matches;
   my @files =
@@ -2286,7 +2292,8 @@ sub stringify ($self, $value)
 # params: nil
 # prints: nil
 # return: Scalar integer
-sub term_height () {
+sub term_height ($self = undef)
+{    ## no critic (RequireInterpolationOfMetachars)
   my ($height, $width);
   my $mwh = Curses->new();
   $mwh->getmaxyx($height, $width);
@@ -2300,7 +2307,8 @@ sub term_height () {
 # params: nil
 # prints: nil
 # return: Scalar integer
-sub term_width () {
+sub term_width ($self = undef)
+{    ## no critic (RequireInterpolationOfMetachars)
   my ($height, $width);
   my $mwh = Curses->new();
   $mwh->getmaxyx($height, $width);
@@ -2437,7 +2445,7 @@ sub wrap_text ($self, $strings, %options)
   # - $hang    {{{3
   #   . positive integer regexp    {{{4
   my $int_re = qr{
-        (?:                             #  '()' not to capture to $1, etc.
+        (?:                             # '()' not to capture to $1, etc.
             (?: 0 )                     # zero
             |                           # OR
             (?:                         # integer
@@ -2449,7 +2457,7 @@ sub wrap_text ($self, $strings, %options)
 
   #    . extended hang regexp    {{{4
   my $extend_re = qr{
-        (?:                          #  '()' not to capture to $1, etc.
+        (?:                          # '()' not to capture to $1, etc.
             (?: [Ee] )               # 'E' or 'e'
             (?: = ( $int_re ) ) ?    # optionally followed by '=' and integer
                                      # and capture the integer
