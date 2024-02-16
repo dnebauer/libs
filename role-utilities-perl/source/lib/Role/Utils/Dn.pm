@@ -1,10 +1,10 @@
-package Role::Utils::Dn;    ## no critic (PodSpelling)
+package Role::Utils::Dn;
 
-use Moo::Role;              # {{{1
+use Moo::Role;    # {{{1
 use strictures 2;
 use 5.006;
 use 5.036_001;
-use version; our $VERSION = qv('0.2');
+use version; our $VERSION = qv('0.3');
 use namespace::clean;
 
 use autodie qw(open close);
@@ -49,6 +49,7 @@ const my $FALSE                  => 0;
 const my $CLASS_REGEXP           => 'Regexp';
 const my $DOT                    => q{.};
 const my $DOUBLE_QUOTE           => q{"};
+const my $EMPTY_STRING           => q{};
 const my $FILE_COMPARE_ERROR     => -1;
 const my $KEY_BACKGROUND         => 'background';
 const my $KEY_BREAK              => 'break';
@@ -306,13 +307,7 @@ sub copy_to_clipboard ($self, $val)
     if (!close $pipe) {
 
       # exit status of pipe close
-      # - perlcritic mistakenly complains about
-      #   ${^CHILD_ERROR_NATIVE} being a "magic punctuation variable"
-      #   but it is actually the long name from the English module,
-      #   so ignore perlcritic in this case
-      ## no critic (ProhibitPunctuationVars)
       my $err = ${^CHILD_ERROR_NATIVE};
-      ## use critic
 
       # decode this exit status with POSIX module functions
       if (POSIX::WIFEXITED($err)) {
@@ -511,7 +506,7 @@ sub debian_package_version ($self, $pkg)
 # prints: nil
 # return: scalar string - version
 sub debian_standards_version ($self)
-{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+{    ## no critic (RequireInterpolationOfMetachars)
 
   # get full version
   # - called method returns undef on dpkg error, otherwise dies on failure
@@ -632,7 +627,7 @@ sub dir_current () {
 # return: scalar string path
 #         die on error
 sub dir_join ($self, @dirs) {    ##no critic (RequireInterpolationOfMetachars)
-  return q{} if not @dirs;
+  return $EMPTY_STRING if not @dirs;
   return File::Spec->catdir(@dirs);
 }
 
@@ -692,8 +687,7 @@ sub dir_make ($self, @paths) {  ## no critic (RequireInterpolationOfMetachars)
 # prints: nil
 # return: scalar (absolute directory path)
 # note:   converts to, and returns, absolute path
-sub dir_parent ($self, $dir)
-{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+sub dir_parent ($self, $dir) {  ## no critic (RequireInterpolationOfMetachars)
   if (not $dir) { confess 'No path provided'; }
   return Path::Tiny::path($dir)->absolute->parent->canonpath;
 }
@@ -714,8 +708,7 @@ sub dir_temp () {
 # params: nil
 # prints: nil
 # return: scalar string
-sub divider ($self)
-{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+sub divider ($self) {    ## no critic (RequireInterpolationOfMetachars)
   my $width = $self->term_width;
   if ($width < $TERM_MIN_WIDTH) {
     confess "Terminal < $TERM_MIN_WIDTH chars($width)";
@@ -810,9 +803,8 @@ sub file_cat_dir ($self, $filepath, $dirpath, $exists = $FALSE)
 # params: nil
 # prints: error messages
 # return: list of strings
-sub file_cmdline_args ($self)
-{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
-  my @matches;    # get unique file names
+sub file_cmdline_args ($self) { ## no critic (RequireInterpolationOfMetachars)
+  my @matches;                  # get unique file names
   for my $arg (@ARGV) { push @matches, glob "$arg"; }
   my @unique_matches = List::SomeUtils::uniq @matches;
   my @files =
@@ -996,7 +988,7 @@ sub file_move ($self, $source_file, $target)
 # note:   uses File::MimeInfo: alternatives include File::MMagic and
 #         File::MMagic:Magic
 sub file_mime_type ($self, $filepath)
-{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+{    ## no critic (RequireInterpolationOfMetachars)
   if (not $filepath)    { confess $MSG_NO_FILEPATH; }
   if (not -r $filepath) { confess "Invalid filepath '$filepath'"; }
   return File::MimeInfo->new()->mimetype($filepath);
@@ -1266,7 +1258,7 @@ sub image_create ($self, $filepath, $attributes = undef)
 # prints: error messages
 # return: nil, edits $image in place
 sub image_crop ($self, $image, $coords_ref)
-{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+{    ## no critic (RequireInterpolationOfMetachars)
 
   # check args
   # - need array reference
@@ -1926,7 +1918,7 @@ sub pad ($self, @params)
     confess "Values are '$ref' instead of 'ARRAY'";
   }
   if (not $ref) {                            # scalar
-    return q{} if not $values;
+    return $EMPTY_STRING if not $values;
     push @vals, $values;
   }
 
@@ -2051,7 +2043,7 @@ sub path_executable ($self, $exe)
 # return: scalar string path
 #         die on error
 sub path_join ($self, @parts) { ## no critic (RequireInterpolationOfMetachars)
-  return q{} if not @parts;
+  return $EMPTY_STRING if not @parts;
   return File::Spec->catfile(@parts);
 }
 
@@ -2142,7 +2134,7 @@ sub pluralise ($self, $string, $number)
 
   # check args
   if (not(defined $string)) { confess 'No string provided'; }
-  if (not $string)          { return q{}; }
+  if (not $string)          { return $EMPTY_STRING; }
   if (not $number)          { confess 'No number provided'; }
   if (not $self->int_pos_valid($number)) {
     confess "Number '$number' is not an integer";
@@ -2175,12 +2167,7 @@ sub run_command ($self, $err, @cmd)
     if ($err) { warn "$err\n"; }
     warn "Failed command: $cmd_str\n";
 
-    # perlcritic mistakenly complains about ${^CHILD_ERROR_NATIVE}
-    # being a "magic punctuation variable" but it is actually the
-    # long name from the English module, so perlcritic is wrong
-    ## no critic (ProhibitPunctuationVars)
     my $err = ${^CHILD_ERROR_NATIVE};
-    ## use critic
 
     # decode the exit status with POSIX module functions
     if (POSIX::WIFEXITED($err)) {
@@ -2218,7 +2205,7 @@ sub shell_command ($self, $cmd, $fatal = $TRUE, $timeout = 0)
     my @cmd_args = @{$cmd};
     if (not @cmd_args) { confess 'No command arguments provided'; }
   }
-  elsif ($arg_type ne q{}) {    # if not array ref must be string
+  elsif ($arg_type ne $EMPTY_STRING) {    # if not array ref must be string
     confess 'Command is not a string or array reference';
   }
   if (not $self->int_pos_valid($timeout)) {
@@ -2232,7 +2219,7 @@ sub shell_command ($self, $cmd, $fatal = $TRUE, $timeout = 0)
   # process output
   # - err: has trailing newline
   if (defined $err) { chomp $err; }
-  else { $err = q{}; }    # prevent undef which fails type constraint
+  else { $err = $EMPTY_STRING; }   # prevent undef which fails type constraint
 
   # - full, stdout and stderr: appears that for at least some commands
   #   all output lines are put into a single string, separated with
@@ -2275,21 +2262,21 @@ sub shell_command ($self, $cmd, $fatal = $TRUE, $timeout = 0)
   );
 }
 
-# stringify($val)    {{{1
+# stringify($value)    {{{1
 #
 # does:   convert all values to a string (may contain newlines)
-# params: $val - value to stringify [any, required]
+# params: $value - value to stringify [any, required]
 # prints: nil
 # return: scalar string
-sub stringify ($self, $val)
+sub stringify ($self, $value)
 {    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
 
   # no need to alter a string    {{{2
-  my $val_type = Scalar::Util::reftype $val;
-  if (not(defined $val_type)) { return $val; }
+  my $value_type = Scalar::Util::reftype $value;
+  if (not(defined $value_type)) { return $value; }
 
   # stringify anything else    {{{2
-  return Dumper($val);
+  return Dumper($value);
 
 }
 
@@ -2299,7 +2286,7 @@ sub stringify ($self, $val)
 # params: nil
 # prints: nil
 # return: Scalar integer
-method term_height () {
+sub term_height () {
   my ($height, $width);
   my $mwh = Curses->new();
   $mwh->getmaxyx($height, $width);
@@ -2313,7 +2300,7 @@ method term_height () {
 # params: nil
 # prints: nil
 # return: Scalar integer
-method term_width () {
+sub term_width () {
   my ($height, $width);
   my $mwh = Curses->new();
   $mwh->getmaxyx($height, $width);
@@ -2400,7 +2387,7 @@ sub wrap_text ($self, $strings, %options)
   my @input;
   for ($strings_ref) {
     if    ($_ eq $REF_TYPE_ARRAY) { @input = @{$strings}; }
-    elsif ($_ eq q{})             { push @input, $strings; }
+    elsif ($_ eq $EMPTY_STRING)   { push @input, $strings; }
     else {
       my $err =
           'Input is not a string or array reference: ' . Dumper($strings);
@@ -2432,7 +2419,7 @@ sub wrap_text ($self, $strings, %options)
   $Text::Wrap::columns = $width;
 
   # - $indent    {{{3
-  my $indent = q{};
+  my $indent = $EMPTY_STRING;
   if (exists $options{$KEY_INDENT}) {
     if (  $self->int_pos_valid($options{$KEY_INDENT})
       and $options{$KEY_INDENT} >= 0
@@ -2556,7 +2543,7 @@ Role::Utils::Dn - utility methods
 
 =head1 VERSION
 
-This documentation refers to Role::Utils::Dn version 0.1.
+This documentation refers to Role::Utils::Dn version 0.3.
 
 =head1 SYNOPSIS
 

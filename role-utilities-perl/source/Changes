@@ -1,5 +1,9 @@
 Revision history for Perl module Role-Utils-Dn
 
+0.3  2024-02-16
+  * Remove dependency on Function::Parameters
+  * Fix Perl::Critic warnings
+
 0.2  2024-01-30
   * Remove when() (deprecated)
 

@@ -1,3 +1,9 @@
+librole-utils-dn-perl (0.3-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Fri, 16 Feb 2024 23:39:09 +0930
+
 librole-utils-dn-perl (0.2-1) unstable; urgency=low
 
   * Replace when() (deprecated)
