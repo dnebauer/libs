@@ -1,13 +1,13 @@
-package Dn::Images::Resize::Dimensions;    ## no critic (PodSpelling)
+package Dn::Images::Resize::Dimensions;
 
-use Moo;                                   # {{{1
+use Moo;                # {{{1
 use strictures 2;
 use 5.006;
 use 5.036_001;
-use version; our $VERSION = qv('0.2');
+use version; our $VERSION = qv('0.3');
 use namespace::clean;
 use English qw(-no_match_vars);
-use Types::Standard;                       # }}}1
+use Types::Standard;    # }}}1
 
 # attributes
 

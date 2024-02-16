@@ -1,10 +1,10 @@
-package Dn::Images::Resize;    ## no critic (PodSpelling)
+package Dn::Images::Resize;
 
-use Moo;                       # {{{1
+use Moo;    # {{{1
 use strictures 2;
 use 5.006;
 use 5.036_001;
-use version; our $VERSION = qv('0.1');
+use version; our $VERSION = qv('0.3');
 use namespace::clean;
 
 use autodie qw(open close);
@@ -88,44 +88,43 @@ has 'image_files' => (
 
 # _dimensions {{{1
 has '_dimensions' => (
-  is  => $LAZY,
-  isa => Types::Standard::InstanceOf ['Dn::Images::Resize::Dimensions'],
+  is      => 'rw',
+  isa     => Types::Standard::InstanceOf ['Dn::Images::Resize::Dimensions'],
+  lazy    => $TRUE,
+  default => sub {
+    my $self = $_[0];
+    return Dn::Images::Resize::Dimensions->new(
+      width             => $self->width,
+      height            => $self->height,
+      border_horizontal => $self->border_horizontal,
+      border_vertical   => $self->border_vertical,
+    );
+  },
   doc => q[ Final dimensions of image ],
 );
 
-sub _build__dimensions ($self)
-{ ## no critic (RequireInterpolationOfMetachars ProhibitUnusedPrivateSubroutines)
-
-  return Dn::Images::Resize::Dimensions->new(
-    width             => $self->width,
-    height            => $self->height,
-    border_horizontal => $self->border_horizontal,
-    border_vertical   => $self->border_vertical,
-  );
-}
-
 # _orig_dir {{{1
 has '_orig_dir' => (
-  is  => $LAZY,
-  isa => Types::Standard::Str,
+  is      => 'rw',
+  isa     => Types::Standard::Str,
+  lazy    => $TRUE,
+  default => sub {
+    return Cwd::getcwd();
+  },
   doc => q[ Directory in which script is run ],
 );
 
-sub _build__orig_dir () {    ## no critic (ProhibitUnusedPrivateSubroutines)
-  return Cwd::getcwd();
-}
-
 # _temp_dir {{{1
 has '_temp_dir' => (
-  is  => $LAZY,
-  isa => Types::Standard::Str,
+  is      => 'rw',
+  isa     => Types::Standard::Str,
+  lazy    => $TRUE,
+  default => sub {
+    my $self = $_[0];
+    return $self->dir_temp();
+  },
   doc => q[ Temporary working directory ],
 );
-
-sub _build__temp_dir ($self)
-{ ## no critic (RequireInterpolationOfMetachars ProhibitUnusedPrivateSubroutines ProhibitDuplicateLiteral)
-  return $self->dir_temp();
-}    # }}}1
 
 # methods
 
@@ -135,8 +134,8 @@ sub _build__temp_dir ($self)
 # params: nil
 # prints: feedback
 # return: n/a, dies on failure
-sub resize_images ($self)
-{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+sub resize_images ($self = undef)
+{    ## no critic (RequireInterpolationOfMetachars)
 
   # pre-flight check
   if (not $self->_checks_ok) { return $FALSE; }
@@ -193,7 +192,8 @@ sub resize_images ($self)
 # params: nil
 # prints: feedback
 # return: n/a, dies on failure
-sub _checks_ok ($self,) {    ## no critic (RequireInterpolationOfMetachars)
+sub _checks_ok ($self = undef)
+{    ## no critic (RequireInterpolationOfMetachars)
 
   my @files = $self->_files;
 
