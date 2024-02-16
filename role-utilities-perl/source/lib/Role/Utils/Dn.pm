@@ -1,43 +1,42 @@
-package Role::Utils::Dn;
+package Role::Utils::Dn;    ## no critic (PodSpelling)
 
-use Moo::Role;    # {{{1
+use Moo::Role;              # {{{1
 use strictures 2;
 use 5.006;
-use 5.022001;
-use version; our $VERSION = qv('0.1');
+use 5.036_001;
+use version; our $VERSION = qv('0.2');
 use namespace::clean;
 
 use autodie qw(open close);
-use Carp qw(confess);
+use Carp    qw(carp confess croak);
 use Const::Fast;
 use Clipboard;
 use Curses;
 use Data::Dumper::Simple;
 use Date::Simple qw(today);
-use English qw(-no_match_vars);
-use Env qw($PAGER);
+use English      qw(-no_match_vars);
+use Env          qw($PAGER);
 use Feature::Compat::Try;
 use File::Basename;
 use File::Compare;
-use File::Copy::Recursive qw(dircopy fcopy fmove);
+use File::Copy::Recursive;
 use File::MimeInfo;
-use File::Path qw(make_path remove_tree);
+use File::Path;
 use File::Spec;
-use File::Temp qw(tempdir);
+use File::Temp;
 use File::Util;
 use File::Which;
-use Function::Parameters;
 use Image::Magick;
 use IO::Pager;
 use IPC::Cmd;
 use IPC::Run;    # required by IPC::Cmd
-use List::MoreUtils;
+use List::SomeUtils;
 use List::Util qw(reduce);
-use Net::Ping::External qw(ping);
+use Net::Ping::External;
 use Path::Tiny;
-use POSIX;       # for WIFEXITED, WEXITSTATUS, WIFSIGNALED, WTERMSIG
+use POSIX ();    # for WIFEXITED, WEXITSTATUS, WIFSIGNALED, WTERMSIG
 use Role::Utils::Dn::CommandResult;
-use Scalar::Util qw(blessed reftype);
+use Scalar::Util;
 use Symbol;
 use Term::Clui;
 use Term::ProgressBar::Simple;
@@ -45,14 +44,49 @@ use Text::Pluralize;
 use Text::Wrap;
 use experimental qw(switch);
 
-const my $TRUE               => 1;
-const my $FALSE              => 0;
-const my $FILE_COMPARE_ERROR => -1;
-const my $NEGATE             => -1;
-const my $RGB_ARG_COUNT      => 3;
-const my $RGB_ARG_MAX        => 255;
-const my $TERM_MIN_WIDTH     => 10;
-const my $TERM_GUTTER        => 5;     # }}}1
+const my $TRUE                   => 1;
+const my $FALSE                  => 0;
+const my $CLASS_REGEXP           => 'Regexp';
+const my $DOT                    => q{.};
+const my $DOUBLE_QUOTE           => q{"};
+const my $FILE_COMPARE_ERROR     => -1;
+const my $KEY_BACKGROUND         => 'background';
+const my $KEY_BREAK              => 'break';
+const my $KEY_CONT               => 'cont';
+const my $KEY_FONT               => 'font';
+const my $KEY_GEOMETRY           => 'geometry';
+const my $KEY_GRAVITY            => 'gravity';
+const my $KEY_HANG               => 'hang';
+const my $KEY_HEIGHT             => 'height';
+const my $KEY_INDENT             => 'indent';
+const my $KEY_WIDTH              => 'width';
+const my $MOD_PATH_TINY          => 'Path::Tiny';
+const my $MSG_INSTALL_GOOD       => 'Package installed successfully';
+const my $MSG_NO_COMMAND         => 'No command provided';
+const my $MSG_NO_FILEPATH        => 'No filepath provided';
+const my $MSG_NO_IMAGE           => 'No image provided';
+const my $MSG_NO_SOURCE          => 'No source file provided';
+const my $MSG_NO_TARGET          => 'No target provided';
+const my $MSG_NO_TERM_OUTPUT     => 'Unable to output to terminal';
+const my $MSG_NOT_ARRAYREF       => 'Not an array reference';
+const my $MSG_NOT_IMG_OBJ        => 'Not an image object';
+const my $MSG_SCALAR_NOT_HASHREF => 'Expected hash reference, got scalar';
+const my $NEGATE      => -1;           ## no critic (ProhibitDuplicateLiteral)
+const my $NEWLINE     => "\n";
+const my $OPT_INSTALL => '--install';
+const my $PARAM_COMMA_SPACE => q{, };
+const my $PARAM_DPKG        => 'dpkg';
+const my $PARAM_HEIGHT   => 'height';  ## no critic (ProhibitDuplicateLiteral)
+const my $PARAM_WIDTH    => 'width';   ## no critic (ProhibitDuplicateLiteral)
+const my $REF_TYPE_ARRAY => 'ARRAY';
+const my $REF_TYPE_HASH  => 'HASH';
+const my $RGB_ARG_COUNT  => 3;
+const my $RGB_ARG_MAX    => 255;
+const my $SPACE          => q{ };
+const my $TERM_MIN_WIDTH => 10;
+const my $TERM_GUTTER    => 5;
+const my $VAL_CENTER     => 'Center';
+const my $VAL_LEFT       => 'left';    # }}}1
 
 # methods
 
@@ -63,18 +97,19 @@ const my $TERM_GUTTER        => 5;     # }}}1
 #         @items    - items to add [required]
 # prints: nil, except error messages
 # return: array reference (dies on failure)
-method array_push ( $arrayref, @items ) {
+sub array_push ($self, $arrayref, @items)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # check args
-    if ( not @items )    { confess 'No items provided'; }
-    if ( not $arrayref ) { confess 'No array reference provided'; }
-    my $ref_type = ref $arrayref;
-    if ( $ref_type ne 'ARRAY' ) { confess 'Not an array reference'; }
+  # check args
+  if (not @items)    { confess 'No items provided'; }
+  if (not $arrayref) { confess 'No array reference provided'; }
+  my $ref_type = ref $arrayref;
+  if ($ref_type ne $REF_TYPE_ARRAY) { confess $MSG_NOT_ARRAYREF ; }
 
-    # add items
-    my @list = @{$arrayref};
-    push @list, @items;
-    return [@list];
+  # add items
+  my @list = @{$arrayref};
+  push @list, @items;
+  return [@list];
 }
 
 # changelog_version_regex()    {{{1
@@ -104,28 +139,23 @@ method array_push ( $arrayref, @items ) {
 #                 my $version = "$LAST_PAREN_MATCH{'version'}";
 #                 # ...
 #             }
-method changelog_version_regex () {
+sub changelog_version_regex () {
 
-    # building blocks
-    my $any = qr/.*?/xsm;
+  # building blocks
+  my $any = qr/.*?/xsm;
 
-    # in $any can't enclose '.' in a character class ('[.]')
-    # because then it wouldn't match newlines
-    # (see 'Metacharacters' section in 'perlre' manpage)
-    # so need to disable related Perl::Critic warnings
+  # first capture: package name
 
-    # first capture: package name
-
-    my $pkg = qr{
+  my $pkg = qr{
         (?<pkg>    # first capture is package name
         \A\S+      # package name
         )          # close capture
         \s+        # followed by space
     }xsm;
 
-    # second capture: version+revision
+  # second capture: version+revision
 
-    my $version = qr{
+  my $version = qr{
         [(]            # enclosed in parentheses
         (?<version>    # commence capture of version+revision
         [^)]+          # version+revision
@@ -134,34 +164,34 @@ method changelog_version_regex () {
         \s+            # followed by space
     }xsm;
 
-    # third capture: release
+  # third capture: release
 
-    my $release = qr{
+  my $release = qr{
         (?<release>    # commence capture of release
         [^;]+          # release
         )              # close third capture
         ;\s+           # followed by semicolon and space
     }xsm;
 
-    # fourth capture: urgency
+  # fourth capture: urgency
 
-    my $urgency = qr{
+  my $urgency = qr{
         (?<urgency>    # commence capture of urgency
         .*?$           # remainder of line
         )              # close fourth capture
         $any           # followed by any content
     }xsm;
 
-    # fifth capture: maintainer
+  # fifth capture: maintainer
 
-    my $maint = qr{
+  my $maint = qr{
         (?<maint>    # commence capture of maintainer
         ^[ ]+--\s+   # leading double hyphen
         [^\>]+>      # maintainer name and then <email_address>
         )            # close fifth capture
     }xsm;
 
-    return qr{ $pkg $version $release $urgency $maint }xsm;
+  return qr{ $pkg $version $release $urgency $maint }xsm;
 }
 
 # configure_ac_version_regex()    {{{1
@@ -183,23 +213,23 @@ method changelog_version_regex () {
 #                 my $version = "$LAST_PAREN_MATCH{'version'}";
 #                 # ...
 #             }
-method configure_ac_version_regex () {
+sub configure_ac_version_regex () {
 
-    # building blocks
-    my $any = qr/.*?/xsm;
-    my $arg = qr{
+  # building blocks
+  my $any = qr/.*?/xsm;
+  my $arg = qr{
         \[.*?\]    # argument, enclosed in square brackets
         $any  # interargument characters, may include newline
     }xsm;
 
-    # in $any can't enclose '.' in a character class ('[.]')
-    # because then it wouldn't match newlines
-    # (see 'Metacharacters' section in 'perlre' manpage)
-    # so need to disable related Perl::Critic warnings
+  # in $any can't enclose '.' in a character class ('[.]')
+  # because then it wouldn't match newlines
+  # (see 'Metacharacters' section in 'perlre' manpage)
+  # so need to disable related Perl::Critic warnings
 
-    # first capture: all of file before version
+  # first capture: all of file before version
 
-    my $pre_version = qr{
+  my $pre_version = qr{
         (?<pre>    # first capture is all of file before version
         \A$any     # capture from beginning of file
         AC_INIT    # version is an argument to the AC_INIT macro
@@ -210,17 +240,17 @@ method configure_ac_version_regex () {
         )          # close first capture
     }xsm;
 
-    # second capture: version
+  # second capture: version
 
-    my $version = qr{
+  my $version = qr{
         (?<version>    # second capture is version
         $any           # second AC_INIT argument: version
         )              # close second capture
     }xsm;
 
-    # third capture: all of file after version
+  # third capture: all of file after version
 
-    my $post_version = qr{
+  my $post_version = qr{
         (?<post>     # third capture is all of file after version no.
         \]           # closing brace of second argument
         $any         # interargument chars, may include newline
@@ -231,7 +261,7 @@ method configure_ac_version_regex () {
         )
     }xsm;
 
-    return qr{ $pre_version $version $post_version }xsm;
+  return qr{ $pre_version $version $post_version }xsm;
 }
 
 # copy_to_clipboard($val)    {{{1
@@ -245,55 +275,56 @@ method configure_ac_version_regex () {
 #         to both the primary selection (paste with middle mouse button
 #         of shift key + middle mouse button) and clipboard selection
 #         (ctrl+v keys or shift+ctrl+v keys)
-method copy_to_clipboard ($val) {
+sub copy_to_clipboard ($self, $val)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    my $scalar = $self->stringify($val);
+  my $scalar = $self->stringify($val);
 
-    # system-neutral assignation to clipboard    {{{2
-    # - in X-Windows (e.g., linux) copies to primary selection,
-    #   which pastes with middle mouse button
-    if ( !eval { Clipboard->copy($scalar); 1 } ) {
-        warn "Couldn't copy '$scalar' to clipboard: $EVAL_ERROR\n";
+  # system-neutral assignation to clipboard    {{{2
+  # - in X-Windows (e.g., linux) copies to primary selection,
+  #   which pastes with middle mouse button
+  if (!eval { Clipboard->copy($scalar); 1 }) {
+    warn "Couldn't copy '$scalar' to clipboard: $EVAL_ERROR\n";
+  }
+
+  # linux systems assign to X-Windows clipboard selection    {{{2
+  if (List::SomeUtils::any {/\A$OSNAME\z/xsm} qw(linux darwin)) {
+
+    # stolen from https://www.av8n.com/security/Xclip.pm
+
+    my @cmd  = qw(xclip -selection clipboard);
+    my $pipe = Symbol::gensym;
+
+    # open pipe to xclip
+    # - no need for error message on failure as 'open' prints one
+    if (!open $pipe, q{|-}, @cmd) { return; }
+
+    # echo value to xclip via pipe
+    print {$pipe} $scalar or confess "Couldn't write to pipe: $OS_ERROR";
+
+    # close pipe
+    if (!close $pipe) {
+
+      # exit status of pipe close
+      # - perlcritic mistakenly complains about
+      #   ${^CHILD_ERROR_NATIVE} being a "magic punctuation variable"
+      #   but it is actually the long name from the English module,
+      #   so ignore perlcritic in this case
+      ## no critic (ProhibitPunctuationVars)
+      my $err = ${^CHILD_ERROR_NATIVE};
+      ## use critic
+
+      # decode this exit status with POSIX module functions
+      if (POSIX::WIFEXITED($err)) {
+        carp 'cmd exited with status ', POSIX::WEXITSTATUS($err), $NEWLINE;
+      }
+      if (POSIX::WIFSIGNALED($err)) {
+        carp 'cmd killed by signal ', POSIX::WTERMSIG($err), $NEWLINE;
+      }
+      carp ' +++ ', join($SPACE, @cmd), $NEWLINE;
     }
-
-    # linux systems assign to X-Windows clipboard selection    {{{2
-    if ( List::MoreUtils::any {/\A$OSNAME\z/xsm} qw(linux darwin) ) {
-
-        # stolen from https://www.av8n.com/security/Xclip.pm
-
-        my @cmd  = qw(xclip -selection clipboard);
-        my $pipe = Symbol::gensym;
-
-        # open pipe to xclip
-        # - no need for error message on failure as 'open' prints one
-        if ( !open $pipe, q{|-}, @cmd ) { return; }
-
-        # echo value to xclip via pipe
-        print {$pipe} $scalar or confess "Couldn't write to pipe: $OS_ERROR";
-
-        # close pipe
-        if ( !close $pipe ) {
-
-            # exit status of pipe close
-            # - perlcritic mistakenly complains about
-            #   ${^CHILD_ERROR_NATIVE} being a "magic punctuation variable"
-            #   but it is actually the long name from the English module,
-            #   so ignore perlcritic in this case
-            ## no critic (ProhibitPunctuationVars)
-            my $err = ${^CHILD_ERROR_NATIVE};
-            ## use critic
-
-            # decode this exit status with POSIX module functions
-            if ( POSIX::WIFEXITED($err) ) {
-                warn 'cmd exited with status ', POSIX::WEXITSTATUS($err),
-                    "\n";
-            }
-            if ( POSIX::WIFSIGNALED($err) ) {
-                warn 'cmd killed by signal ', POSIX::WTERMSIG($err), "\n";
-            }
-            warn ' +++ ', join( q{ }, @cmd ), "\n";
-        }
-    }    # }}}2
+  }    # }}}2
+  return;
 }
 
 # cwd()    {{{1
@@ -302,8 +333,8 @@ method copy_to_clipboard ($val) {
 # params: nil
 # prints: nil
 # return: scalar string
-method cwd () {
-    return Path::Tiny::path(q{.})->realpath;
+sub cwd () {
+  return Path::Tiny::path($DOT)->realpath;
 }
 
 # date_current_iso()    {{{1
@@ -313,8 +344,8 @@ method cwd () {
 # prints: nil
 # return: scalar string
 # uses:   Date::Simple
-method date_current_iso () {
-    return Date::Simple->today()->format('%Y-%m-%d');
+sub date_current_iso () {
+  return Date::Simple->today()->format('%Y-%m-%d');
 }
 
 # debhelper_compat()    {{{1
@@ -324,39 +355,39 @@ method date_current_iso () {
 # params: nil
 # prints: nil
 # return: scalar string - version (undef if problem encountered)
-method debhelper_compat () {
+sub debhelper_compat ($self) {  ## no critic (RequireInterpolationOfMetachars)
 
-    # get full version
-    # - called method dies on failure
-    my $version_full = $self->debian_package_version('debhelper');
+  # get full version
+  # - called method dies on failure
+  my $version_full = $self->debian_package_version('debhelper');
 
-    # get semantic version
-    # - meaning only '[E:]X' and not, for example, '[E:]X.Y.Z')
-    my $match_full_version = qr{
+  # get semantic version
+  # - meaning only '[E:]X' and not, for example, '[E:]X.Y.Z')
+  my $match_full_version = qr{
             \A                  # anchor to start of string
             (\d+:)?             # epoch (optional)
             [\d\N{FULL STOP}]+  # version: A.B.C...
             \Z                  # anchor to start of string
         }xsm;
-    my $match_major_version = qr{
+  my $match_major_version = qr{
             \A                # anchor to start of string
             (                 # start capture
               (?:\d+:)?       # epoch (optional)
               \d+             # major version number
             )                 # end capture (don't care about string end)
         }xsm;
-    my $major_version;
-    if ( $version_full =~ $match_full_version ) {
-        $version_full =~ $match_major_version;
-        $major_version = $1;
-    }
-    if ( not $major_version ) {
-        my $msg = 'Unable to extract debhelper major version number'
-            . " from version: $version_full";
-        confess $msg;
-    }
+  my $major_version;
+  if ($version_full =~ $match_full_version) {
+    $version_full =~ $match_major_version;
+    $major_version = $1;
+  }
+  if (not $major_version) {
+    my $msg = 'Unable to extract debhelper major version number'
+        . " from version: $version_full";
+    confess $msg;
+  }
 
-    return $major_version;
+  return $major_version;
 }
 
 # debian_install_deb($deb)    {{{1
@@ -365,71 +396,77 @@ method debhelper_compat () {
 # params: $deb - deb package file [required]
 # prints: question and feedback
 # return: boolean
-method debian_install_deb ($deb) {
+sub debian_install_deb ($self, $deb)
+{    ## no critic (RequireFinalReturn RequireInterpolationOfMetachars)
 
-    # test filepath
-    if ( not $deb ) {
-        warn "No debian package filepath provided\n";
-        return;
-    }
-    if ( not -r $deb ) {
-        warn "Invalid filepath: $deb\n";
-        return;
-    }
-    if ( not $self->file_is_deb($deb) ) {
-        warn "Invalid package file: $deb\n";
-        return;
-    }
-
-    # requires 'dpkg'
-    if ( not $self->tools_available('dpkg') ) { return; }
-
-    # try installing as if root
-    my @cmd = ( 'dpkg', '--install', $deb );
-    try {
-        $self->run_command( undef, @cmd );
-        say 'Package installed successfully' or confess;
-        return $TRUE;
-    }
-    catch ($err) {
-        warn "Looks like you are not root/superuser\n";
-    }
-
-    # try installing with sudo
-    @cmd = ( 'sudo', 'dpkg', '--install', $deb );
-    try {
-        $self->run_command( undef, @cmd );
-        say 'Package installed successfully' or confess;
-        return $TRUE;
-    }
-    catch ($err) {
-        warn "Okay, seems you do not have root privileges for 'dpkg'\n";
-    }
-
-    # lastly, try su
-    # - if every part is made array element then operation fails with:
-    #   /bin/su: unrecognized option '--install'
-    # - if pass entire command spanning double quotes (including double
-    #   quotes) as a single array element, then entire command appears
-    #   to be passed to bash as a single unit, and after providing
-    #   password the operation fails with:
-    #     bash: dpkg --install ../build/FILE.deb: No such file or directory
-    @cmd
-        = (   'su -c' . q{ } . q{"} . 'dpkg' . q{ }
-            . '--install' . q{ }
-            . $deb
-            . q{"} );
-    say 'The root password is needed' or confess;
-    try {
-        $self->run_command( undef, @cmd );
-        say 'Package installed successfully' or confess;
-        return $TRUE;
-    }
-    catch ($err) {
-        warn "That's it, I give up installing this package\n";
-    }
-
+  # test filepath
+  if (not $deb) {
+    warn "No debian package filepath provided\n";
     return;
+  }
+  if (not -r $deb) {
+    warn "Invalid filepath: $deb\n";
+    return;
+  }
+  if (not $self->file_is_deb($deb)) {
+    warn "Invalid package file: $deb\n";
+    return;
+  }
+
+  # requires 'dpkg'
+  if (not $self->tools_available($PARAM_DPKG)) { return; }
+
+  # try installing as if root
+  my @cmd = ($PARAM_DPKG, $OPT_INSTALL, $deb);
+  try {
+    $self->run_command(undef, @cmd);
+    say $MSG_INSTALL_GOOD or confess;
+    return $TRUE;
+  }
+  catch ($err) {
+    warn "Looks like you are not root/superuser\n";
+  }
+
+  # try installing with sudo
+  @cmd = ('sudo', $PARAM_DPKG, $OPT_INSTALL, $deb,);
+  try {
+    $self->run_command(undef, @cmd);
+    say $MSG_INSTALL_GOOD or confess;
+    return $TRUE;
+  }
+  catch ($err) {
+    warn "Okay, seems you do not have root privileges for 'dpkg'\n";
+  }
+
+  # lastly, try su
+  # - if every part is made array element then operation fails with:
+  #   /bin/su: unrecognized option '--install'
+  # - if pass entire command spanning double quotes (including double
+  #   quotes) as a single array element, then entire command appears
+  #   to be passed to bash as a single unit, and after providing
+  #   password the operation fails with:
+  #     bash: dpkg --install ../build/FILE.deb: No such file or directory
+  @cmd =
+      (   'su -c'
+        . $SPACE
+        . $DOUBLE_QUOTE
+        . $PARAM_DPKG
+        . $SPACE
+        . $OPT_INSTALL
+        . $SPACE
+        . $deb
+        . $DOUBLE_QUOTE);
+  say 'The root password is needed' or confess;
+  try {
+    $self->run_command(undef, @cmd);
+    say $MSG_INSTALL_GOOD or confess;
+    return $TRUE;
+  }
+  catch ($err) {
+    warn "That's it, I give up installing this package\n";
+  }
+
+  return;
 }
 
 # debian_package_version($pkg)    {{{1
@@ -438,30 +475,31 @@ method debian_install_deb ($deb) {
 # params: $pkg - name of debian package
 # prints: nil
 # return: scalar string - version
-#         undef = dpkg command failed
+#         false = dpkg command failed
 #         dies on failure to parse version string
-method debian_package_version ($pkg) {
+sub debian_package_version ($self, $pkg)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # check arg
-    return if not $pkg;
+  # check arg
+  return $FALSE if not $pkg;
 
-    # get output of 'dpkg -s PKG'
-    my $cmd    = [ 'dpkg', '-s', $pkg ];
-    my $result = $self->shell_command( [$cmd] );
-    return if not $result->success;
+  # get output of 'dpkg -s PKG'
+  my $cmd    = [ $PARAM_DPKG, '-s', $pkg ];
+  my $result = $self->shell_command([$cmd]);
+  return $FALSE if not $result->success;
 
-    # get version line from status output
-    my @out      = $result->stdout;
-    my $ver_line = List::MoreUtils::first_value {/\AVersion: /xsm} @out;
-    confess "Unable to extract version information for package $pkg"
-        if not $ver_line;
+  # get version line from status output
+  my @out      = $result->stdout;
+  my $ver_line = List::SomeUtils::first_value {/\AVersion: /xsm} @out;
+  confess "Unable to extract version information for package $pkg"
+      if not $ver_line;
 
-    # get full version number
-    my $version = ( split /\s+/xsm, $ver_line )[1];
-    confess "Unable to extract $pkg version from $ver_line"
-        if not $version;
+  # get full version number
+  my $version = (split /\s+/xsm, $ver_line)[1];
+  confess "Unable to extract $pkg version from $ver_line"
+      if not $version;
 
-    return $version;
+  return $version;
 }
 
 # debian_standards_version()    {{{1
@@ -472,23 +510,24 @@ method debian_package_version ($pkg) {
 # params: nil
 # prints: nil
 # return: scalar string - version
-method debian_standards_version () {
+sub debian_standards_version ($self)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
 
-    # get full version
-    # - called method returns undef on dpkg error, otherwise dies on failure
-    my $version_full = $self->debian_package_version('debian-policy');
-    confess "Unable to get 'debian-policy' status with dpkg\n"
-        if not $version_full;
+  # get full version
+  # - called method returns undef on dpkg error, otherwise dies on failure
+  my $version_full = $self->debian_package_version('debian-policy');
+  confess "Unable to get 'debian-policy' status with dpkg\n"
+      if not $version_full;
 
-    # get semantic version
-    # - meaning only '[E:]X.Y.Z' and not, for example, '[E:]X.Y.Z.A')
-    my $match_full_version = qr{
+  # get semantic version
+  # - meaning only '[E:]X.Y.Z' and not, for example, '[E:]X.Y.Z.A')
+  my $match_full_version = qr{
         \A                  # anchor to start of string
         (\d+:)?             # epoch (optional)
         [\d\N{FULL STOP}]+  # version: A.B.C...
         \Z                  # anchor to start of string
     }xsm;
-    my $match_semantic_version = qr{
+  my $match_semantic_version = qr{
         \A                           # anchor to start of string
         (                            # start capture
           (?:\d+:)?                  # epoch (optional)
@@ -496,15 +535,15 @@ method debian_standards_version () {
           (?:\N{FULL STOP}\d+){0,2}  # up to two further version levels
         )                            # end capture (ignore string end)
     }xsm;
-    my $version;
-    if ( $version_full =~ $match_full_version ) {
-        $version_full =~ $match_semantic_version;
-        $version = $1;
-    }
-    confess "Unable to extract 3-part version from '$version_full'"
-        if not $version;
+  my $version;
+  if ($version_full =~ $match_full_version) {
+    $version_full =~ $match_semantic_version;
+    $version = $1;
+  }
+  confess "Unable to extract 3-part version from '$version_full'"
+      if not $version;
 
-    return $version;
+  return $version;
 
 }
 
@@ -515,38 +554,39 @@ method debian_standards_version () {
 # params: $dir - dirpath to check [Path::Tiny object or string, required]
 # prints: feedback on error
 # return: n/a, dies on failure
-method dir_clean ($dir_param) {
+sub dir_clean ($self, $dir_param)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # check directory param    {{{2
-    my $dir;
-    my $dir_reftype  = Scalar::Util::reftype $dir_param;
-    my $dir_obj_type = Scalar::Util::blessed $dir_param;
-    if ( defined $dir_reftype ) {
+  # check directory param    {{{2
+  my $dir;
+  my $dir_reftype  = Scalar::Util::reftype $dir_param;
+  my $dir_obj_type = Scalar::Util::blessed $dir_param;
+  if (defined $dir_reftype) {
 
-        # is a reference
-        if ( defined $dir_obj_type ) {
+    # is a reference
+    if (defined $dir_obj_type) {
 
-            # is an object
-            if ( $dir_obj_type eq 'Path::Tiny' ) { $dir = $dir_param; }
-            else { confess "Invalid directory: is $dir_obj_type object"; }
-        }
-        else { confess "Invalid directory: is $dir_reftype"; }
+      # is an object
+      if ($dir_obj_type eq $MOD_PATH_TINY) { $dir = $dir_param; }
+      else { confess "Invalid directory: is $dir_obj_type object"; }
     }
-    else {
-        # scalar, presumed to be string file path
-        $dir = Path::Tiny::path($dir_param)->absolute;
-    }
-    if ( not $dir ) { confess 'Unable to determine directory path'; }
+    else { confess "Invalid directory: is $dir_reftype"; }
+  }
+  else {
+    # scalar, presumed to be string file path
+    $dir = Path::Tiny::path($dir_param)->absolute;
+  }
+  if (not $dir) { confess 'Unable to determine directory path'; }
 
-    # delete directory contents    {{{2
-    my @children  = map { $_->canonpath } $dir->children;
-    my $to_delete = scalar @children;
-    my $deleted   = File::Path::remove_tree(@children);
-    if ( $deleted < $to_delete ) {
-        confess "Tried to delete $to_delete items, deleted $deleted";
-    }    # }}}2
+  # delete directory contents    {{{2
+  my @children  = map { $_->canonpath } $dir->children;
+  my $to_delete = @children;
+  my $deleted   = File::Path::remove_tree(@children);
+  if ($deleted < $to_delete) {
+    confess "Tried to delete $to_delete items, deleted $deleted";
+  }    # }}}2
 
-    return;
+  return;
 }
 
 # dir_copy($source_dir, $target_dir)    {{{1
@@ -558,19 +598,20 @@ method dir_clean ($dir_param) {
 #                       [required, dirpath, created if necessary]
 # prints: error message on failure
 # return: nil, dies on failure
-method dir_copy ( $source_dir, $target_dir ) {
+sub dir_copy ($self, $source_dir, $target_dir)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # check args
-    confess 'No target directory provided' if not $target_dir;
-    confess 'No source directory provided' if not $source_dir;
-    if ( not -d $source_dir ) {
-        confess "Source directory '$source_dir' does not exist";
-    }
+  # check args
+  confess 'No target directory provided' if not $target_dir;
+  confess 'No source directory provided' if not $source_dir;
+  if (not -d $source_dir) {
+    confess "Source directory '$source_dir' does not exist";
+  }
 
-    File::Copy::Recursive::dircopy( $source_dir, $target_dir )
-        or confess $ERRNO;
+  File::Copy::Recursive::dircopy($source_dir, $target_dir)
+      or confess $ERRNO;
 
-    return;
+  return;
 }
 
 # dir_current()    {{{1
@@ -579,8 +620,8 @@ method dir_copy ( $source_dir, $target_dir ) {
 # params: nil
 # prints: nil
 # return: scalar string
-method dir_current () {
-    return Path::Tiny::path(q{.})->absolute->canonpath;
+sub dir_current () {
+  return Path::Tiny::path($DOT)->absolute->canonpath;
 }
 
 # dir_join(@dirs)    {{{1
@@ -590,9 +631,9 @@ method dir_current () {
 # prints: nil
 # return: scalar string path
 #         die on error
-method dir_join (@dirs) {
-    return if not @dirs;
-    return File::Spec->catdir(@dirs);
+sub dir_join ($self, @dirs) {    ##no critic (RequireInterpolationOfMetachars)
+  return q{} if not @dirs;
+  return File::Spec->catdir(@dirs);
 }
 
 # dir_list($directory)    {{{1
@@ -601,20 +642,20 @@ method dir_join (@dirs) {
 # params: $directory - directory path [optional, default=cwd]
 # prints: nil
 # return: list, die if operation fails
-method dir_list ($dir) {
-    if ( not $dir ) { $dir = $self->cwd(); }
-    $dir = $self->path_true($dir);
-    if ( not -d $dir ) { confess "Invalid directory '$dir'"; }
-    my $f = File::Util->new();
+sub dir_list ($self, $dir) {    ## no critic (RequireInterpolationOfMetachars)
+  if (not $dir) { $dir = $self->cwd(); }
+  $dir = $self->path_true($dir);
+  if (not -d $dir) { confess "Invalid directory '$dir'"; }
+  my $f = File::Util->new();
 
-    # method 'list_dir' fails if directory has no subdirs, so cannot test
-    # for failure of method - assume "failure" == no subdirs in directory
-    my @dirs;
-    @dirs = $f->list_dir( $dir, { dirs_only => $TRUE } );
-    if (@dirs) {
-        @dirs = grep { !/^[.]{1,2}$/xsm } @dirs;    # exclude '.' and '..'
-    }
-    return @dirs;
+  # method 'list_dir' fails if directory has no subdirs, so cannot test
+  # for failure of method - assume "failure" == no subdirs in directory
+  my @dirs;
+  @dirs = $f->list_dir($dir, { dirs_only => $TRUE });
+  if (@dirs) {
+    @dirs = grep { !/^[.]{1,2}$/xsm } @dirs;    # exclude '.' and '..'
+  }
+  return @dirs;
 }
 
 # dir_make(@paths)    {{{1
@@ -623,26 +664,25 @@ method dir_list ($dir) {
 # params: @paths - one or more directory paths to create [required]
 # prints: error messages
 # return: boolean, dies on fatal filesystem errors
-method dir_make (@paths) {
+sub dir_make ($self, @paths) {  ## no critic (RequireInterpolationOfMetachars)
 
-    # check args
-    return $TRUE if not @paths;
+  # check args
+  return $TRUE if not @paths;
 
-    # create directory paths
-    my $success = $TRUE;
-    my $options = { error => \my $errors };
-    File::Path::make_path( @paths, $options );
-    if ( $errors && @{$errors} ) {
-        $success = $FALSE;
-        for my $error ( @{$errors} ) {
-            my ( $dirpath, $msg ) = %{$error};
-            if   ($dirpath) { warn "problem creating $dirpath: $msg\n"; }
-            else            { warn "error during creation: $msg\n"; }
-        }
+  # create directory paths
+  my $success = $TRUE;
+  my $options = { error => \my $errors };
+  File::Path::make_path(@paths, $options);
+  if ($errors && @{$errors}) {
+    $success = $FALSE;
+    for my $error (@{$errors}) {
+      my ($dirpath, $msg) = %{$error};
+      if   ($dirpath) { warn "problem creating $dirpath: $msg\n"; }
+      else            { warn "error during creation: $msg\n"; }
     }
+  }
 
-    if   ($success) { return $TRUE; }
-    else            { return; }
+  return $success;
 }
 
 # dir_parent($dir)    {{{1
@@ -652,9 +692,10 @@ method dir_make (@paths) {
 # prints: nil
 # return: scalar (absolute directory path)
 # note:   converts to, and returns, absolute path
-method dir_parent ($dir) {
-    if ( not $dir ) { confess 'No path provided'; }
-    return Path::Tiny::path($dir)->absolute->parent->canonpath;
+sub dir_parent ($self, $dir)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+  if (not $dir) { confess 'No path provided'; }
+  return Path::Tiny::path($dir)->absolute->parent->canonpath;
 }
 
 # dir_temp()    {{{1
@@ -663,8 +704,8 @@ method dir_parent ($dir) {
 # params: nil
 # prints: nil
 # return: scalar string
-method dir_temp () {
-    return File::Temp::tempdir( CLEANUP => $TRUE );
+sub dir_temp () {
+  return File::Temp::tempdir(CLEANUP => $TRUE);
 }
 
 # divider()    {{{1
@@ -673,15 +714,16 @@ method dir_temp () {
 # params: nil
 # prints: nil
 # return: scalar string
-method divider () {
-    my $width = $self->term_width;
-    if ( $width < $TERM_MIN_WIDTH ) {
-        confess "Terminal < $TERM_MIN_WIDTH chars($width)";
-    }
-    my $length  = $width - $TERM_GUTTER;
-    my $divider = q{-} x $length;
+sub divider ($self)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+  my $width = $self->term_width;
+  if ($width < $TERM_MIN_WIDTH) {
+    confess "Terminal < $TERM_MIN_WIDTH chars($width)";
+  }
+  my $length  = $width - $TERM_GUTTER;
+  my $divider = q{-} x $length;
 
-    return $divider;
+  return $divider;
 }
 
 # dump_var($var1[, var2[, ...]])    {{{1
@@ -691,28 +733,28 @@ method divider () {
 # prints: nil
 # return: list of strings, each of which fits the current terminal
 # usage:  say $_ for $self->dump_var($my_var);
-method dump_var (@vars) {
+sub dump_var ($self, @vars) {   ## no critic (RequireInterpolationOfMetachars)
 
-    # check params
-    return if not @vars;
+  # check params
+  return () if not @vars;
 
-    # configure dumper
-    # - Terse and Indent combine to minimise initial spacing
-    local $Data::Dumper::Terse         = $TRUE;
-    local $Data::Dumper::Indent        = 1;
-    local $Data::Dumper::Deepcopy      = $TRUE;
-    local $Data::Dumper::Trailingcomma = $TRUE;
-    local $Data::Dumper::Sortkeys      = $TRUE;
-    local $Data::Dumper::Deparse       = $TRUE;
+  # configure dumper
+  # - Terse and Indent combine to minimise initial spacing
+  local $Data::Dumper::Terse         = $TRUE;
+  local $Data::Dumper::Indent        = 1;
+  local $Data::Dumper::Deepcopy      = $TRUE;
+  local $Data::Dumper::Trailingcomma = $TRUE;
+  local $Data::Dumper::Sortkeys      = $TRUE;
+  local $Data::Dumper::Deparse       = $TRUE;
 
-    # convert to dumped output
-    my @raw_output = split qr{\n}xsm, Dumper(@vars);
+  # convert to dumped output
+  my @raw_output = split qr{\n}xsm, Dumper(@vars);
 
-    # wrap output
-    my %options = ( hang => 'e=4', cont => $TRUE );
-    my @output  = $self->wrap_text( [@raw_output], %options );
+  # wrap output
+  my %options = (hang => 'e=4', cont => $TRUE);
+  my @output  = $self->wrap_text([@raw_output], %options);
 
-    return @output;
+  return @output;
 }
 
 # file_base($filepath, $exists = $FALSE)    {{{1
@@ -722,15 +764,16 @@ method dump_var (@vars) {
 #         $exists   - die if param does not exist
 # prints: error messages
 # return: scalar string
-method file_base ( $filepath, $exists = $FALSE ) {
+sub file_base ($self, $filepath, $exists = $FALSE)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # check args
-    confess 'No filepath provided' if not $filepath;
-    if ( $exists and not $self->file_readable($filepath) ) {
-        confess "Filepath '$filepath' does not exist";
-    }
+  # check args
+  confess $MSG_NO_FILEPATH if not $filepath;
+  if ($exists and not $self->file_readable($filepath)) {
+    confess "Filepath '$filepath' does not exist";
+  }
 
-    return ( File::Basename::fileparse( $filepath, qr/[.][^.]*\z/xsm ) )[0];
+  return (File::Basename::fileparse($filepath, qr/[.][^.]*\z/xsm))[0];
 }
 
 # file_cat_dir($filepath, $dirpath, $exists = $FALSE)    {{{1
@@ -742,22 +785,23 @@ method file_base ( $filepath, $exists = $FALSE ) {
 #                     [optional, bool, default=false]
 # prints: error messages
 # return: scalar string
-method file_cat_dir ( $filepath, $dirpath, $exists = $FALSE ) {
+sub file_cat_dir ($self, $filepath, $dirpath, $exists = $FALSE)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # check args
-    confess 'No dirpath provided'  if not $dirpath;
-    confess 'No filepath provided' if not $filepath;
-    if ($exists) {
-        if ( not $self->file_readable($filepath) ) {
-            confess "Filepath '$filepath' does not exist";
-        }
-        if ( not -d $dirpath ) {
-            confess "Directory path '$dirpath' does not exist";
-        }
+  # check args
+  confess 'No dirpath provided' if not $dirpath;
+  confess $MSG_NO_FILEPATH      if not $filepath;
+  if ($exists) {
+    if (not $self->file_readable($filepath)) {
+      confess "Filepath '$filepath' does not exist";
     }
+    if (not -d $dirpath) {
+      confess "Directory path '$dirpath' does not exist";
+    }
+  }
 
-    my $file = $self->file_name($filepath);
-    return File::Spec->catfile( $dirpath, $file );
+  my $file = $self->file_name($filepath);
+  return File::Spec->catfile($dirpath, $file);
 }
 
 # file_cmdline_args()    {{{1
@@ -766,15 +810,15 @@ method file_cat_dir ( $filepath, $dirpath, $exists = $FALSE ) {
 # params: nil
 # prints: error messages
 # return: list of strings
-method file_cmdline_args () {
-    my @matches;              # get unique file names
-    for my $arg (@ARGV) { push @matches, glob "$arg"; }
-    my @unique_matches = List::MoreUtils::uniq @matches;
-    my @files
-        = grep { $self->file_readable($_) }
-        @unique_matches;      # ignore non-files
+sub file_cmdline_args ($self)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+  my @matches;    # get unique file names
+  for my $arg (@ARGV) { push @matches, glob "$arg"; }
+  my @unique_matches = List::SomeUtils::uniq @matches;
+  my @files =
+      grep { $self->file_readable($_) } @unique_matches;    # ignore non-files
 
-    return [@files];
+  return [@files];
 }
 
 # file_copy($source_file, $target)    {{{1
@@ -786,18 +830,19 @@ method file_cmdline_args () {
 #                        [required, path, created if necessary]
 # prints: error message on failure
 # return: nil, dies on failure
-method file_copy ( $source_file, $target ) {
+sub file_copy ($self, $source_file, $target)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # check args
-    confess 'No target provided'      if not $target;
-    confess 'No source file provided' if not $source_file;
-    if ( not $self->file_readable($source_file) ) {
-        confess "Source file '$source_file' does not exist";
-    }
+  # check args
+  confess $MSG_NO_TARGET if not $target;
+  confess $MSG_NO_SOURCE if not $source_file;
+  if (not $self->file_readable($source_file)) {
+    confess "Source file '$source_file' does not exist";
+  }
 
-    File::Copy::Recursive::fcopy( $source_file, $target ) or confess $ERRNO;
+  File::Copy::Recursive::fcopy($source_file, $target) or confess $ERRNO;
 
-    return;
+  return;
 }
 
 # file_identical($fp_1, $fp_2)    {{{1
@@ -807,26 +852,27 @@ method file_copy ( $source_file, $target ) {
 #         $fp_2 - file to compare [required, filepath, must exist]
 # prints: error message on failure
 # return: scalar boolean, dies on failure
-method file_identical ( $fp_1, $fp_2 ) {
+sub file_identical ($self, $fp_1, $fp_2)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # check args
-    confess 'Filepath 1 not provided' if not $fp_1;
-    confess 'Filepath 2 not provided' if not $fp_2;
-    for my $filepath ( $fp_1, $fp_2 ) {
-        if ( not $self->file_readable($filepath) ) {
-            confess "Comparison file '$filepath' does not exist";
-        }
+  # check args
+  confess 'Filepath 1 not provided' if not $fp_1;
+  confess 'Filepath 2 not provided' if not $fp_2;
+  for my $filepath ($fp_1, $fp_2) {
+    if (not $self->file_readable($filepath)) {
+      confess "Comparison file '$filepath' does not exist";
     }
+  }
 
-    # compare files
-    my $compare = File::Compare::compare( $fp_1, $fp_2 );
-    if ( $compare == $FILE_COMPARE_ERROR ) {
-        confess "Unable to compare '$fp_1' and '$fp_2': $ERRNO";
-    }
+  # compare files
+  my $compare = File::Compare::compare($fp_1, $fp_2);
+  if ($compare == $FILE_COMPARE_ERROR) {
+    confess "Unable to compare '$fp_1' and '$fp_2': $ERRNO";
+  }
 
-    # File::Compare::compare has reversed return values
-    # - i.e., returns 0 if files identical and 1 if file not identical
-    return not $compare;
+  # File::Compare::compare has reversed return values
+  # - i.e., returns 0 if files identical and 1 if file not identical
+  return not $compare;
 }
 
 # file_is_deb($filepath)    {{{1
@@ -836,17 +882,18 @@ method file_identical ( $fp_1, $fp_2 ) {
 #                     dies if missing or invalid
 # prints: nil
 # return: scalar boolean
-method file_is_deb ($filepath) {
-    if ( not $filepath )    { confess 'No filepath provided'; }
-    if ( not -r $filepath ) { confess "Invalid filepath '$filepath'"; }
-    my @mimetypes
-        = ( 'application/x-deb', 'application/vnd.debian.binary-package' );
-    foreach my $mimetype (@mimetypes) {
-        if ( $self->file_is_mimetype( $filepath, $mimetype ) ) {
-            return $TRUE;
-        }
+sub file_is_deb ($self, $filepath)
+{    ## no critic (RequireInterpolationOfMetachars)
+  if (not $filepath)    { confess $MSG_NO_FILEPATH; }
+  if (not -r $filepath) { confess "Invalid filepath '$filepath'"; }
+  my @mimetypes =
+      ('application/x-deb', 'application/vnd.debian.binary-package');
+  foreach my $mimetype (@mimetypes) {
+    if ($self->file_is_mimetype($filepath, $mimetype)) {
+      return $TRUE;
     }
-    return;
+  }
+  return $FALSE;
 }
 
 # file_is_mimetype($filepath, $mimetype)    {{{1
@@ -857,11 +904,12 @@ method file_is_deb ($filepath) {
 #         $mimetype - mime type to test for [required]
 # prints: nil
 # return: scalar boolean
-method file_is_mimetype ( $filepath, $mimetype ) {
-    if ( not $mimetype ) { confess 'No mimetype provided'; }
-    my $filetype = $self->file_mime_type($filepath);
-    if ( not $filetype ) { return; }
-    return $filetype =~ m{\A$mimetype\z}xsm;
+sub file_is_mimetype ($self, $filepath, $mimetype)
+{    ## no critic (RequireInterpolationOfMetachars)
+  if (not $mimetype) { confess 'No mimetype provided'; }
+  my $filetype = $self->file_mime_type($filepath);
+  if (not $filetype) { return $FALSE; }
+  return $filetype =~ m{\A$mimetype\z}xsm;
 }
 
 # file_list([$dir[, $pattern]])    {{{1
@@ -872,39 +920,40 @@ method file_is_mimetype ( $filepath, $mimetype ) {
 #                    [regex (qr//), optional, default=all files]
 # prints: nil
 # return: list, die if operation fails
-method file_list ( $dir = undef, $pattern = undef ) {
+sub file_list ($self, $dir = undef, $pattern = undef)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # process parameters
-    if ( not $dir ) { $dir = $self->cwd(); }
-    $dir = $self->path_true($dir);
-    if ( not -d $dir ) { confess "Invalid directory: $dir"; }
-    if ($pattern) {
-        my $dump = $self->dump_var($pattern);
-        my $ref  = ref $pattern;
-        if ( $ref ne 'Regexp' ) {
-            confess "Invalid regex file pattern: $dump";
-        }
-        my $blessed = Scalar::Util::blessed($pattern);
-        if ( $blessed ne 'Regexp' ) {
-            confess "Invalid regex file pattern: $dump";
-        }
-        my $reftype = Scalar::Util::reftype($pattern);
-        if ( $reftype ne 'REGEXP' ) {
-            confess "Invalid regex file pattern: $dump";
-        }
+  # process parameters
+  if (not $dir) { $dir = $self->cwd(); }
+  $dir = $self->path_true($dir);
+  if (not -d $dir) { confess "Invalid directory: $dir"; }
+  if ($pattern) {
+    my $dump = $self->dump_var($pattern);
+    my $ref  = ref $pattern;
+    if ($ref ne $CLASS_REGEXP) {
+      confess "Invalid regex file pattern: $dump";
     }
+    my $blessed = Scalar::Util::blessed($pattern);
+    if ($blessed ne $CLASS_REGEXP) {
+      confess "Invalid regex file pattern: $dump";
+    }
+    my $reftype = Scalar::Util::reftype($pattern);
+    if ($reftype ne 'REGEXP') {
+      confess "Invalid regex file pattern: $dump";
+    }
+  }
 
-    # get directory contents
-    my $dir_obj = Path::Tiny::path($dir);
-    my @children;
-    if   ($pattern) { @children = $dir_obj->children($pattern); }
-    else            { @children = $dir_obj->children; }
+  # get directory contents
+  my $dir_obj = Path::Tiny::path($dir);
+  my @children;
+  if   ($pattern) { @children = $dir_obj->children($pattern); }
+  else            { @children = $dir_obj->children; }
 
-    # filter for files
-    my @fp_objects = grep { not $_->is_dir } @children;
-    my @files      = map  { $_->basename } @fp_objects;
+  # filter for files
+  my @fp_objects = grep { not $_->is_dir } @children;
+  my @files      = map  { $_->basename } @fp_objects;
 
-    return @files;
+  return @files;
 }
 
 # file_move($source_file, $target)    {{{1
@@ -916,21 +965,22 @@ method file_list ( $dir = undef, $pattern = undef ) {
 #                        [required, path, created if necessary]
 # prints: error message on failure
 # return: nil, dies on failure
-method file_move ( $source_file, $target ) {
+sub file_move ($self, $source_file, $target)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
 
-    # check args
-    confess 'No target provided'      if not $target;
-    confess 'No source file provided' if not $source_file;
-    if ( not $self->file_readable($source_file) ) {
-        confess "Source file '$source_file' does not exist";
-    }
+  # check args
+  confess $MSG_NO_TARGET if not $target;
+  confess $MSG_NO_SOURCE if not $source_file;
+  if (not $self->file_readable($source_file)) {
+    confess "Source file '$source_file' does not exist";
+  }
 
-    # fatal error can occur if source and target filepaths are identical
-    return if $source_file eq $target;
+  # fatal error can occur if source and target filepaths are identical
+  return if $source_file eq $target;
 
-    File::Copy::Recursive::fmove( $source_file, $target ) or confess $ERRNO;
+  File::Copy::Recursive::fmove($source_file, $target) or confess $ERRNO;
 
-    return;
+  return;
 }
 
 # file_mime_type($filepath)    {{{1
@@ -945,10 +995,11 @@ method file_move ( $source_file, $target ) {
 #         'application/octet-stream'
 # note:   uses File::MimeInfo: alternatives include File::MMagic and
 #         File::MMagic:Magic
-method file_mime_type ($filepath) {
-    if ( not $filepath )    { confess 'No filepath provided'; }
-    if ( not -r $filepath ) { confess "Invalid filepath '$filepath'"; }
-    return File::MimeInfo->new()->mimetype($filepath);
+sub file_mime_type ($self, $filepath)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+  if (not $filepath)    { confess $MSG_NO_FILEPATH; }
+  if (not -r $filepath) { confess "Invalid filepath '$filepath'"; }
+  return File::MimeInfo->new()->mimetype($filepath);
 }
 
 # file_name($filepath, $exists = $FALSE)    {{{1
@@ -959,15 +1010,16 @@ method file_mime_type ($filepath) {
 #                     [optional, bool, default=false]
 # prints: error messages
 # return: scalar string
-method file_name ( $filepath, $exists = $FALSE ) {
+sub file_name ($self, $filepath, $exists = $FALSE)
+{    ## no critic(RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
 
-    # check args
-    confess 'No filepath provided' if not $filepath;
-    if ( $exists and not $self->file_readable($filepath) ) {
-        confess "Filepath '$filepath' does not exist";
-    }
+  # check args
+  confess $MSG_NO_FILEPATH if not $filepath;
+  if ($exists and not $self->file_readable($filepath)) {
+    confess "Filepath '$filepath' does not exist";
+  }
 
-    return ( File::Spec->splitpath($filepath) )[2];
+  return (File::Spec->splitpath($filepath))[2];
 }
 
 # file_name_duplicates(@filepaths)    {{{1
@@ -977,26 +1029,27 @@ method file_name ( $filepath, $exists = $FALSE ) {
 # params: @filepaths - filenames to analyse [optional, str]
 # prints: nil
 # return: hashref: {filename => [filepath1, filepath2, ...], ...}
-method file_name_duplicates (@fps) {
-    return {} if not @fps;
+sub file_name_duplicates ($self, @fps)
+{    ## no critic (RequireInterpolationOfMetachars)
+  return {} if not @fps;
 
-    # extract file names and use them as hash keys, with key values
-    # being the corresponding file paths
-    my %names;
-    for my $fp (@fps) {
-        my $name = $self->file_name($fp);
-        if   ( exists $names{$name} ) { push @{ $names{$name} }, $fp; }
-        else                          { push @{ $names{$name} }, [$fp]; }
-    }
+  # extract file names and use them as hash keys, with key values
+  # being the corresponding file paths
+  my %names;
+  for my $fp (@fps) {
+    my $name = $self->file_name($fp);
+    if   (exists $names{$name}) { push @{ $names{$name} }, $fp; }
+    else                        { push @{ $names{$name} }, [$fp]; }
+  }
 
-    # find file names with multiple associated file paths
-    my @multiple = grep { scalar @{ $names{$_} } > 1 } keys %names;
+  # find file names with multiple associated file paths
+  my @multiple = grep { scalar @{ $names{$_} } > 1 } keys %names;
 
-    # create hash with details of these file names and paths
-    my %dupes;
-    for my $name (@multiple) { $dupes{$name} = $names{$name}; }
+  # create hash with details of these file names and paths
+  my %dupes;
+  for my $name (@multiple) { $dupes{$name} = $names{$name}; }
 
-    return {%dupes};
+  return {%dupes};
 }
 
 # file_name_parts($filepath, $exists = $FALSE)    {{{1
@@ -1008,16 +1061,16 @@ method file_name_duplicates (@fps) {
 # prints: error messages
 # return: list of strings ($base, $suffix)
 # note:   suffix includes period separator
-method file_name_parts ( $filepath, $exists = $FALSE ) {
+sub file_name_parts ($self, $filepath, $exists = $FALSE)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
 
-    # check args
-    confess 'No filepath provided' if not $filepath;
-    if ( $exists and not $self->file_readable($filepath) ) {
-        confess "Filepath '$filepath' does not exist";
-    }
+  # check args
+  confess $MSG_NO_FILEPATH if not $filepath;
+  if ($exists and not $self->file_readable($filepath)) {
+    confess "Filepath '$filepath' does not exist";
+  }
 
-    return ( File::Basename::fileparse( $filepath, qr/[.][^.]*\z/xsm ) )
-        [ 0, 2 ];
+  return (File::Basename::fileparse($filepath, qr/[.][^.]*\z/xsm))[ 0, 2 ];
 }
 
 # file_readable(@filepaths)    {{{1
@@ -1027,19 +1080,20 @@ method file_name_parts ( $filepath, $exists = $FALSE ) {
 # params: @filepaths - paths to be analysed [required, str]
 # prints: error messages
 # return: scalar boolean, dies on failure
-method file_readable (@filepaths) {
+sub file_readable ($self, @filepaths)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # check args
-    confess 'No filepaths' if not @filepaths;
+  # check args
+  confess 'No filepaths' if not @filepaths;
 
-    # cycle through filepaths
-    for my $filepath (@filepaths) {
-        my $true_path = $self->path_true($filepath);
-        if ( not( -f $true_path and -r $true_path ) ) { return; }
-    }
+  # cycle through filepaths
+  for my $filepath (@filepaths) {
+    my $true_path = $self->path_true($filepath);
+    if (not(-e $true_path and -r $true_path)) { return $FALSE; }
+  }
 
-    # no unreadable files found
-    return $TRUE;
+  # no unreadable files found
+  return $TRUE;
 }
 
 # file_write($content, $fp, [$perm])    {{{1
@@ -1052,62 +1106,63 @@ method file_readable (@filepaths) {
 # prints: nil, except on failure
 # return: n/a, dies on file operation failure
 # notes:  if file exists it will be silently overwritten
-method file_write ( $content, $fp, $perm = undef ) {
+sub file_write ($self, $content, $fp, $perm = undef)
+{    ## no critic (RequireInterpolationOfMetachars RequireFinalReturn)
 
-    # set vars
-    if ( not $content )            { confess 'No content provided'; }
-    if ( ref $content ne 'ARRAY' ) { confess 'Content not an array'; }
-    if ( not $fp )                 { confess 'No file provided'; }
-    my $dest;
-    my $fp_reftype  = Scalar::Util::reftype $fp;
-    my $fp_obj_type = Scalar::Util::blessed $fp;
-    if ( defined $fp_reftype ) {
+  # set vars
+  if (not $content)                    { confess 'No content provided'; }
+  if (ref $content ne $REF_TYPE_ARRAY) { confess 'Content not an array'; }
+  if (not $fp)                         { confess 'No file provided'; }
+  my $dest;
+  my $fp_reftype  = Scalar::Util::reftype $fp;
+  my $fp_obj_type = Scalar::Util::blessed $fp;
+  if (defined $fp_reftype) {
 
-        # is a reference
-        if ( defined $fp_obj_type ) {
+    # is a reference
+    if (defined $fp_obj_type) {
 
-            # is an object
-            if ( $fp_obj_type eq 'Path::Tiny' ) {
-                $dest = $fp;
-            }
-            else {
-                confess "Invalid file: is $fp_obj_type object";
-            }
-        }
-        else {
-            # is a reference that is not an object
-            confess "Invalid file: is $fp_reftype";
-        }
+      # is an object
+      if ($fp_obj_type eq $MOD_PATH_TINY) {
+        $dest = $fp;
+      }
+      else {
+        confess "Invalid file: is $fp_obj_type object";
+      }
     }
     else {
-        # scalar, presumed to be string file path
-        $dest = Path::Tiny::path($fp)->absolute;
+      # is a reference that is not an object
+      confess "Invalid file: is $fp_reftype";
     }
-    if ( not $dest ) {
-        confess 'Unable to determine destination file path';
-    }
+  }
+  else {
+    # scalar, presumed to be string file path
+    $dest = Path::Tiny::path($fp)->absolute;
+  }
+  if (not $dest) {
+    confess 'Unable to determine destination file path';
+  }
 
-    # write file
-    my @lines = map {"$_\n"} @{$content};
+  # write file
+  my @lines = map {"$_\n"} @{$content};
+  try {
+    $dest->spew_utf8(@lines);
+  }
+  catch ($err) {
+    confess "Unable to write to '$dest': $err";
+  }
+
+  # set file permissions
+  # - combination of 'if' and Feature::Compat::Try::try confuses perlcritic
+  if ($perm) {    ## no critic (ProhibitPostfixControls)
     try {
-        $dest->spew_utf8(@lines);
+      $dest->chmod($perm);
     }
     catch ($err) {
-        confess "Unable to write to '$dest': $err";
-    }
+      confess "Unable to modify permissions of '$dest': $err";
+    };
+  }
 
-    # set file permissions
-    # - combination of 'if' and Feature::Compat::Try::try confuses perlcritic
-    if ($perm) {    ## no critic (ProhibitPostfixControls)
-        try {
-            $dest->chmod($perm);
-        }
-        catch ($err) {
-            confess "Unable to modify permissions of '$dest': $err";
-        }
-    }
-
-    return;
+  return;
 }
 
 # image_add_border($image, $side, $top_bottom, $fill = 'none')    {{{1
@@ -1122,43 +1177,44 @@ method file_write ( $content, $fp, $perm = undef ) {
 # prints: error messages
 # return: nil, edits $image in place
 # note:   no border is added if border widths are zero
-method image_add_border ( $i, $s, $t, $f = 'none' ) {
+sub image_add_border ($self, $i, $s, $t, $f = 'none')
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # use more intuitive variable names
-    my ( $image, $side, $top_bottom, $fill ) = ( $i, $s, $t, $f );
+  # use more intuitive variable names
+  my ($image, $side, $top_bottom, $fill) = ($i, $s, $t, $f);
 
-    # check args
-    # - if no border widths provided, assume user is only resizing
-    return if not( $side and $top_bottom );
+  # check args
+  # - if no border widths provided, assume user is only resizing
+  return if not($side and $top_bottom);
 
-    # - otherwise need all values
-    confess 'Empty color'                         if not $fill;
-    confess 'No top/bottom border width provided' if not $top_bottom;
-    confess 'No side border width provided'       if not $side;
-    confess 'No image provided'                   if not $image;
-    confess "Non-integer border width '$top_bottom'"
-        if not $self->int_pos_valid($top_bottom);
-    confess "Non-integer border width '$side'"
-        if not $self->int_pos_valid($side);
-    confess 'Not an image object' if not $self->image_object($image);
-    if ( $side == 0 and $top_bottom == 0 ) { return; }
+  # - otherwise need all values
+  confess 'Empty color'                         if not $fill;
+  confess 'No top/bottom border width provided' if not $top_bottom;
+  confess 'No side border width provided'       if not $side;
+  confess $MSG_NO_IMAGE                         if not $image;
+  confess "Non-integer border width '$top_bottom'"
+      if not $self->int_pos_valid($top_bottom);
+  confess "Non-integer border width '$side'"
+      if not $self->int_pos_valid($side);
+  confess $MSG_NOT_IMG_OBJ if not $self->image_object($image);
+  if ($side == 0 and $top_bottom == 0) { return; }
 
-    # prepare arguments for size function
-    my $width  = $self->image_width($image);
-    my $height = $self->image_height($image);
-    $width  += ( $side * 2 );
-    $height += ( $top_bottom * 2 );
-    my %args;
-    $args{'geometry'}   = "${width}x${height}";
-    $args{'background'} = $fill;
-    $args{'gravity'}    = 'Center';
+  # prepare arguments for size function
+  my $width  = $self->image_width($image);
+  my $height = $self->image_height($image);
+  $width  += ($side * 2);
+  $height += ($top_bottom * 2);
+  my %args;
+  $args{$KEY_GEOMETRY}   = "${width}x${height}";
+  $args{$KEY_BACKGROUND} = $fill;
+  $args{$KEY_GRAVITY}    = $VAL_CENTER;
 
-    # resize image
-    my $err;
-    $err = $image->Extent(%args);
-    confess "Image::Magick->Extent failed: $err" if "$err";
+  # resize image
+  my $err;
+  $err = $image->Extent(%args);
+  confess "Image::Magick->Extent failed: $err" if "$err";
 
-    return;
+  return;
 }
 
 # image_create($filepath, $attributes)    {{{1
@@ -1168,85 +1224,102 @@ method image_add_border ( $i, $s, $t, $f = 'none' ) {
 #         $attributes - Image::Magick attributes [optional, hashref]
 # prints: error messages
 # return: Image::Magick object
-method image_create ( $filepath, $attributes = undef ) {
+sub image_create ($self, $filepath, $attributes = undef)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # check args
-    confess 'No filepath provided' if not $filepath;
-    confess "Invalid filepath '$filepath'"
-        if not $self->file_readable($filepath);
-    if ($attributes) {
-        my $ref = ref $attributes;
-        confess "Invalid attributes var type '$ref'" if $ref ne 'HASH';
-    }
+  # check args
+  confess $MSG_NO_FILEPATH if not $filepath;
+  confess "Invalid filepath '$filepath'"
+      if not $self->file_readable($filepath);
+  if ($attributes) {
+    my $ref = ref $attributes;
+    confess "Invalid attributes var type '$ref'" if $ref ne $REF_TYPE_HASH;
+  }
 
-    # create image
-    my $image = Image::Magick->new;
-    my $err;
-    my %attrs = ($attributes) ? %{$attributes} : ();
-    if (%attrs) {
-        $err = $image->Set(%attrs);
-        confess "Image::Magick->Set failed on image '$filepath': $err"
-            if "$err";
-    }
-    $err = $image->Read($filepath);
-    confess "Image::Magick->Read failed on image '$filepath': $err"
+  # create image
+  my $image = Image::Magick->new;
+  my $err;
+  my %attrs = ($attributes) ? %{$attributes} : ();
+  if (%attrs) {
+    $err = $image->Set(%attrs);
+    confess "Image::Magick->Set failed on image '$filepath': $err"
         if "$err";
+  }
+  $err = $image->Read($filepath);
+  confess "Image::Magick->Read failed on image '$filepath': $err"
+      if "$err";
 
-    return $image;
+  return $image;
 }
 
-# image_crop ($image, $tl_x, $tl_y, $br_x, $br_y)    {{{1
+# image_crop ($image, $coords)    {{{1
 #
 # does:   crop Image::Magick object
-# params: $image - image object [required, Image::Magick object]
-#         $top_left_x     - x coordinate of top-left pixel
-#                           [required, int]
-#         $top_left_y     - y coordinate of top-left pixel
-#                           [required, int]
-#         $bottom_right_x - x coordinate of bottom-right pixel
-#                           [required, int]
-#         $bottom_right_y - y coordinate of bottom-right pixel
-#                           [required, int]
+# params: $image  - image object [required, Image::Magick object]
+#         $coords - boundary pixel coordinates
+#                   [required, hash reference]
+#                   with keys [all required, int values]
+#                   •     top_left_x = top left pixel's x coordinate
+#                   •     top_left_y = top left pixel's y coordinate
+#                   • bottom_right_x = bottom-right pixel's x coordinate
+#                   • bottom_right_y = bottom-right pixel's y coordinate
 # prints: error messages
 # return: nil, edits $image in place
-method image_crop ( $image, $tl_x, $tl_y, $br_x, $br_y ) {
+sub image_crop ($self, $image, $coords_ref)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
 
-    # check args
-    # - note that coordinates can be zero, hence use of 'defined'
-    confess 'No bottom-right pixel y-coord provided'  if not defined $br_y;
-    confess 'No bottom-right pixel x-coord provided'  if not defined $br_x;
-    confess 'No top_left pixel y-coordinate provided' if not defined $tl_y;
-    confess 'No top_left pixel x-coordinate provided' if not defined $tl_x;
+  # check args
+  # - need array reference
+  if (not $coords_ref) {
+    confess 'No boundary pixel coordinates provided';
+  }
+  my $ref = ref $coords_ref;
+  if (not $ref) {
+    confess $MSG_SCALAR_NOT_HASHREF ;
+  }
+  if ($ref and $ref ne $REF_TYPE_HASH) {    # not array
+    confess "Args parameter is '$ref' instead of 'HASH'";
+  }
 
-    # easier-to-parse variable names
-    my ( $top_left_x, $top_left_y, $bottom_right_x, $bottom_right_y )
-        = ( $tl_x, $tl_y, $br_x, $br_y );
+  # - extract arguments
+  my $top_left_x     = $coords_ref->{'top_left_x'};
+  my $top_left_y     = $coords_ref->{'top_left_y'};
+  my $bottom_right_x = $coords_ref->{'bottom_right_x'};
+  my $bottom_right_y = $coords_ref->{'bottom_right_y'};
 
-    # check args
-    my @coords
-        = ( $top_left_x, $top_left_y, $bottom_right_x, $bottom_right_y );
-    for my $coord (@coords) {
-        confess "Invalid coordinate '$coord'"
-            if not $self->int_pos_valid($coord);
-    }
-    confess 'Not an image object' if not $self->image_object($image);
+  # - note that coordinates can be zero, hence use of 'defined'
+  confess 'No bottom-right pixel y-coord provided'
+      if not defined $bottom_right_y;
+  confess 'No bottom-right pixel x-coord provided'
+      if not defined $bottom_right_x;
+  confess 'No top_left pixel y-coordinate provided'
+      if not defined $top_left_y;
+  confess 'No top_left pixel x-coordinate provided'
+      if not defined $top_left_x;
 
-    # convert coordinates to dimensions and offsets
-    my $width    = $bottom_right_x - $top_left_x + 1;
-    my $height   = $bottom_right_y - $top_left_y + 1;
-    my $x_offset = $top_left_x;
-    my $y_offset = $top_left_y;
+  # check args
+  my @coords = ($top_left_x, $top_left_y, $bottom_right_x, $bottom_right_y);
+  for my $coord (@coords) {
+    confess "Invalid coordinate '$coord'"
+        if not $self->int_pos_valid($coord);
+  }
+  confess $MSG_NOT_IMG_OBJ if not $self->image_object($image);
 
-    # get geometry param
-    my $geometry = sprintf '%sx%s+%s+%s', $width, $height, $x_offset,
-        $y_offset;
+  # convert coordinates to dimensions and offsets
+  my $width    = $bottom_right_x - $top_left_x + 1;
+  my $height   = $bottom_right_y - $top_left_y + 1;
+  my $x_offset = $top_left_x;
+  my $y_offset = $top_left_y;
 
-    # crop image
-    my $err;
-    $err = $image->Crop( geometry => $geometry );
-    confess "Image::Magic->Crop failed: $err" if "$err";
+  # get geometry param
+  my $geometry = sprintf '%sx%s+%s+%s', $width, $height, $x_offset, $y_offset;
 
-    return;
+  # crop image
+  my $err;
+  $err = $image->Crop(geometry => $geometry);
+  confess "Image::Magic->Crop failed: $err" if "$err";
+
+  return;
 }
 
 # image_files_valid(@filepaths)    {{{1
@@ -1258,30 +1331,31 @@ method image_crop ( $image, $tl_x, $tl_y, $br_x, $br_y ) {
 # return: scalar boolean
 # warn:   returns true if no parameter provided
 # note:   croaks of Image::Magick module unable to open file as image
-method image_files_valid (@filepaths) {
-    if ( not @filepaths ) {
-        warn "No image files to verify\n";
-        return;
-    }
-    my $count    = scalar @filepaths;
-    my $progress = 0;
-    if ( $count == 1 ) {
-        say "Verifying image file '$filepaths[0]'"
-            or confess 'Unable to output to terminal';
-    }
-    else {
-        say "Verifying $count image files:"
-            or confess 'Unable to output to terminal';
-        $progress = Term::ProgressBar::Simple->new($count);
-    }
-    for my $filepath (@filepaths) {
-        my $image = $self->image_create($filepath);    # croaks if fails
-        undef $image;    # avoid memory cache overflow
-        $progress++;
-    }
-    undef $progress;     # ensure final messages displayed
+sub image_files_valid ($self, @filepaths)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+  if (not @filepaths) {
+    warn "No image files to verify\n";
+    return $FALSE;
+  }
+  my $count    = @filepaths;
+  my $progress = 0;
+  if ($count == 1) {
+    say "Verifying image file '$filepaths[0]'"
+        or confess $MSG_NO_TERM_OUTPUT ;
+  }
+  else {
+    say "Verifying $count image files:"
+        or confess $MSG_NO_TERM_OUTPUT ;
+    $progress = Term::ProgressBar::Simple->new($count);
+  }
+  for my $filepath (@filepaths) {
+    my $image = $self->image_create($filepath);  # croaks if fails
+    undef $image;                                # avoid memory cache overflow
+    $progress++;
+  }
+  undef $progress;    # ensure final messages displayed
 
-    return $TRUE;
+  return $TRUE;
 }
 
 # image_height($image)    {{{1
@@ -1290,67 +1364,87 @@ method image_files_valid (@filepaths) {
 # params: $image - image object [required, Image::Magick object]
 # prints: error messages
 # return: scalar integer
-method image_height ($image) {
+sub image_height ($self, $image)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # check args
-    confess 'No image provided'   if not $image;
-    confess 'Not an image object' if not $self->image_object($image);
+  # check args
+  confess $MSG_NO_IMAGE    if not $image;
+  confess $MSG_NOT_IMG_OBJ if not $self->image_object($image);
 
-    return $image->Get('height');
+  return $image->Get($PARAM_HEIGHT);
 }
 
-# image_label($image, $text, :$font, :$size ,:$color, :$edge, :$space)    {{{1
+# image_label($image, $text, $opts)    {{{1
 #
 # does:   add label to image
 # params: $image - image object [required, Image::Magick object]
 #         $text  - label text [required, string]
-#         $font  - label font
-#                  [optional, int, default selected by ImageMagick]
-#         $size  - label font size (pt) [optional, int, default=0]
-#         $color - label font color [optional, string, default='black']
-#         $edge  - label location
-#                  [optional, 'north|south|east|west', default='south']
-#         $space - space between edge and label (pt)
-#                  [optional, int, default=0]
+#         $opts  - optional settings [optional, hash reference]
+#                  has keys:
+#                  •  font - label font
+#                            [optional, int, default selected by ImageMagick]
+#                  •  size - label font size (pt)
+#                            [optional, int, default=0]
+#                  • color - label font color_content
+#                            [optional, string, default='black']
+#                  •  edge - label location
+#                            [optional, 'north|south|east|west', default='south']
+#                  • space - space between edge and label (pt)
+#                            [optional, int, default=0]
 # prints: error messages
 # return: nil, edits $image in place
-method image_label ( $i, $t, : $f, : $d, : $c, : $e, : $s ) {
+sub image_label ($self, $image, $text, $opts)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # use more intuitive variable names
-    my ( $image, $text, $font, $size, $color, $edge, $space )
-        = ( $i, $t, $f, $d, $c, $e, $s );
+  # check args
+  # - need array reference
+  if (not $opts) { $opts = {}; }
+  my $ref = ref $opts;
+  if (not $ref) {
+    confess $MSG_SCALAR_NOT_HASHREF ;
+  }
+  if ($ref and $ref ne $REF_TYPE_HASH) {    # not array
+    confess "Args parameter is '$ref' instead of 'HASH'";
+  }
 
-    # check args
-    # - otherwise need all values
-    confess 'No label text provided' if not $text;
-    confess 'No image provided'      if not $image;
-    confess 'Not an image object'    if not $self->image_object($image);
-    if ( defined $space ) {
-        die "Invalid space value '$space'\n"
-            if not $self->int_pos_valid($space);
+  # - extract arguments
+  my $font  = $opts->{$KEY_FONT};
+  my $size  = $opts->{'size'};
+  my $color = $opts->{'color'};
+  my $edge  = $opts->{'edge'};
+  my $space = $opts->{'space'};
+
+  # - otherwise need all values
+  confess 'No label text provided' if not $text;
+  confess $MSG_NO_IMAGE            if not $image;
+  confess $MSG_NOT_IMG_OBJ         if not $self->image_object($image);
+  if (defined $space) {
+    if (not $self->int_pos_valid($space)) {
+      die "Invalid space value '$space'\n";
     }
-    if ( not $edge ) { $edge = 'south'; }
-    my %valid_edge = map { $_ => $TRUE } qw(north south east west);
-    confess "Invalid edge '$edge'" if not $valid_edge{$edge};
-    if ( defined $size ) {
-        die "Invalid size value '$size'\n"
-            if not $self->int_pos_valid($size);
-    }
+  }
+  if (not $edge) { $edge = 'south'; }
+  my %valid_edge = map { $_ => $TRUE } qw(north south east west);
+  confess "Invalid edge '$edge'" if not $valid_edge{$edge};
+  if (defined $size) {
+    die "Invalid size value '$size'\n"
+        if not $self->int_pos_valid($size);
+  }
 
-    # assemble parameters
-    my %params = ( text => $text, gravity => $edge );
-    if ($font)  { $params{'font'}      = $font; }
-    if ($size)  { $params{'pointsize'} = $size; }
-    if ($color) { $params{'stroke'}    = $color; }
-    if ($space) { $params{'geometry'}  = '+0+' . $space; }
+  # assemble parameters
+  my %params = (text => $text, gravity => $edge);
+  if ($font)  { $params{$KEY_FONT}     = $font; }
+  if ($size)  { $params{'pointsize'}   = $size; }
+  if ($color) { $params{'stroke'}      = $color; }
+  if ($space) { $params{$KEY_GEOMETRY} = '+0+' . $space; }
 
-    my $err;
+  my $err;
 
-    # label image
-    $err = $image->Annotate(%params);
-    confess "Image::Magick->Annotate failed: $err" if "$err";
+  # label image
+  $err = $image->Annotate(%params);
+  confess "Image::Magick->Annotate failed: $err" if "$err";
 
-    return;
+  return;
 }
 
 # image_max_dimensions(@filepaths)    {{{1
@@ -1361,45 +1455,46 @@ method image_label ( $i, $t, : $f, : $d, : $c, : $e, : $s ) {
 # return: ( $width, $height )  # pixels, scalar integers
 # warn:   returns (0, 0) if no parameter provided
 # note:   longest width and height may be from different images
-method image_max_dimensions (@filepaths) {
+sub image_max_dimensions ($self, @filepaths)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
 
-    # check args
-    confess 'No filepaths provided' if not @filepaths;
-    for my $filepath (@filepaths) {
-        confess "Invalid filepath '$filepath'"
-            if not $self->file_readable($filepath);
-    }
+  # check args
+  confess 'No filepaths provided' if not @filepaths;
+  for my $filepath (@filepaths) {
+    confess "Invalid filepath '$filepath'"
+        if not $self->file_readable($filepath);
+  }
 
-    # provide feedback
-    my $count    = scalar @filepaths;
-    my $progress = 0;
-    if ( $count == 1 ) {
-        say "Analysing image file '$filepaths[0]'"
-            or confess 'Unable to output to terminal';
-    }
-    else {
-        say "Analysing $count image files:"
-            or confess 'Unable to output to terminal';
-        $progress = Term::ProgressBar::Simple->new($count);
-    }
+  # provide feedback
+  my $count    = @filepaths;
+  my $progress = 0;
+  if ($count == 1) {
+    say "Analysing image file '$filepaths[0]'"
+        or confess $MSG_NO_TERM_OUTPUT ;
+  }
+  else {
+    say "Analysing $count image files:"
+        or confess $MSG_NO_TERM_OUTPUT ;
+    $progress = Term::ProgressBar::Simple->new($count);
+  }
 
-    # check each file for image dimensions
-    my ( $max_width, $max_height ) = ( 0, 0 );
-    for my $filepath (@filepaths) {
-        my $image = $self->image_create($filepath);
+  # check each file for image dimensions
+  my ($max_width, $max_height) = (0, 0);
+  for my $filepath (@filepaths) {
+    my $image = $self->image_create($filepath);
 
-        # update maximum height and width if necessary
-        my $width  = $self->image_width($image);
-        my $height = $self->image_height($image);
-        if ( $width > $max_width )   { $max_width  = $width; }
-        if ( $height > $max_height ) { $max_height = $height; }
+    # update maximum height and width if necessary
+    my $width  = $self->image_width($image);
+    my $height = $self->image_height($image);
+    if ($width > $max_width)   { $max_width  = $width; }
+    if ($height > $max_height) { $max_height = $height; }
 
-        undef $image;    # avoid memory cache overflow
-        $progress++;
-    }
-    undef $progress;     # ensure final messages displayed
+    undef $image;    # avoid memory cache overflow
+    $progress++;
+  }
+  undef $progress;    # ensure final messages displayed
 
-    return ( $max_width, $max_height );
+  return ($max_width, $max_height);
 }
 
 # image_max_x($image)    {{{1
@@ -1408,13 +1503,14 @@ method image_max_dimensions (@filepaths) {
 # params: $image - image object [required, Image::Magick object]
 # prints: error messages
 # return: scalar integer
-method image_max_x ($image) {
+sub image_max_x ($self, $image)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
 
-    # check args
-    confess 'No image provided'   if not $image;
-    confess 'Not an image object' if not $self->image_object($image);
+  # check args
+  confess $MSG_NO_IMAGE    if not $image;
+  confess $MSG_NOT_IMG_OBJ if not $self->image_object($image);
 
-    return $self->image_width($image) - 1;
+  return $self->image_width($image) - 1;
 }
 
 # image_max_y($image)    {{{1
@@ -1423,13 +1519,14 @@ method image_max_x ($image) {
 # params: $image - image object [required, Image::Magick object]
 # prints: error messages
 # return: scalar integer
-method image_max_y ($image) {
+sub image_max_y ($self, $image)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
 
-    # check args
-    confess 'No image provided'   if not $image;
-    confess 'Not an image object' if not $self->image_object($image);
+  # check args
+  confess $MSG_NO_IMAGE    if not $image;
+  confess $MSG_NOT_IMG_OBJ if not $self->image_object($image);
 
-    return $self->image_height($image) - 1;
+  return $self->image_height($image) - 1;
 }
 
 # image_object($object)    {{{1
@@ -1438,12 +1535,13 @@ method image_max_y ($image) {
 # params: $object - object to analyse [required, scalar reference]
 # prints: error messages
 # return: scalar boolean
-method image_object ($object) {
+sub image_object ($self, $object)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    return $FALSE if not $object;
-    my $object_type = Scalar::Util::blessed $object;
-    return $FALSE if not $object_type;    # not an object
-    return $object_type eq 'Image::Magick';
+  return $FALSE if not $object;
+  my $object_type = Scalar::Util::blessed $object;
+  return $FALSE if not $object_type;    # not an object
+  return $object_type eq 'Image::Magick';
 }
 
 # image_pixel_color($image, $x, $y, [@color])    {{{1
@@ -1457,131 +1555,149 @@ method image_object ($object) {
 # prints: error messages
 # return: if setter - nil
 #         if getter - @color, i.e., ( $red, $green, $blue )
-method image_pixel_color ( $image, $x, $y, @color ) {
+sub image_pixel_color ($self, $image, $x, $y, @color)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # check args
-    # - note pixel coordinates can be zero, hence use of 'defined'
-    confess 'No y-coordinate provided'      if not defined $y;
-    confess 'No x-coordinate provided'      if not defined $x;
-    confess 'No image provided'             if not $image;
-    confess "Non-integer y-coordinate '$y'" if not $self->int_pos_valid($y);
-    confess "Non-integer x-coordinate '$x'" if not $self->int_pos_valid($x);
-    confess 'Not an image object' if not $self->image_object($image);
-    my $max_x = $self->image_max_x($image);
-    my $max_y = $self->image_max_y($image);
-    confess "X-coordinate $x > image's largest x-coord $max_x" if $x > $max_x;
-    confess "Y-coordinate $y > image's largest y-coord $max_y" if $y > $max_y;
+  # check args
+  # - note pixel coordinates can be zero, hence use of 'defined'
+  confess 'No y-coordinate provided'      if not defined $y;
+  confess 'No x-coordinate provided'      if not defined $x;
+  confess $MSG_NO_IMAGE                   if not $image;
+  confess "Non-integer y-coordinate '$y'" if not $self->int_pos_valid($y);
+  confess "Non-integer x-coordinate '$x'" if not $self->int_pos_valid($x);
+  confess $MSG_NOT_IMG_OBJ                if not $self->image_object($image);
+  my $max_x = $self->image_max_x($image);
+  my $max_y = $self->image_max_y($image);
+  confess "X-coordinate $x > image's largest x-coord $max_x" if $x > $max_x;
+  confess "Y-coordinate $y > image's largest y-coord $max_y" if $y > $max_y;
 
-    if (@color) {
-        my $rgb = join ', ', @color;
-        if ( scalar @color < $RGB_ARG_COUNT ) {
-            confess "Incomplete color provided ($rgb)";
-        }
-        if ( scalar @color > $RGB_ARG_COUNT ) {
-            confess 'Too many arguments';
-        }
-        my @ok_rgb = ( 0 .. $RGB_ARG_MAX );
-        for my $component (@color) {
-            if ( not $self->int_pos_valid($component) ) {
-                confess "Non-integer color value ($rgb)";
-            }
-            if ( not List::MoreUtils::any { $component == $_ } @ok_rgb ) {
-                confess "Color value out of range ($rgb)";
-            }
-        }
+  if (@color) {
+    my $rgb = join $PARAM_COMMA_SPACE, @color;
+    if (scalar @color < $RGB_ARG_COUNT) {
+      confess "Incomplete color provided ($rgb)";
     }
-
-    if (@color) {    # setter
-
-        # convert values to 0-1
-        for (@color) { $_ /= $RGB_ARG_MAX; }
-
-        # set pixel color
-        $self->_image->SetPixel( x => $x, y => $y, color => [@color] );
+    if (scalar @color > $RGB_ARG_COUNT) {
+      confess 'Too many arguments';
     }
-    else {           # getter
-
-        # get color component values (3-element array, values 0-1)
-        my @color = $image->GetPixel( x => $x, y => $y, normalize => $TRUE );
-
-        # convert values to 0-255
-        for (@color) { $_ *= $RGB_ARG_MAX; }
-
-        return @color;
+    my @ok_rgb = (0 .. $RGB_ARG_MAX);
+    for my $component (@color) {
+      if (not $self->int_pos_valid($component)) {
+        confess "Non-integer color value ($rgb)";
+      }
+      if (not List::SomeUtils::any { $component == $_ } @ok_rgb) {
+        confess "Color value out of range ($rgb)";
+      }
     }
+  }
 
-    return;
+  if (@color) {    # setter
+
+    # convert values to 0-1
+    for (@color) { $_ /= $RGB_ARG_MAX; }
+
+    # set pixel color
+    $self->_image->SetPixel(x => $x, y => $y, color => [@color]);
+  }
+  else {           # getter
+
+    # get color component values (3-element array, values 0-1)
+    my @color = $image->GetPixel(x => $x, y => $y, normalize => $TRUE);
+
+    # convert values to 0-255
+    for (@color) { $_ *= $RGB_ARG_MAX; }
+
+    return @color;
+  }
+
+  return $TRUE;
 }
 
-# image_resize($image, $width, $height, ...    {{{1
-#       ... $fill = 'none', :$preserve=>$TRUE)
+# image_resize($image, $opts)    {{{1
 #
 # does:   resize image
-# params: $image    - image object [required, Image::Magick object]
-#         $width    - target width [required, int]
-#         $height   - target height [required, int]
-#         $fill     - fill color [optional, string, default='none']
-#         $preserve - whether to preserve aspect ratio
-#                     [optional, bool, default=true]
+# params: $image - image object [required, Image::Magick object]
+#         $opts  - configuration values [required, hash reference]
+#                  with keys:
+#                  •    width - target width [required, int]
+#                  •   height - target height [required, int]
+#                  •     fill - fill color [optional, string, default='none']
+#                  • preserve - whether to preserve aspect ratio
+#                  •            [optional, bool, default=true]
 # prints: error messages
 # return: nil, edits $image in place
-method image_resize ( $image, $w, $h, $f = 'none', : $p = $TRUE ) {
+sub image_resize ($self, $image, $opts)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # use more intuitive variable names
-    my ( $width, $height, $fill, $preserve ) = ( $w, $h, $f, $p );
+  # check args
+  # - need array reference
+  if (not $opts) {
+    confess 'No configuration values provided';
+  }
+  my $ref = ref $opts;
+  if (not $ref) {
+    confess $MSG_SCALAR_NOT_HASHREF ;
+  }
+  if ($ref and $ref ne $REF_TYPE_HASH) {    # not array
+    confess "Args parameter is '$ref' instead of 'HASH'";
+  }
 
-    # check args
-    # - if no dimensions provided, assume user is only adding borders
-    return if not( $width and $height );
+  # - extract arguments
+  my $width    = $opts->{$KEY_WIDTH};
+  my $height   = $opts->{$KEY_HEIGHT};
+  my $fill     = $opts->{'fill'};
+  my $preserve = $opts->{'preserve'};
 
-    # - otherwise need all values
-    confess 'No fill color provided'     if not $fill;
-    confess 'No width provided'          if not $width;
-    confess 'No height provided'         if not $height;
-    confess 'No image provided'          if not $image;
-    confess "Non-integer width '$width'" if not $self->int_pos_valid($width);
-    confess "Non-integer height '$height'"
-        if not $self->int_pos_valid($height);
-    confess 'Not an image object' if not $self->image_object($image);
+  # - if no dimensions provided, assume user is only adding borders
+  return if not($width and $height);
 
-    # the terminology gets a little confusing here
-    # - the Resize functions *scales* the image
-    #   . if preserving aspect ratio the image itself will scale
-    #     up or down until one dimension matches the resized
-    #     dimensions, and the other is smaller (unless aspect
-    #     ratios of the original image and resize dimensions
-    #     match perfectly
-    # - the Extent function, though, actually *resizes* the image
-    #   to the new dimensions, adding fill (background) color to
-    #   extend the image to the new size
-    # - thus *scaling* is done by the Resize function,
-    #   and *resizing* is done by the Extent function
+  # - otherwise need all values
+  confess 'No fill color provided'     if not $fill;
+  confess 'No width provided'          if not $width;
+  confess 'No height provided'         if not $height;
+  confess $MSG_NO_IMAGE                if not $image;
+  confess "Non-integer width '$width'" if not $self->int_pos_valid($width);
+  confess "Non-integer height '$height'"
+      if not $self->int_pos_valid($height);
+  confess $MSG_NOT_IMG_OBJ if not $self->image_object($image);
 
-    # prepare argument for Resize function (which *scales* image)
-    my %scale_args;
-    if ($preserve) { $scale_args{'geometry'} = "${width}x${height}"; }
-    else {
-        $scale_args{'width'}  = $width;
-        $scale_args{'height'} = $height;
-    }
+  # the terminology gets a little confusing here
+  # - the Resize functions *scales* the image
+  #   . if preserving aspect ratio the image itself will scale
+  #     up or down until one dimension matches the resized
+  #     dimensions, and the other is smaller (unless aspect
+  #     ratios of the original image and resize dimensions
+  #     match perfectly
+  # - the Extent function, though, actually *resizes* the image
+  #   to the new dimensions, adding fill (background) color to
+  #   extend the image to the new size
+  # - thus *scaling* is done by the Resize function,
+  #   and *resizing* is done by the Extent function
 
-    my $err;
+  # prepare argument for Resize function (which *scales* image)
+  my %scale_args;
+  if ($preserve) { $scale_args{$KEY_GEOMETRY} = "${width}x${height}"; }
+  else {
+    $scale_args{$KEY_WIDTH}  = $width;
+    $scale_args{$KEY_HEIGHT} = $height;
+  }
 
-    # scale image
-    $err = $image->Resize(%scale_args);
-    confess "Image::Magick->Resize failed: $err" if "$err";
+  my $err;
 
-    # prepare argument for Extent function (which *resizes* image)
-    my %resize_args;
-    $resize_args{'geometry'}   = "${width}x${height}";
-    $resize_args{'background'} = $fill;
-    $resize_args{'gravity'}    = 'Center';
+  # scale image
+  $err = $image->Resize(%scale_args);
+  confess "Image::Magick->Resize failed: $err" if "$err";
 
-    # resize image
-    $err = $image->Extent(%resize_args);
-    confess "Image::Magick->Extent failed: $err" if "$err";
+  # prepare argument for Extent function (which *resizes* image)
+  my %resize_args;
+  $resize_args{$KEY_GEOMETRY}   = "${width}x${height}";
+  $resize_args{$KEY_BACKGROUND} = $fill;
+  $resize_args{$KEY_GRAVITY}    = $VAL_CENTER;
 
-    return;
+  # resize image
+  $err = $image->Extent(%resize_args);
+  confess "Image::Magick->Extent failed: $err" if "$err";
+
+  return;
 }
 
 # image_width($image)    {{{1
@@ -1590,13 +1706,14 @@ method image_resize ( $image, $w, $h, $f = 'none', : $p = $TRUE ) {
 # params: $image - image object [required, Image::Magick object]
 # prints: error messages
 # return: scalar integer
-method image_width ($image) {
+sub image_width ($self, $image)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
 
-    # check args
-    confess 'No image provided'   if not $image;
-    confess 'Not an image object' if not $self->image_object($image);
+  # check args
+  confess $MSG_NO_IMAGE    if not $image;
+  confess $MSG_NOT_IMG_OBJ if not $self->image_object($image);
 
-    return $image->Get('width');
+  return $image->Get($PARAM_WIDTH);
 }
 
 # image_write($image, $filemask)    {{{1
@@ -1608,23 +1725,24 @@ method image_width ($image) {
 # return: nil
 # note:   if file mask contains printf-like formatting it can serve
 #         as basis for multiple output files
-method image_write ( $image, $filemask ) {
+sub image_write ($self, $image, $filemask)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # check args
-    confess 'No file mask provided' if not $filemask;
-    confess 'No image provided'     if not $image;
-    confess 'Not an image object'   if not $self->image_object($image);
+  # check args
+  confess 'No file mask provided' if not $filemask;
+  confess $MSG_NO_IMAGE           if not $image;
+  confess $MSG_NOT_IMG_OBJ        if not $self->image_object($image);
 
-    # leftover geometry offsets can be problematic, so repage
-    my $err;
-    $err = $image->Set( page => '0x0+0+0' );
-    confess "Image::Magick->Set failed: $err" if "$err";
+  # leftover geometry offsets can be problematic, so repage
+  my $err;
+  $err = $image->Set(page => '0x0+0+0');
+  confess "Image::Magick->Set failed: $err" if "$err";
 
-    # write file
-    $err = $image->Write( filename => $filemask );
-    confess "Image::Magick->Write failed: $err" if "$err";
+  # write file
+  $err = $image->Write(filename => $filemask);
+  confess "Image::Magick->Write failed: $err" if "$err";
 
-    return;
+  return;
 }
 
 # int_pad_width($max_int)    {{{1
@@ -1635,11 +1753,12 @@ method image_write ( $image, $filemask ) {
 # params: $max_int - largest integer in sequence [required, int]
 # prints: nil
 # return: scalar integer
-method int_pad_width ($max_int) {
-    return 1 if not $max_int;
-    confess "Invalid integer '$max_int'"
-        if not $self->int_pos_valid($max_int);
-    return length $max_int;
+sub int_pad_width ($self, $max_int)
+{    ## no critic (RequireInterpolationOfMetachars)
+  return 1 if not $max_int;
+  confess "Invalid integer '$max_int'"
+      if not $self->int_pos_valid($max_int);
+  return length $max_int;
 }
 
 # int_pos_valid($value)    {{{1
@@ -1648,13 +1767,15 @@ method int_pad_width ($max_int) {
 # params: $value - item to be analysed [required]
 # prints: nil
 # return: scalar boolean
-method int_pos_valid ($value) {
-    return if not defined $value;
-    for ($value) {
-        if    ( $_ =~ /^[+]?0$/xsm )         { return $TRUE; }    # zero
-        elsif ( $_ =~ /^[+]?[1-9]\d*\z/xsm ) { return $TRUE; }    # above zero
-        else                                 { return; }
-    }
+sub int_pos_valid ($self, $value)
+{    ## no critic (RequireInterpolationOfMetachars)
+  return $FALSE if not defined $value;
+  for ($value) {
+    if    (/^[+]?0$/xsm)         { return $TRUE; }    # zero
+    elsif (/^[+]?[1-9]\d*\z/xsm) { return $TRUE; }    # above zero
+    else                         { return $FALSE; }
+  }
+  return $FALSE;
 }
 
 # int_valid($value)    {{{1
@@ -1663,13 +1784,15 @@ method int_pos_valid ($value) {
 # params: $value - item to be analysed [required]
 # prints: nil
 # return: scalar boolean
-method int_valid ($value) {
-    return if not defined $value;
-    for ($value) {
-        if    ( $_ =~ /^[+-]?0\z/xsm )        { return $TRUE; }    # zero
-        elsif ( $_ =~ /^[+-]?[1-9]\d*\z/xsm ) { return $TRUE; }    # other int
-        else                                  { return; }
-    }
+sub int_valid ($self, $value)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+  return $FALSE if not defined $value;
+  for ($value) {
+    if    (/^[+-]?0\z/xsm)        { return $TRUE; }    # zero
+    elsif (/^[+-]?[1-9]\d*\z/xsm) { return $TRUE; }    # other int
+    else                          { return $FALSE; }
+  }
+  return $FALSE;
 }
 
 # interact_confirm($question)    {{{1
@@ -1686,11 +1809,12 @@ method int_valid ($value) {
 #         if ( $self->interact_confirm($prompt) ) {
 #             # do stuff
 #         }
-method interact_confirm ($question) {
+sub interact_confirm ($self, $question)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    if ( not $question ) { return; }
-    local $ENV{CLUI_DIR} = 'OFF';     # do not remember responses
-    return Term::Clui::confirm($question);
+  if (not $question) { return $FALSE; }
+  local $ENV{CLUI_DIR} = 'OFF';    # do not remember responses
+  return Term::Clui::confirm($question);
 }
 
 # internet_connection([$verbose])    {{{1
@@ -1699,39 +1823,44 @@ method interact_confirm ($question) {
 # params: $verbose - whether to provide feedback [optional, default=false]
 # prints: feedback if requested
 # return: boolean
-method internet_connection ( $verbose = $FALSE ) {
-    my $connected;
-    my @urls         = ( 'www.debian.org', 'www.uq.edu.au' );
-    my $max_attempts = scalar @urls;
-    my $timeout      = 1;                                       # seconds
-    if ($verbose) {
-        say "Checking internet connection (maximum $max_attempts attempts):";
-    }
-    while ( my ( $index, $url ) = each @urls ) {
-        my $attempt_number = $index + 1;
-        if ($verbose) { print "  Attempt $attempt_number... "; }
-        if (Net::Ping::External::ping(
-                hostname => $url,
-                timeout  => $timeout,    # appears to be ignored
-            )
-            )
-        {
-            $connected = $TRUE;
-            if ($verbose) { say 'OK'; }
-            last;
-        }
-        else {
-            if ($verbose) { say 'Failed'; }
-        }
-    }
-    if ($connected) {
-        if ($verbose) { say 'Internet connection detected'; }
-        return $TRUE;
+sub internet_connection ($self, $verbose = $FALSE)
+{    ## no critic (RequireInterpolationOfMetachars)
+  my $connected;
+  my @urls         = ('www.debian.org', 'www.uq.edu.au');
+  my $max_attempts = @urls;
+  my $timeout      = 1;                                     # seconds
+  if ($verbose) {
+    say "Checking internet connection (maximum $max_attempts attempts):"
+        or croak;
+  }
+
+  foreach my $index (0 .. $#urls) {
+    my $url            = $urls[$index];
+    my $attempt_number = $index + 1;
+    if ($verbose) { print "  Attempt $attempt_number... " or croak; }
+    if (
+      Net::Ping::External::ping(
+        hostname => $url,
+        timeout  => $timeout,    # appears to be ignored
+      )
+        )
+    {
+      $connected = $TRUE;
+      if ($verbose) { say 'OK' or croak; }
+      last;
     }
     else {
-        if ($verbose) { say 'No internet connection detected'; }
-        return;
+      if ($verbose) { say 'Failed' or croak; }
     }
+  }
+  if ($connected) {
+    if ($verbose) { say 'Internet connection detected' or croak; }
+    return $TRUE;
+  }
+  else {
+    if ($verbose) { say 'No internet connection detected' or croak; }
+    return $FALSE;
+  }
 }
 
 # list_duplicates(@values)    {{{1
@@ -1742,22 +1871,23 @@ method internet_connection ( $verbose = $FALSE ) {
 # return: list
 # note:   non-scalar values are assumed to be unique
 # note:   element order is not preserved
-method list_duplicates (@values) {
+sub list_duplicates ($self, @values)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    my ( @duplicates, @scalars );
+  my (@duplicates, @scalars);
 
-    # assume non-scalars are unique
-    for my $value (@values) {
-        if   ( ref $value ) { push @duplicates, $value; }
-        else                { push @scalars,    $value; }
-    }
+  # assume non-scalars are unique
+  for my $value (@values) {
+    if   (ref $value) { push @duplicates, $value; }
+    else              { push @scalars,    $value; }
+  }
 
-    # find scalar duplicates
-    my %count;
-    for my $value (@values) { $count{$value}++; }
-    push @duplicates, grep { $count{$_} > 1 } keys %count;
+  # find scalar duplicates
+  my %count;
+  for my $value (@values) { $count{$value}++; }
+  push @duplicates, grep { $count{$_} > 1 } keys %count;
 
-    return @duplicates;
+  return @duplicates;
 }
 
 # pad($values[, $width[, $char[, $side]]] )    {{{1
@@ -1776,70 +1906,69 @@ method list_duplicates (@values) {
 # return: scalar string if input is simple scalar
 #         list if input is array ref
 # credit: pad methods from https://www.tek-tips.com/viewthread.cfm?qid=184815
-method pad (@params) {
+sub pad ($self, @params)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitExcessComplexity)
 
-    # params    {{{2
-    my ( $values, $width, $char, $side ) = @params;
-    if ( not $side )  { $side  = 'left'; }
-    if ( not $width ) { $width = 0; }
+  # params    {{{2
+  my ($values, $width, $char, $side) = @params;
+  if (not $side)  { $side  = $VAL_LEFT; }
+  if (not $width) { $width = 0; }
 
-    # - $values    {{{3
-    my @vals;
-    my $ref = ref $values;
-    if ( $ref eq 'ARRAY' ) {    # array
-        my @array = @{$values};
-        return if not @array;
-        push @vals, @array;
+  # - $values    {{{3
+  my @vals;
+  my $ref = ref $values;
+  if ($ref eq $REF_TYPE_ARRAY) {    # array
+    my @array = @{$values};
+    return () if not @array;
+    push @vals, @array;
+  }
+  if ($ref and $ref ne $REF_TYPE_ARRAY) {    # not array
+    confess "Values are '$ref' instead of 'ARRAY'";
+  }
+  if (not $ref) {                            # scalar
+    return q{} if not $values;
+    push @vals, $values;
+  }
+
+  # - $width    {{{3
+  confess "Invalid width '$width'" if not $self->int_pos_valid($width);
+  my $max_width = length reduce { length($a) > length($b) ? $a : $b } @vals;
+  if ($width == 0)         { $width = $max_width; }
+  if ($width < $max_width) { $width = $max_width; }
+
+  # - $char   {{{3
+  if (defined $char) {
+    if (length $char != 1) {
+      confess "Want single pad char, got '$char'";
     }
-    if ( $ref and $ref ne 'ARRAY' ) {    # not array
-        confess "Values are '$ref' instead of 'ARRAY'";
+  }
+  else {    # decide on pad char
+    if (List::SomeUtils::any { not $self->int_pos_valid($_) } @vals) {
+      $char = $SPACE;    # not all integers, so use space
     }
-    if ( not $ref ) {                    # scalar
-        return if not $values;
-        push @vals, $values;
+    else {
+      $char = q{0};      # all integers, so use zero
     }
+  }
 
-    # - $width    {{{3
-    confess "Invalid width '$width'" if not $self->int_pos_valid($width);
-    my $max_width
-        = length reduce { length($a) > length($b) ? $a : $b } @vals;
-    if ( $width == 0 )         { $width = $max_width; }
-    if ( $width < $max_width ) { $width = $max_width; }
+  # - $side    {{{3
+  $side = lc $side;
+  my %valid_side = map { $_ => $TRUE } qw(left right);
+  confess "Expect side is 'left' or 'right', got '$side'"
+      if not $valid_side{$side};    # }}}3
 
-    # - $char   {{{3
-    if ( defined $char ) {
-        if ( length $char != 1 ) {
-            confess "Want single pad char, got '$char'";
-        }
-    }
-    else {    # decide on pad char
-        if ( List::MoreUtils::any { not $self->int_pos_valid($_) } @vals ) {
-            $char = q{ };    # not all integers, so use space
-        }
-        else {
-            $char = q{0};    # all integers, so use zero
-        }
-    }
+  # pad list    {{{2
+  # - works only if $width >= longest list element
+  # - need parentheses to enforce operator precedence
+  ## no critic (ProhibitParensWithBuiltins)
+  my @padded =
+      ($side eq $VAL_LEFT)
+      ? map { substr(($char x $width) . $_, $NEGATE * $width, $width) } @vals
+      : map { substr($_ . ($char x $width), 0,                $width) } @vals;
+  ## use critic
 
-    # - $side    {{{3
-    $side = lc $side;
-    my %valid_side = map { $_ => $TRUE } qw(left right);
-    confess "Expect side is 'left' or 'right', got '$side'"
-        if not $valid_side{$side};    # }}}3
-
-    # pad list    {{{2
-    # - works only if $width >= longest list element
-    # - need parentheses to enforce operator precedence
-    ## no critic (ProhibitParensWithBuiltins)
-    my @padded
-        = ( $side eq 'left' )
-        ? map { substr( ( $char x $width ) . $_, $NEGATE * $width, $width ) }
-        @vals
-        : map { substr( $_ . ( $char x $width ), 0, $width ) } @vals;
-    ## use critic
-
-    # return padded value or list    {{{2
-    return ($ref) ? @padded : $padded[0];    # }}}2
+  # return padded value or list    {{{2
+  return ($ref) ? @padded : $padded[0];    # }}}2
 }
 
 # pager($lines)    {{{1
@@ -1853,28 +1982,31 @@ method pad (@params) {
 # note:   pager used depends on IO::Pager algorithm
 # note:   does not matter whether lines have terminal newlines or not
 # note:   often used with method 'term_wrap' to format screen display
-method pager ( $lines, $prefer ) {
+sub pager ($self, $lines, $prefer)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # check args
-    if ( not $lines ) { confess 'No lines provided'; }
-    my $ref_type = ref $lines;
-    if ( $ref_type ne 'ARRAY' ) { confess 'Not an array reference'; }
-    my $default_pager;
-    if ( $prefer and $self->executable_path($prefer) and $prefer ne $PAGER ) {
-        $default_pager = $PAGER;
-        $PAGER         = $prefer;
-    }
+  # check args
+  if (not $lines) { confess 'No lines provided'; }
+  my $ref_type = ref $lines;
+  if ($ref_type ne $REF_TYPE_ARRAY) { confess $MSG_NOT_ARRAYREF; }
+  my $default_pager;
+  if ($prefer and $self->executable_path($prefer) and $prefer ne $PAGER) {
+    $default_pager = $PAGER;
+    $PAGER         = $prefer;
+  }
 
-    # display lines
-    my @output = @{$lines};
-    chomp @output;
-    my $pager = IO::Pager->new();
-    foreach my $line (@output) {
-        $pager->print("$line\n");
-    }
+  # display lines
+  my @output = @{$lines};
+  chomp @output;
+  my $pager = IO::Pager->new();
+  foreach my $line (@output) {
+    $pager->print("$line\n");
+  }
 
-    # restore default pager
-    if ($default_pager) { $PAGER = $default_pager; }
+  # restore default pager
+  if ($default_pager) { $PAGER = $default_pager; }
+
+  return $TRUE;
 }
 
 # path_canon($path)    {{{1
@@ -1889,14 +2021,14 @@ method pager ( $lines, $prefer ) {
 #         resolution, but this means a wildcard present in the input string can
 #         potentially resolve to multiple matching files, which causes a fatal
 #         error
-method path_canon ($path) {
+sub path_canon ($self, $path) { ## no critic (RequireInterpolationOfMetachars)
 
-    # expand tilde, but catch case where wildcard matches multiple results
-    my @glob_matches = glob $path;
-    confess "Multiple paths match '$path'" if scalar @glob_matches > 1;
+  # expand tilde, but catch case where wildcard matches multiple results
+  my @glob_matches = glob $path;
+  confess "Multiple paths match '$path'" if scalar @glob_matches > 1;
 
-    # return canonical path
-    return File::Spec->canonpath( $glob_matches[0] );
+  # return canonical path
+  return File::Spec->canonpath($glob_matches[0]);
 }
 
 # path_executable($exe)    {{{1
@@ -1905,9 +2037,10 @@ method path_canon ($path) {
 # params: $exe - short name of executable [required, str]
 # prints: error messages
 # return: path to executable, undef if not found
-method path_executable ($exe) {
-    confess 'No executable name provided' if not $exe;
-    return scalar File::Which::which($exe);
+sub path_executable ($self, $exe)
+{    ## no critic (RequireInterpolationOfMetachars)
+  confess 'No executable name provided' if not $exe;
+  return scalar File::Which::which($exe);
 }
 
 # path_join(@parts)    {{{1
@@ -1917,9 +2050,9 @@ method path_executable ($exe) {
 # prints: nil
 # return: scalar string path
 #         die on error
-method path_join (@parts) {
-    return if not @parts;
-    return File::Spec->catfile(@parts);
+sub path_join ($self, @parts) { ## no critic (RequireInterpolationOfMetachars)
+  return q{} if not @parts;
+  return File::Spec->catfile(@parts);
 }
 
 # path_parts($filepath, $exists = $FALSE)    {{{1
@@ -1930,16 +2063,17 @@ method path_join (@parts) {
 #                     [optional, boolean, default=false]
 # prints: error messages
 # return: list of strings ($dirpath, $filename)
-method path_parts ( $filepath, $exists = $FALSE ) {
+sub path_parts ($self, $filepath, $exists = $FALSE)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
 
-    # check args
-    confess 'No filepath provided' if not $filepath;
-    if ( $exists and not $self->file_readable($filepath) ) {
-        confess "Filepath '$filepath' does not exist";
-    }
+  # check args
+  confess $MSG_NO_FILEPATH if not $filepath;
+  if ($exists and not $self->file_readable($filepath)) {
+    confess "Filepath '$filepath' does not exist";
+  }
 
-    my ( $file, $dirpath, $suffix ) = File::Basename::fileparse($filepath);
-    return ( $dirpath, $file . $suffix );
+  my ($file, $dirpath, $suffix) = File::Basename::fileparse($filepath);
+  return ($dirpath, $file . $suffix);
 }
 
 # path_remove(@paths)    {{{1
@@ -1948,26 +2082,26 @@ method path_parts ( $filepath, $exists = $FALSE ) {
 # params: @paths - one or more filepaths or dirpaths to delete [required]
 # prints: error messages
 # return: boolean, dies on fatal filesystem errors
-method path_remove (@paths) {
+sub path_remove ($self, @paths)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
 
-    # check args
-    return $TRUE if not @paths;
+  # check args
+  return $TRUE if not @paths;
 
-    # perform deletion
-    my $success = $TRUE;
-    my $options = { error => \my $errors };
-    File::Path::remove_tree( @paths, $options );
-    if ( $errors && @{$errors} ) {
-        $success = $FALSE;
-        for my $error ( @{$errors} ) {
-            my ( $file, $msg ) = %{$error};
-            if   ($file) { warn "problem deleting $file: $msg\n"; }
-            else         { warn "error during deletion: $msg\n"; }
-        }
+  # perform deletion
+  my $success = $TRUE;
+  my $options = { error => \my $errors };
+  File::Path::remove_tree(@paths, $options);
+  if ($errors && @{$errors}) {
+    $success = $FALSE;
+    for my $error (@{$errors}) {
+      my ($file, $msg) = %{$error};
+      if   ($file) { warn "problem deleting $file: $msg\n"; }
+      else         { warn "error during deletion: $msg\n"; }
     }
+  }
 
-    if   ($success) { return $TRUE; }
-    else            { return; }
+  return $success;
 }
 
 # path_true($path, $exists = $FALSE)    {{{1
@@ -1983,15 +2117,16 @@ method path_remove (@paths) {
 # note:   double quote filepath parameter if it is a variable
 #         - if not, passing a value like './' results in an error
 #           as it is somehow reduced to an empty value
-method path_true ( $path, $exists = $FALSE ) {
+sub path_true ($self, $path, $exists = $FALSE)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # check args
-    confess 'No filepath provided' if not $path;
-    if ( $exists and not $self->file_readable($path) ) {
-        confess "Path '$path' does not exist";
-    }
+  # check args
+  confess $MSG_NO_FILEPATH if not $path;
+  if ($exists and not $self->file_readable($path)) {
+    confess "Path '$path' does not exist";
+  }
 
-    return Path::Tiny::path($path)->absolute->canonpath;
+  return Path::Tiny::path($path)->absolute->canonpath;
 }
 
 # pluralise($string, $numeric)    {{{1
@@ -2002,18 +2137,19 @@ method path_true ( $path, $exists = $FALSE ) {
 # prints: nil
 # return: scalar string
 # note:   passes values straight through to Text::Pluralizer::pluralize
-method pluralise ( $string, $number ) {
+sub pluralise ($self, $string, $number)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # check args
-    if ( not( defined $string ) ) { confess 'No string provided'; }
-    if ( not $string )            { return q{}; }
-    if ( not $number )            { confess 'No number provided'; }
-    if ( not $self->int_pos_valid($number) ) {
-        confess "Number '$number' is not an integer";
-    }
+  # check args
+  if (not(defined $string)) { confess 'No string provided'; }
+  if (not $string)          { return q{}; }
+  if (not $number)          { confess 'No number provided'; }
+  if (not $self->int_pos_valid($number)) {
+    confess "Number '$number' is not an integer";
+  }
 
-    # use Text::Pluralize
-    return Text::Pluralize::pluralize( $string, $number );
+  # use Text::Pluralize
+  return Text::Pluralize::pluralize($string, $number);
 }
 
 # run_command($err, @cmd)    {{{1
@@ -2026,40 +2162,41 @@ method pluralise ( $string, $number ) {
 # return: n/a, dies on failure
 #   note: displays command output in real time but does not capture it
 #    see: shell_command()
-method run_command ( $err, @cmd ) {
+sub run_command ($self, $err, @cmd)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    if ( not @cmd ) { confess 'No command provided'; }
-    my $divider = $self->divider;
+  if (not @cmd) { confess $MSG_NO_COMMAND ; }
+  my $divider = $self->divider;
+  say $divider or confess;
+  if (system @cmd) {
+
     say $divider or confess;
-    if ( system @cmd ) {
+    my $cmd_str = join $SPACE, @cmd;
+    if ($err) { warn "$err\n"; }
+    warn "Failed command: $cmd_str\n";
 
-        say $divider or confess;
-        my $cmd_str = join q{ }, @cmd;
-        if ($err) { warn "$err\n"; }
-        warn "Failed command: $cmd_str\n";
+    # perlcritic mistakenly complains about ${^CHILD_ERROR_NATIVE}
+    # being a "magic punctuation variable" but it is actually the
+    # long name from the English module, so perlcritic is wrong
+    ## no critic (ProhibitPunctuationVars)
+    my $err = ${^CHILD_ERROR_NATIVE};
+    ## use critic
 
-        # perlcritic mistakenly complains about ${^CHILD_ERROR_NATIVE}
-        # being a "magic punctuation variable" but it is actually the
-        # long name from the English module, so perlcritic is wrong
-        ## no critic (ProhibitPunctuationVars)
-        my $err = ${^CHILD_ERROR_NATIVE};
-        ## use critic
-
-        # decode the exit status with POSIX module functions
-        if ( POSIX::WIFEXITED($err) ) {
-            warn '- exited with status ', POSIX::WEXITSTATUS($err), "\n";
-        }
-        my $exit_status = 1;
-        if ( POSIX::WIFSIGNALED($err) ) {
-            warn '- killed by signal ', POSIX::WTERMSIG($err), "\n";
-            $exit_status = POSIX::WTERMSIG($err);
-        }
-
-        confess "Exit status: $exit_status";
+    # decode the exit status with POSIX module functions
+    if (POSIX::WIFEXITED($err)) {
+      carp '- exited with status ', POSIX::WEXITSTATUS($err), $NEWLINE;
     }
-    say $divider or confess;
+    my $exit_status = 1;
+    if (POSIX::WIFSIGNALED($err)) {
+      carp '- killed by signal ', POSIX::WTERMSIG($err), $NEWLINE;
+      $exit_status = POSIX::WTERMSIG($err);
+    }
 
-    return;
+    confess "Exit status: $exit_status";
+  }
+  say $divider or confess;
+
+  return;
 }
 
 # shell_command($cmd, $fatal, $timeout)    {{{1
@@ -2071,70 +2208,71 @@ method run_command ( $err, @cmd ) {
 # return: Role::Utils::Dn::CommandResult object
 #   note: does not display output while command running, but captures output
 #    see: run_command()
-method shell_command ( $cmd, $fatal = $TRUE, $timeout = 0 ) {
+sub shell_command ($self, $cmd, $fatal = $TRUE, $timeout = 0)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # process arg
-    if ( not( defined $cmd ) ) { confess 'No command provided'; }
-    my $arg_type = ref $cmd;
-    if ( $arg_type eq 'ARRAY' ) {
-        my @cmd_args = @{$cmd};
-        if ( not @cmd_args ) { confess 'No command arguments provided'; }
-    }
-    elsif ( $arg_type ne q{} ) {    # if not array ref must be string
-        confess 'Command is not a string or array reference';
-    }
-    if ( not $self->int_pos_valid($timeout) ) {
-        confess 'timeout is not a valid positive integer';
-    }
+  # process arg
+  if (not(defined $cmd)) { confess $MSG_NO_COMMAND ; }
+  my $arg_type = ref $cmd;
+  if ($arg_type eq $REF_TYPE_ARRAY) {
+    my @cmd_args = @{$cmd};
+    if (not @cmd_args) { confess 'No command arguments provided'; }
+  }
+  elsif ($arg_type ne q{}) {    # if not array ref must be string
+    confess 'Command is not a string or array reference';
+  }
+  if (not $self->int_pos_valid($timeout)) {
+    confess 'timeout is not a valid positive integer';
+  }
 
-    # run command
-    my ( $succeed, $err, $full_ref, $stdout_ref, $stderr_ref )
-        = IPC::Cmd::run( command => $cmd, timeout => $timeout );
+  # run command
+  my ($succeed, $err, $full_ref, $stdout_ref, $stderr_ref) =
+      IPC::Cmd::run(command => $cmd, timeout => $timeout);
 
-    # process output
-    # - err: has trailing newline
-    if ( defined $err ) { chomp $err; }
-    else { $err = q{}; }    # prevent undef which fails type constraint
+  # process output
+  # - err: has trailing newline
+  if (defined $err) { chomp $err; }
+  else { $err = q{}; }    # prevent undef which fails type constraint
 
-    # - full, stdout and stderr: appears that for at least some commands
-    #   all output lines are put into a single string, separated with
-    #   embedded newlines, which is then put into a single element list
-    #   which is made into an array reference; these are unpacked below
-    my @full;
-    foreach my $chunk ( @{$full_ref} ) {
-        chomp $chunk;
-        my @lines = split /\n/xsm, $chunk;
-        push @full, @lines;
-    }
-    my @stdout;
-    foreach my $chunk ( @{$stdout_ref} ) {
-        chomp $chunk;
-        my @lines = split /\n/xsm, $chunk;
-        push @stdout, @lines;
-    }
-    my @stderr;
-    foreach my $chunk ( @{$stderr_ref} ) {
-        chomp $chunk;
-        my @lines = split /\n/xsm, $chunk;
-        push @stderr, @lines;
-    }
+  # - full, stdout and stderr: appears that for at least some commands
+  #   all output lines are put into a single string, separated with
+  #   embedded newlines, which is then put into a single element list
+  #   which is made into an array reference; these are unpacked below
+  my @full;
+  foreach my $chunk (@{$full_ref}) {
+    chomp $chunk;
+    my @lines = split /\n/xsm, $chunk;
+    push @full, @lines;
+  }
+  my @stdout;
+  foreach my $chunk (@{$stdout_ref}) {
+    chomp $chunk;
+    my @lines = split /\n/xsm, $chunk;
+    push @stdout, @lines;
+  }
+  my @stderr;
+  foreach my $chunk (@{$stderr_ref}) {
+    chomp $chunk;
+    my @lines = split /\n/xsm, $chunk;
+    push @stderr, @lines;
+  }
 
-    # die now if command failed and fatal flag is set
-    if ( $fatal and not $succeed ) {
-        my $cmd_str;
-        if ( $arg_type eq 'ARRAY' ) { $cmd_str = join q{ }, @{$cmd}; }
-        else                        { $cmd_str = $cmd; }
-        confess "Shell command '$cmd_str' failed: $err";
-    }
+  # die now if command failed and fatal flag is set
+  if ($fatal and not $succeed) {
+    my $cmd_str;
+    if ($arg_type eq $REF_TYPE_ARRAY) { $cmd_str = join $SPACE, @{$cmd}; }
+    else                              { $cmd_str = $cmd; }
+    confess "Shell command '$cmd_str' failed: $err";
+  }
 
-    # return results as an object
-    return Role::Utils::Dn::CommandResult->new(
-        success      => $succeed,
-        error        => $err,
-        full_output  => [@full],
-        standard_out => [@stdout],
-        standard_err => [@stderr],
-    );
+  # return results as an object
+  return Role::Utils::Dn::CommandResult->new(
+    success      => $succeed,
+    error        => $err,
+    full_output  => [@full],
+    standard_out => [@stdout],
+    standard_err => [@stderr],
+  );
 }
 
 # stringify($val)    {{{1
@@ -2143,14 +2281,15 @@ method shell_command ( $cmd, $fatal = $TRUE, $timeout = 0 ) {
 # params: $val - value to stringify [any, required]
 # prints: nil
 # return: scalar string
-method stringify ($val) {
+sub stringify ($self, $val)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
 
-    # no need to alter a string    {{{2
-    my $val_type = Scalar::Util::reftype $val;
-    if ( not( defined $val_type ) ) { return $val; }
+  # no need to alter a string    {{{2
+  my $val_type = Scalar::Util::reftype $val;
+  if (not(defined $val_type)) { return $val; }
 
-    # stringify anything else    {{{2
-    return Dumper($val);
+  # stringify anything else    {{{2
+  return Dumper($val);
 
 }
 
@@ -2161,11 +2300,11 @@ method stringify ($val) {
 # prints: nil
 # return: Scalar integer
 method term_height () {
-    my ( $height, $width );
-    my $mwh = Curses->new();
-    $mwh->getmaxyx( $height, $width );
-    endwin();
-    return $height;
+  my ($height, $width);
+  my $mwh = Curses->new();
+  $mwh->getmaxyx($height, $width);
+  endwin();
+  return $height;
 }
 
 # term_width()    {{{1
@@ -2175,11 +2314,11 @@ method term_height () {
 # prints: nil
 # return: Scalar integer
 method term_width () {
-    my ( $height, $width );
-    my $mwh = Curses->new();
-    $mwh->getmaxyx( $height, $width );
-    endwin();
-    return $width;
+  my ($height, $width);
+  my $mwh = Curses->new();
+  $mwh->getmaxyx($height, $width);
+  endwin();
+  return $width;
 }
 
 # tools_available(@tools)    {{{1
@@ -2192,23 +2331,22 @@ method term_width () {
 # note:   error message looks like:
 #             Required executable is not available: not-here
 #             Required executables are not available: not-here, me-either
-method tools_available (@tools) {
-    if ( not @tools ) { return; }
-    my @missing = grep { not $self->path_executable($_) } @tools;
-    if (@missing) {
-        my $missing_tools = join q{, }, @missing;
-        my $err
-            = $self->pluralise(
-            'Required (executable is|executables are) not available: ',
-            scalar @missing )
-            . $missing_tools;
-        my @display = $self->wrap_text($err);
-        for my $line (@display) { warn "$line\n"; }
+sub tools_available ($self, @tools)
+{    ## no critic (RequireInterpolationOfMetachars)
+  if (not @tools) { return $FALSE; }
+  my @missing = grep { not $self->path_executable($_) } @tools;
+  if (@missing) {
+    my $missing_tools = join $PARAM_COMMA_SPACE, @missing;
+    my $err = $self->pluralise(
+      'Required (executable is|executables are) not available: ',
+      scalar @missing)
+        . $missing_tools;
+    my @display = $self->wrap_text($err);
+    for my $line (@display) { warn "$line\n"; }
+    return $FALSE;
+  }
 
-        return;
-    }
-
-    return $TRUE;
+  return $TRUE;
 }
 
 # wrap_text($string, %options)    {{{1
@@ -2249,70 +2387,69 @@ method tools_available (@tools) {
 #         disappear during processing; use a positive lookbehind construct to
 #         prevent consumption of break characters
 # note:   often used with method 'pager' to format screen display
-method wrap_text ( $strings, %options ) {
+sub wrap_text ($self, $strings, %options)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitExcessComplexity)
 
-    const my $MIN_TEXT_WIDTH => 10;
-    const my $TAB_SIZE       => 4;
+  const my $MIN_TEXT_WIDTH => 10;    ## no critic (ProhibitDuplicateLiteral)
+  const my $TAB_SIZE       => 4;
 
-    # handle args    {{{2
-    # - $strings    {{{3
-    if ( not $strings ) { confess 'No strings provided'; }
-    my $strings_ref = ref $strings;
-    my @input;
-    for ($strings_ref) {
-        if    ( $_ eq 'ARRAY' ) { @input = @{$strings}; }
-        elsif ( $_ eq q{} )     { push @input, $strings; }
-        else {
-            my $err = 'Input is not a string or array reference: '
-                . Dumper($strings);
-            confess $err;
-        }
+  # handle args    {{{2
+  # - $strings    {{{3
+  if (not $strings) { confess 'No strings provided'; }
+  my $strings_ref = ref $strings;
+  my @input;
+  for ($strings_ref) {
+    if    ($_ eq $REF_TYPE_ARRAY) { @input = @{$strings}; }
+    elsif ($_ eq q{})             { push @input, $strings; }
+    else {
+      my $err =
+          'Input is not a string or array reference: ' . Dumper($strings);
+      confess $err;
     }
+  }
 
-    # - $width    {{{3
-    my $width;
-    if ( $options{'width'} ) {
-        if (    $self->int_pos_valid( $options{'width'} )
-            and $options{'width'} > 0 )
-        {
-            $width = $options{'width'};
-        }
-        else {
-            my $err
-                = q{Invalid option 'width': } . Dumper( $options{'width'} );
-            confess $err;
-        }
+  # - $width    {{{3
+  my $width;
+  if ($options{$KEY_WIDTH}) {
+    if (  $self->int_pos_valid($options{$KEY_WIDTH})
+      and $options{$KEY_WIDTH} > 0)
+    {
+      $width = $options{$KEY_WIDTH};
     }
-    my $terminal_width = $self->term_width - 1;    #
-    if ( ( not $width ) or ( $width > $terminal_width ) ) {
-        $width = $terminal_width;
+    else {
+      my $err =
+          "Invalid option '$KEY_WIDTH': " . Dumper($options{$KEY_WIDTH});
+      confess $err;
     }
+  }
+  my $terminal_width = $self->term_width - 1;    #
+  if ((not $width) or ($width > $terminal_width)) {
+    $width = $terminal_width;
+  }
 
-    # - localised as per PBP, so ignore package variable warning
-    ## no critic (ProhibitPackageVars)
-    local $Text::Wrap::columns = $Text::Wrap::columns;
-    $Text::Wrap::columns = $width;
-    ## use critic
+  # - localised as per PBP, so ignore package variable warning
+  local $Text::Wrap::columns = $Text::Wrap::columns;
+  $Text::Wrap::columns = $width;
 
-    # - $indent    {{{3
-    my $indent = q{};
-    if ( exists $options{'indent'} ) {
-        if (    $self->int_pos_valid( $options{'indent'} )
-            and $options{'indent'} >= 0
-            and ( ( $options{'indent'} + $MIN_TEXT_WIDTH ) < $width ) )
-        {
-            $indent = q{ } x $options{'indent'};
-        }
-        else {
-            my $err
-                = q{Invalid option 'indent': } . Dumper( $options{'indent'} );
-            confess $err;
-        }
+  # - $indent    {{{3
+  my $indent = q{};
+  if (exists $options{$KEY_INDENT}) {
+    if (  $self->int_pos_valid($options{$KEY_INDENT})
+      and $options{$KEY_INDENT} >= 0
+      and (($options{$KEY_INDENT} + $MIN_TEXT_WIDTH) < $width))
+    {
+      $indent = $SPACE x $options{$KEY_INDENT};
     }
+    else {
+      my $err =
+          "Invalid option '$KEY_INDENT': " . Dumper($options{$KEY_INDENT});
+      confess $err;
+    }
+  }
 
-    # - $hang    {{{3
-    #   . positive integer regexp    {{{4
-    my $int_re = qr{
+  # - $hang    {{{3
+  #   . positive integer regexp    {{{4
+  my $int_re = qr{
         (?:                             #  '()' not to capture to $1, etc.
             (?: 0 )                     # zero
             |                           # OR
@@ -2323,93 +2460,91 @@ method wrap_text ( $strings, %options ) {
         )
     }xsm;
 
-    #    . extended hang regexp    {{{4
-    my $extend_re = qr{
+  #    . extended hang regexp    {{{4
+  my $extend_re = qr{
         (?:                          #  '()' not to capture to $1, etc.
             (?: [Ee] )               # 'E' or 'e'
             (?: = ( $int_re ) ) ?    # optionally followed by '=' and integer
                                      # and capture the integer
         )
     }xsm;    # }}}4
-    my $hang = $indent;
-    if ( exists $options{'hang'} ) {
-        my $valid_hang = $FALSE;
+  my $hang = $indent;
+  if (exists $options{$KEY_HANG}) {
+    my $valid_hang = $FALSE;
 
-        # basic format: positive integer
-        if ( $self->int_pos_valid( $options{'hang'} )
-            and ( ( $options{'hang'} + $MIN_TEXT_WIDTH ) < $width ) )
-        {
-            $hang       = q{ } x $options{'hang'};
-            $valid_hang = $TRUE;
-        }
-
-        # extended format: 'e' or 'e=X' where 'X' is a positive integer
-        elsif ( $options{'hang'} =~ /\A$extend_re\Z/xsm ) {
-            my $extend     = $1 // 0;    # provided by $extend_re
-            my $base       = length $input[0] =~ s/\A(\s*).*\Z/$1/xsmr;
-            my $hang_width = $base + $extend;
-            if ( ( $hang_width + $MIN_TEXT_WIDTH ) < $width ) {
-                $hang       = q{ } x $hang_width;
-                $valid_hang = $TRUE;
-            }
-        }
-
-        # invalid format
-        if ( not $valid_hang ) {
-            my $err = q{Invalid option 'hang': } . Dumper( $options{'hang'} );
-            confess $err;
-        }
+    # basic format: positive integer
+    if ($self->int_pos_valid($options{$KEY_HANG})
+      and (($options{$KEY_HANG} + $MIN_TEXT_WIDTH) < $width))
+    {
+      $hang       = $SPACE x $options{$KEY_HANG};
+      $valid_hang = $TRUE;
     }
 
-    # - $break    {{{3
-    my $break = qr{[\s]}xsm;
-    if ( exists $options{'break'} ) {
-        my $candidate = $options{'break'};
-        if ( ref $candidate eq 'Regexp' ) { $break = $candidate; }
+    # extended format: 'e' or 'e=X' where 'X' is a positive integer
+    elsif ($options{$KEY_HANG} =~ /\A$extend_re\Z/xsm) {
+      my $extend     = $1 // 0;    # provided by $extend_re
+      my $base       = length $input[0] =~ s/\A(\s*).*\Z/$1/xsmr;
+      my $hang_width = $base + $extend;
+      if (($hang_width + $MIN_TEXT_WIDTH) < $width) {
+        $hang       = $SPACE x $hang_width;
+        $valid_hang = $TRUE;
+      }
     }
 
-    # - localised as per PBP, so ignore package variable warning
-    ## no critic (ProhibitPackageVars)
-    local $Text::Wrap::break = $Text::Wrap::break;
-    $Text::Wrap::break = $break;
-    ## use critic
-
-    # - $cont    {{{3
-    my $cont = $FALSE;
-    if ( exists $options{'cont'} ) {
-        $cont = $options{'cont'};
-    }    # }}}3
-
-    # wrap message    # {{{2
-    # - localised as per PBP, so ignore package variable warning
-    ## no critic (ProhibitPackageVars)
-    local $Text::Wrap::unexpand = $Text::Wrap::unexpand;
-    $Text::Wrap::unexpand = $FALSE;
-    local $Text::Wrap::tabstop = $Text::Wrap::tabstop;
-    $Text::Wrap::tabstop = $TAB_SIZE;
-    local $Text::Wrap::huge = $Text::Wrap::huge;
-    $Text::Wrap::huge = 'wrap';
-    ## use critic
-    my @output;
-
-    foreach my $line (@input) {
-        my $wrapped       = Text::Wrap::wrap( $indent, $hang, $line );
-        my @wrapped_lines = split /\n/xsm, $wrapped;
-        if ( $cont && scalar @wrapped_lines > 1 ) {    # add continuations
-            my $last_line = pop @wrapped_lines;
-            foreach my $line (@wrapped_lines) { $line .= q{↩}; }
-            push @wrapped_lines, $last_line;
-        }
-        push @output, @wrapped_lines;
+    # invalid format
+    if (not $valid_hang) {
+      my $err = "Invalid option '$KEY_HANG': " . Dumper($options{$KEY_HANG});
+      confess $err;
     }
-    chomp @output;    # }}}2
+  }
 
-    return @output;
+  # - $break    {{{3
+  my $break = qr{[\s]}xsm;
+  if (exists $options{$KEY_BREAK}) {
+    my $candidate = $options{$KEY_BREAK};
+    if (ref $candidate eq $CLASS_REGEXP) { $break = $candidate; }
+  }
+
+  # - localised as per PBP, so ignore package variable warning
+  local $Text::Wrap::break = $Text::Wrap::break;
+  $Text::Wrap::break = $break;
+
+  # - $cont    {{{3
+  my $cont = $FALSE;
+  if (exists $options{$KEY_CONT}) {
+    $cont = $options{$KEY_CONT};
+  }    # }}}3
+
+  # wrap message    # {{{2
+  # - localised as per PBP, so ignore package variable warning
+  local $Text::Wrap::unexpand = $Text::Wrap::unexpand;
+  $Text::Wrap::unexpand = $FALSE;
+  local $Text::Wrap::tabstop = $Text::Wrap::tabstop;
+  $Text::Wrap::tabstop = $TAB_SIZE;
+  local $Text::Wrap::huge = $Text::Wrap::huge;
+  $Text::Wrap::huge = 'wrap';
+  my @output;
+
+  foreach my $line (@input) {
+    my $wrapped       = Text::Wrap::wrap($indent, $hang, $line);
+    my @wrapped_lines = split /\n/xsm, $wrapped;
+    if ($cont && scalar @wrapped_lines > 1) {    # add continuations
+      my $last_line = pop @wrapped_lines;
+      foreach my $line (@wrapped_lines) { $line .= q{↩}; }
+      push @wrapped_lines, $last_line;
+    }
+    push @output, @wrapped_lines;
+  }
+  chomp @output;    # }}}2
+
+  return @output;
 }    # }}}1
 
 1;
 
 # POD    {{{1
+
+## no critic (ProhibitDuplicateHeadings)
 
 __END__
 
@@ -2506,7 +2641,7 @@ add border to Image::Magick image
 
 create Image::Magick object from image file
 
-=item image_crop($image, $tl_x, $tl_y, $br_x, $br_y)
+=item image_crop($image, $coords)
 
 crop Image::Magick object
 
@@ -2518,7 +2653,7 @@ ensure all image files can be opened as Image::Magick objects
 
 get height in pixels of Image::Magick object
 
-=item image_label($image, $text, :$font, :$size, :$color, :$edge, :$space)
+=item image_label($image, $text, $opts)
 
 add label to Image::Magick object
 
@@ -2542,7 +2677,7 @@ check whether variable is an Image::Magick object
 
 get or set the (rgb) color of a pixel in an Image::Magick object
 
-=item image_resize($image, $width, $height, $fill = 'none', :$preserve = $TRUE)
+=item image_resize($image, $opts)
 
 resize an Image::Magick object
 
@@ -3868,8 +4003,7 @@ Error messages.
 
 Image::Magick object.
 
-=head2 image_crop($image, $top_left_x, $top_left_y, $bottom_right_x,
-$bottom_right_y)
+=head2 image_crop($image, $coords)
 
 Crop Image::Magick object.
 
@@ -3881,21 +4015,31 @@ Crop Image::Magick object.
 
 Image::Magick object. Scalar object reference. Required.
 
-=item $top_left_x
+=item $coords
 
-X coordinate of top-left pixel of crop region. Scalar integer. Required.
+Boundary pixel coordinates. Hash reference. Required.
 
-=item $top_left_y
+Accepts the keys:
 
-Y coordinate of top-left pixel of crop region. Scalar integer. Required.
+=over
 
-=item $bottom_right_x
+=item top_left_x
 
-X coordinate of bottom-right pixel of crop region. Scalar integer. Required.
+Top left pixel's x-coordinate. Integer. Required.
 
-=item $bottom_right_y
+=item top_left_y
 
-X coordinate of bottom-right pixel of crop region. Scalar integer. Required.
+Top left pixel's y-coordinate. Integer. Required.
+
+=item bottom_right_x
+
+Bottom right pixel's x-coordinate. Integer. Required.
+
+=item bottom_right_y
+
+Bottom right pixel's y-coordinate. Integer. Required.
+
+=back
 
 =back
 
@@ -3957,7 +4101,7 @@ Error messages on failure.
 
 Scalar integer.
 
-=head2 image_label ($image, $text, :$font, :$size ,:$color, :$edge, :$space)
+=head2 image_label ($image, $text, $opts)
 
 Add text label to image.
 
@@ -3972,6 +4116,14 @@ Image::Magick object. Required.
 =item $text
 
 Label text. String. Required.
+
+=item $opts
+
+Optional values. Hash reference. Optional.
+
+Accepts the keys:
+
+=over
 
 =item $font
 
@@ -4002,6 +4154,8 @@ Optional. Default: 'south'.
 =item $space
 
 Space, in points, added between image edge and label. Optional. Default: 0.
+
+=back
 
 =back
 
@@ -4151,7 +4305,7 @@ If called as setter, returns no value. The $image object is edited in place.
 
 If called as a getter, returns a list of integers: ($red, $green, $blue).
 
-=head2 image_resize($image, $width, $height, $fill='none' :$preserve=$TRUE)
+=head2 image_resize($image, $opts)
 
 Resize image to the largest size that will fit in the target width and height.
 The aspect ratio can be preserved (default). This results in extra space being
@@ -4167,6 +4321,14 @@ width and height; this can cause considerable image distortion.
 =item $image
 
 Image::Magick object. Scalar object reference. Required.
+
+=item $opts
+
+Configuration options. Hash reference. Required.
+
+Accepts the keys:
+
+=over
 
 =item $width
 
@@ -4186,6 +4348,8 @@ Optional. Default: 'none' (transparent).
 =item $preserve
 
 Whether to preserve the aspect ratio. Scalar boolean. Optional. Default: true.
+
+=back
 
 =back
 
@@ -5182,10 +5346,6 @@ These errors occur when an invalid parameter value is provided.
 
 There are no configuration files used. There are no module/role settings.
 
-=head1 CONFIGURATION AND ENVIRONMENT
-
-There are no configuration files used. There are no module/role settings.
-
 =head1 DEPENDENCIES
 
 =head2 Perl modules
@@ -5193,10 +5353,10 @@ There are no configuration files used. There are no module/role settings.
 autodie, Carp, Clipboard, Const::Fast, Curses, Data::Dumper::Simple,
 Date::Simple, English, Env, Feature::Compat::Try, File::Basename,
 File::Compare, File::Copy::Recursive, File::Path, File::Spec, File::Temp,
-File::Util, File::Which, Function::Parameters, IO::Pager, IPC::Cmd, IPC::Run,
-Image::Magick, List::MoreUtils, List::Util, Moo::Role, namespace::clean, POSIX,
-Path::Tiny, Scalar::Util, strictures, Symbol, Term::Clui,
-Term::ProgressBar::Simple, Text::Wrap, version.
+File::Util, File::Which, IO::Pager, IPC::Cmd, IPC::Run, Image::Magick,
+List::SomeUtils, List::Util, Moo::Role, namespace::clean, POSIX, Path::Tiny,
+Scalar::Util, strictures, Symbol, Term::Clui, Term::ProgressBar::Simple,
+Text::Wrap, version.
 
 =head2 Other
 

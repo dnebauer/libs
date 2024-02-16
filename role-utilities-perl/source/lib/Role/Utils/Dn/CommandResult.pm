@@ -1,8 +1,8 @@
-package Role::Utils::Dn::CommandResult;
+package Role::Utils::Dn::CommandResult;    ## no critic (PodSpelling)
 
 use Moo;
 use strictures 2;
-use 5.014_002;
+use 5.036_001;
 use version; our $VERSION = qv('0.1');
 use namespace::clean;
 
@@ -10,50 +10,55 @@ use Const::Fast;
 use MooX::HandlesVia;
 use Types::Standard;
 
-const my $TRUE => 1;
+const my $TRUE     => 1;
+const my $ARRAY    => 'Array';
+const my $ELEMENTS => 'elements';
+const my $COUNT    => 'count';
 
 has 'success' => (
-    is            => 'ro',
-    isa           => Types::Standard::Bool,
-    required      => $TRUE,
-    documentation => 'Whether command succeeded',
+  is            => 'ro',
+  isa           => Types::Standard::Bool,
+  required      => $TRUE,
+  documentation => 'Whether command succeeded',
 );
 
 has 'error' => (
-    is            => 'ro',
-    isa           => Types::Standard::Str,
-    required      => $TRUE,
-    documentation => 'Error message if command failed',
+  is            => 'ro',
+  isa           => Types::Standard::Str,
+  required      => $TRUE,
+  documentation => 'Error message if command failed',
 );
 
 has 'full_output' => (
-    is            => 'ro',
-    isa           => Types::Standard::ArrayRef [Types::Standard::Str],
-    required      => $TRUE,
-    handles_via   => 'Array',
-    handles       => { full => 'elements', has_full => 'count', },
-    documentation => 'Full output (stdout and stderr)',
+  is            => 'ro',
+  isa           => Types::Standard::ArrayRef [Types::Standard::Str],
+  required      => $TRUE,
+  handles_via   => $ARRAY,
+  handles       => { full => $ELEMENTS, has_full => $COUNT, },
+  documentation => 'Full output (stdout and stderr)',
 );
 
 has 'standard_out' => (
-    is            => 'ro',
-    isa           => Types::Standard::ArrayRef [Types::Standard::Str],
-    required      => $TRUE,
-    handles_via   => 'Array',
-    handles       => { stdout => 'elements', has_stdout => 'count', },
-    documentation => 'Standard output',
+  is            => 'ro',
+  isa           => Types::Standard::ArrayRef [Types::Standard::Str],
+  required      => $TRUE,
+  handles_via   => $ARRAY,
+  handles       => { stdout => $ELEMENTS, has_stdout => $COUNT, },
+  documentation => 'Standard output',
 );
 
 has 'standard_err' => (
-    is            => 'ro',
-    isa           => Types::Standard::ArrayRef [Types::Standard::Str],
-    required      => $TRUE,
-    handles_via   => 'Array',
-    handles       => { stderr => 'elements', has_stderr => 'count', },
-    documentation => 'Standard error',
+  is            => 'ro',
+  isa           => Types::Standard::ArrayRef [Types::Standard::Str],
+  required      => $TRUE,
+  handles_via   => $ARRAY,
+  handles       => { stderr => $ELEMENTS, has_stderr => $COUNT, },
+  documentation => 'Standard error',
 );
 
 1;
+
+## no critic (RequirePodSections)
 
 __END__
 
