@@ -75,8 +75,7 @@ use namespace::clean;    # }}}1
   # params: nil
   # prints: feedback
   # return: n/a, dies on failure
-  sub _usage ($self)
-  {    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+  sub _usage ($self) {    ## no critic (RequireInterpolationOfMetachars)
 
     # handle args
     my ($opt, $usage) = Getopt::Long::Descriptive::describe_options(

@@ -15,8 +15,12 @@ use Types::Standard;
 
 with qw(Role::Utils::Dn);
 
-const my $TRUE  => 1;
-const my $FALSE => 0;    # }}}1
+const my $TRUE           => 1;
+const my $FALSE          => 0;
+const my $MSG_NO_X_COORD => 'No x coordinate provided';
+const my $MSG_NO_Y_COORD => 'No y coordinate provided';
+
+# }}}1
 
 # attributes
 
@@ -46,12 +50,12 @@ has '_pixels_list' => (
 # prints: error message on failure
 # return: n/a, die on failure
 sub mark_pixel_as_processed ($self, $x, $y)
-{ ## no critic (ProhibitSubroutinePrototypes Prototypes RequireInterpolationOfMetachars)
+{    ## no critic (RequireInterpolationOfMetachars)
 
   # check args
   # - note that zero is a valid coordinate value, hence 'defined'
-  confess 'No y coordinate provided'      if not defined $y;
-  confess 'No x coordinate provided'      if not defined $x;
+  confess $MSG_NO_Y_COORD                 if not defined $y;
+  confess $MSG_NO_X_COORD                 if not defined $x;
   confess "Non-integer y coordinate '$y'" if not $self->int_pos_valid($y);
   confess "Non-integer x coordinate '$x'" if not $self->int_pos_valid($x);
 
@@ -87,10 +91,8 @@ sub pixel_is_processed ($self, $x, $y)
 
   # check args
   # - note that zero is a valid coordinate value, hence 'defined'
-  ## no critic (ProhibitDuplicateLiteral)
-  confess 'No y coordinate provided' if not defined $y;
-  confess 'No x coordinate provided' if not defined $x;
-  ## use critic
+  confess $MSG_NO_Y_COORD                 if not defined $y;
+  confess $MSG_NO_X_COORD                 if not defined $x;
   confess "Non-integer y coordinate '$y'" if not $self->int_pos_valid($y);
   confess "Non-integer x coordinate '$x'" if not $self->int_pos_valid($x);
 

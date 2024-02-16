@@ -16,16 +16,18 @@ use Types::Standard;
 
 with qw(Role::Utils::Dn);
 
-const my $TRUE              => 1;
-const my $FALSE             => 0;
-const my $HEIGHT            => 'height';
-const my $IMAGE_NOT_CREATED => 'Image is not created';
-const my $LAZY              => 'lazy';
-const my $MAX_RGB           => 255;
-const my $NEG_SIX           => -6;
-const my $POS_SIX           => 6;
-const my $RGB_COMPONENT_MAX => 127;
-const my $WIDTH             => 'width';                  # }}}1
+const my $TRUE                => 1;
+const my $FALSE               => 0;
+const my $HEIGHT              => 'height';
+const my $IMAGE_NOT_CREATED   => 'Image is not created';
+const my $LAZY                => 'lazy';
+const my $MAX_RGB             => 255;
+const my $NEG_SIX             => -6;
+const my $POS_SIX             => 6;
+const my $RGB_COMPONENT_MAX   => 127;
+const my $RGB_COMPONENT_INDEX => 'rgb_component_index';
+const my $RGB_COMPONENT_VALUE => 'rgb_component_value';
+const my $WIDTH               => 'width';                  # }}}1
 
 # attributes
 
@@ -106,8 +108,7 @@ has '_image' => (
 # params: nil
 # prints: feedback if fails
 # return: n/a, dies on failure
-sub modify_pixel ($self)
-{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+sub modify_pixel ($self) {    ## no critic (RequireInterpolationOfMetachars)
 
   # increment RGB value
   my $rgb_value = $self->_pixel_rgb_component_value
@@ -159,12 +160,10 @@ sub pixel_rgb_component_index ($self, $index = undef)
 
     # check that index has been set
     confess 'RGB component index not set'
-        if not $self->_has_pixel_property('rgb_component_index');
+        if not $self->_has_pixel_property($RGB_COMPONENT_INDEX);
 
     # return index
-    ## no critic (ProhibitDuplicateLiteral)
-    return $self->_get_pixel_properties('rgb_component_index');
-    ## use critic
+    return $self->_get_pixel_properties($RGB_COMPONENT_INDEX);
   }
 }
 
@@ -235,8 +234,7 @@ sub write_file ($self, $filepath)
 # params: nil
 # prints: nil
 # return: scalar boolean
-sub has_pixel_coords ($self)
-{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+sub has_pixel_coords ($self) {  ## no critic (RequireInterpolationOfMetachars)
   return (  $self->_has_pixel_property(q{x})
         and $self->_has_pixel_property(q{y}));
 }
@@ -272,7 +270,7 @@ sub has_pixel_coords ($self)
 #                    change to the value in the file, repeated modifications
 #                    eventually will
 sub _pixel_rgb_component_value ($self, $value = undef)
-{  ## no critic (ProhibitSubroutinePrototypes RequireInterpolationOfMetachars)
+{    ## no critic (RequireInterpolationOfMetachars)
 
   # take care because $value legitimately can be 0
 
@@ -294,10 +292,8 @@ sub _pixel_rgb_component_value ($self, $value = undef)
   else {    # getter
 
     # return value if set; if not ...
-    if ($self->_has_pixel_property('rgb_component_value')) {
-      ## no critic (ProhibitDuplicateLiteral)
-      return $self->_get_pixel_properties('rgb_component_value');
-      ## use critic
+    if ($self->_has_pixel_property($RGB_COMPONENT_VALUE)) {
+      return $self->_get_pixel_properties($RGB_COMPONENT_VALUE);
     }
     else {    # ... initialise value and return it
 
@@ -329,7 +325,7 @@ sub _pixel_rgb_component_value ($self, $value = undef)
 # prints: nil
 # return: scalar integer
 sub _pixel_rgb_component_increment ($self)
-{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+{    ## no critic (RequireInterpolationOfMetachars)
   return ($self->_pixel_rgb_component_value <= $RGB_COMPONENT_MAX)
       ? $POS_SIX
       : $NEG_SIX;

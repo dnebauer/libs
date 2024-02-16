@@ -45,7 +45,8 @@ has 'image_files' => (
   doc => 'Image files to process',
 );
 
-sub _image_files ($self) {    ## no critic (RequireInterpolationOfMetachars)
+sub _image_files ($self = undef)
+{    ## no critic (RequireInterpolationOfMetachars)
   return map { $_->realpath->canonpath } $self->_image_file_objects;
 }
 
@@ -132,8 +133,8 @@ has '_rgb_component_index' => (
 # prints: user feedback and error messages
 # return: boolean scalar indicating success
 #         note that method dies on serious failures
-sub uniquefy_images ($self)
-{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+sub uniquefy_images ($self = undef)
+{    ## no critic (RequireInterpolationOfMetachars)
 
   # validate image files and set maximum height and width
   if (not $self->_preprocess_files) { return $FALSE; }
@@ -181,8 +182,8 @@ sub uniquefy_images ($self)
 # params: nil
 # prints: error message on failure
 # return: n/a, exit on failure
-sub _preprocess_files ($self)
-{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+sub _preprocess_files ($self = undef)
+{    ## no critic (RequireInterpolationOfMetachars)
   my @files = $self->_image_files;
 
   # need at least two files {{{2
@@ -247,7 +248,7 @@ sub _preprocess_files ($self)
 # prints: error message if invalid inputs
 # return: filepath [Str], exits on failure
 sub _temp_fp ($self, $filepath)
-{  ## no critic (ProhibitSubroutinePrototypes RequireInterpolationOfMetachars)
+{    ## no critic (RequireInterpolationOfMetachars)
   if (not $filepath) {
     confess $NO_FILEPATH;
   }
@@ -262,8 +263,7 @@ sub _temp_fp ($self, $filepath)
 # params: nil
 # prints: error message if invalid inputs
 # return: bool, exits on failure
-sub _is_unique ($self, $file)
-{  ## no critic (ProhibitSubroutinePrototypes RequireInterpolationOfMetachars)
+sub _is_unique ($self, $file) { ## no critic (RequireInterpolationOfMetachars)
 
   if (not $file) {
     confess $NO_FILEPATH;
@@ -296,7 +296,7 @@ sub _is_unique ($self, $file)
 # prints: error message if invalid inputs
 # return: n/a, exits on failure
 sub _set_next_pixel ($self, $image)
-{  ## no critic (ProhibitSubroutinePrototypes RequireInterpolationOfMetachars)
+{    ## no critic (RequireInterpolationOfMetachars)
 
   # check arg
   if (not $image) {
