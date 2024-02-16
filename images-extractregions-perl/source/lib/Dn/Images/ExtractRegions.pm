@@ -1,10 +1,10 @@
 package Dn::Images::ExtractRegions;
 
-use Moo;    #                                                          {{{1
+use Moo;    # {{{1
 use strictures 2;
 use 5.006;
-use 5.022_001;
-use version; our $VERSION = qv('0.1');
+use 5.036_001;
+use version; our $VERSION = qv('0.4');
 use namespace::clean;
 
 use autodie qw(open close);
@@ -12,21 +12,27 @@ use Carp    qw(croak confess);
 use Const::Fast;
 use Dn::Images::ExtractRegions::RegionCoords;
 use English qw(-no_match_vars);
-use Function::Parameters;
 use MooX::HandlesVia;
 use Term::ProgressBar::Simple;
 use Types::Path::Tiny;
 use Types::Standard;
 use YAML::Tiny;
 
+use Data::Dumper::Simple;
+
 with qw(Role::Utils::Dn);
 
-const my $TRUE  => 1;
-const my $FALSE => 0;    #                                          }}}1
+const my $TRUE        => 1;
+const my $FALSE       => 0;
+const my $OP_ELEMENTS => 'elements';
+const my $OP_PUSH     => 'push';
+const my $TRAIT_ARRAY => 'Array';
+
+# }}}1
 
 # attributes
 
-# coords_file                                                          {{{1
+# coords_file {{{1
 has 'coords_file' => (
   is      => 'rw',
   isa     => Types::Standard::Str,
@@ -34,58 +40,56 @@ has 'coords_file' => (
   doc     => 'Coordinates file path',
 );
 
-# image_files, add_image_files, _image_files                           {{{1
+# image_files, add_image_files, _image_files {{{1
 has 'image_files' => (
   is          => 'rw',
   isa         => Types::Standard::ArrayRef [Types::Path::Tiny::AbsFile],
   coerce      => $TRUE,
   default     => sub { [] },
-  handles_via => 'Array',
+  handles_via => $TRAIT_ARRAY,
   handles     => {
-    add_image_files => 'push',
-    _image_files    => 'elements',
+    add_image_files => $OP_PUSH,
+    _image_files    => $OP_ELEMENTS,
   },
   doc => 'Image files',
 );
 
-# _coords                                                              {{{1
+# _coords {{{1
 has '_coords_list' => (
-  is  => 'lazy',
+  is  => 'ro',
   isa => Types::Standard::ArrayRef [
     Types::Standard::InstanceOf [
       'Dn::Images::ExtractRegions::RegionCoords'],
   ],
-  ## no critic (ProhibitDuplicateLiteral)
-  handles_via => 'Array',
-  handles     => { _coords => 'elements' },
-  ## use critic
+  lazy        => $TRUE,
+  handles_via => $TRAIT_ARRAY,
+  handles     => { _coords => $OP_ELEMENTS },
+  default     => sub {
+    my $self = $_[0];
+
+    # read coordinate data
+    my $file = $self->coords_file;
+    my $yaml = YAML::Tiny->read($file)
+        or confess "Unable to read file '$file'";
+    my @image_pairs = @{ $yaml->[0] };
+
+    # load geometry object list
+    my @coords_set;
+    for my $pair (@image_pairs) {
+      my $coords = Dn::Images::ExtractRegions::RegionCoords->new(
+        top_left_coords     => [ @{ $pair->{'top_left'} } ],
+        bottom_right_coords => [ @{ $pair->{'bottom_right'} } ],
+      );
+      push @coords_set, $coords;
+    }
+    return [@coords_set];
+  },
   doc => 'Coordinates of regions',
-);
-
-method _build__coords_list ()
-{    ## no critic (ProhibitUnusedPrivateSubroutines)
-
-  # read coordinate data
-  my $file = $self->coords_file;
-  my $yaml = YAML::Tiny->read($file)
-      or confess "Unable to read file '$file'";
-  my @image_pairs = @{ $yaml->[0] };
-
-  # load geometry object list
-  my @coords_set;
-  for my $pair (@image_pairs) {
-    my $coords = Dn::Images::ExtractRegions::RegionCoords->new(
-      top_left_coords     => [ @{ $pair->{'top_left'} } ],
-      bottom_right_coords => [ @{ $pair->{'bottom_right'} } ],
-    );
-    push @coords_set, $coords;
-  }
-  return [@coords_set];
-}    #                                                                 }}}1
+);    # }}}1
 
 # methods
 
-# write_coords_file_template()                                         {{{1
+# write_coords_file_template() {{{1
 #
 # does:   write template coordinates file to location set by
 #         attribute 'coords_file'
@@ -93,7 +97,8 @@ method _build__coords_list ()
 # prints: error messages on failure
 # return: boolean, indicating success of write operation
 # note:   will not overwrite existing file
-method write_coords_file_template () {
+sub write_coords_file_template ($self = undef)
+{    ## no critic (RequireInterpolationOfMetachars)
 
   my $filename = $self->coords_file;
 
@@ -127,7 +132,7 @@ method write_coords_file_template () {
         q[ of the image. ],
         q[],
         q[ Provided you preserve the structure of this file this ],
-        q[ help text will be ignored by. This text can also be ],
+        q[ help text will be ignored. This text can also be ],
         q[ removed. ],
       ],
     },
@@ -141,13 +146,14 @@ method write_coords_file_template () {
   return $TRUE;
 }
 
-# extract_images()                                                     {{{1
+# extract_images() {{{1
 #
 # does:   main method
 # params: nil
 # prints: feedback
 # return: n/a, dies on failure
-method extract_images () {
+sub extract_images ($self = undef)
+{    ## no critic (RequireInterpolationOfMetachars)
 
   # check args
   if (not $self->_checks_ok) { return $FALSE; }
@@ -171,15 +177,16 @@ method extract_images () {
   return $TRUE;
 }
 
-# _checks_ok()                                                         {{{1
+# _checks_ok() {{{1
 #
 # does:   do pre-extraction checks
 # params: nil
 # prints: feedback
 # return: n/a, dies on failure
-method _checks_ok () {
+sub _checks_ok ($self = undef)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-  # need at least one file specified                                 {{{2
+  # need at least one file specified {{{2
   my @files = $self->_image_files;
   my $count = @files;
   if (not $count) {
@@ -187,7 +194,7 @@ method _checks_ok () {
     return $FALSE;
   }
 
-  # check for output filename collisions                             {{{2
+  # check for output filename collisions {{{2
   # - input image files are specified by filepaths
   # - output files are in current working directory and share the
   #   basename of the parent
@@ -215,7 +222,7 @@ method _checks_ok () {
     return $FALSE;
   }
 
-  # coordinate file must be valid                                    {{{2
+  # coordinate file must be valid {{{2
   my $coords_file = $self->coords_file;
   if (not $coords_file) {
     warn "Coordinate file not specified\n";
@@ -226,27 +233,27 @@ method _checks_ok () {
     return $FALSE;
   }
 
-  # must have coordinates                                            {{{2
+  # must have coordinates {{{2
   my @coords_set = $self->_coords;
   if (not @coords_set) {
     warn 'No coordinates provided by ' . "coordinates file '$coords_file'\n";
     return $FALSE;
   }
 
-  # ensure all files can be opened as images                         {{{2
+  # ensure all files can be opened as images {{{2
   if (not $self->image_files_valid(@files)) { return $FALSE; }
 
   return $TRUE;
 }
 
-# _extract_image_regions($fp)                                          {{{1
+# _extract_image_regions($fp) {{{1
 #
 # does:   extract regions from image
 # params: $fp - path to parent image file
 # prints: feedback if fails
 # return: n/a, dies on failure
-method _extract_image_regions ($fp)
-{ ## no critic (ProhibitPrototypeSubroutines Prototypes RequireInterpolationOfMetachars)
+sub _extract_image_regions ($self, $fp)
+{    ## no critic (RequireInterpolationOfMetachars)
   confess 'No filepath provided' if not $fp;
   confess 'Invalid image file'   if not $self->file_readable($fp);
 
@@ -262,7 +269,13 @@ method _extract_image_regions ($fp)
 
     # crop image to region boundary
     my @args = ($coords->top_left, $coords->bottom_right);
-    $self->image_crop($image, @args);
+    my $opts = {
+      top_left_x     => $args[0],
+      top_left_y     => $args[1],
+      bottom_right_x => $args[2],
+      bottom_right_y => $args[3],    ## no critic (ProhibitMagicNumbers)
+    };
+    $self->image_crop($image, $opts);
 
     # write cropped region image
     my $mask   = $base . '_%0' . $count_width . 'd' . $suffix;
@@ -274,11 +287,11 @@ method _extract_image_regions ($fp)
   }
 
   return;
-}    #                                                                 }}}1
+}    # }}}1
 
 1;
 
-# POD                                                                  {{{1
+# POD {{{1
 
 ## no critic (RequirePodSections)
 
@@ -461,9 +474,9 @@ There are no configuration files used. There are no module/role settings.
 =head2 Perl modules
 
 autodie,Carp, Const::Fast, Dn::Images::ExtractRegions::RegionCoords, English,
-Function::Parameters, Moo, MooX::HandlesVia, namespace::clean, Role::Utils::Dn,
-strictures, Term::ProgressBar::Simple, Types::Path::Tiny, Types::Standard,
-version, YAML::Tiny.
+Moo, MooX::HandlesVia, namespace::clean, Role::Utils::Dn, strictures,
+Term::ProgressBar::Simple, Types::Path::Tiny, Types::Standard, version,
+YAML::Tiny.
 
 =head2 INCOMPATIBILITIES
 

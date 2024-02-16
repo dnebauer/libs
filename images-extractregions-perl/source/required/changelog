@@ -1,3 +1,9 @@
+libdn-images-extractregions-perl (0.4-1) UNRELEASED; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Sat, 17 Feb 2024 01:11:18 +0930
+
 libdn-images-extractregions-perl (0.3-1) UNRELEASED; urgency=low
 
   * New upstream release

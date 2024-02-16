@@ -1,10 +1,10 @@
 package Dn::Images::ExtractRegions::RegionCoords;
 
-use Moo;    #                                                          {{{1
+use Moo;    # {{{1
 use strictures 2;
 use 5.006;
-use 5.022_001;
-use version; our $VERSION = qv('0.1');
+use 5.036_001;
+use version; our $VERSION = qv('0.4');
 use namespace::clean;
 
 use Const::Fast;
@@ -12,42 +12,46 @@ use English qw(-no_match_vars);
 use MooX::HandlesVia;
 use Types::Standard;
 
-const my $TRUE  => 1;
-const my $FALSE => 0;    #                                        }}}1
+const my $TRUE        => 1;
+const my $FALSE       => 0;
+const my $OP_CLEAR    => 'clear';
+const my $OP_ELEMENTS => 'elements';
+const my $OP_PUSH     => 'push';
+const my $TRAIT_ARRAY => 'Array';      # }}}1
 
 # attributes
 
-# top_left_coords, [add|clear]_top_left, top_left,                     {{{1
+# top_left_coords, [add|clear]_top_left, top_left, {{{1
 has 'top_left_coords' => (
   is          => 'rw',
   isa         => Types::Standard::ArrayRef [Types::Standard::Int],
   default     => sub { [] },
-  handles_via => 'Array',
+  handles_via => $TRAIT_ARRAY,
   handles     => {
-    top_left       => 'elements',
-    add_top_left   => 'push',
-    clear_top_left => 'clear',
+    top_left       => $OP_ELEMENTS,
+    add_top_left   => $OP_PUSH,
+    clear_top_left => $OP_CLEAR,
   },
   documentation => 'X and Y coordinates of top-left pixel',
 );
 
-# bottom_right_coords, [add|clear]_bottom_right, bottom_right         _{{{1
+# bottom_right_coords, [add|clear]_bottom_right, bottom_right {{{1
 has 'bottom_right_coords' => (
   is          => 'rw',
   isa         => Types::Standard::ArrayRef [Types::Standard::Int],
   default     => sub { [] },
-  handles_via => 'Array',    ## no critic (ProhibitDuplicateLiteral)
+  handles_via => $TRAIT_ARRAY,
   handles     => {
-    bottom_right       => 'elements',  ## no critic (ProhibitDuplicateLiteral)
-    add_bottom_right   => 'push',      ## no critic (ProhibitDuplicateLiteral)
-    clear_bottom_right => 'clear',     ## no critic (ProhibitDuplicateLiteral)
+    bottom_right       => $OP_ELEMENTS,
+    add_bottom_right   => $OP_PUSH,
+    clear_bottom_right => $OP_CLEAR,
   },
   documentation => 'X and Y coordinates of bottom right pixel',
-);    #                                                                }}}1
+);    # }}}1
 
 1;
 
-# POD                                                                  {{{1
+# POD {{{1
 
 ## no critic (RequirePodSections)
 
