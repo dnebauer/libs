@@ -1,10 +1,10 @@
-package Dn::Images::Uniquefy;    ## no critic (RequireTidyCode PodSpelling)
+package Dn::Images::Uniquefy;
 
-use Moo;                         # {{{1
+use Moo;    # {{{1
 use strictures 2;
 use 5.006;
 use 5.036_001;
-use version; our $VERSION = qv('0.1');
+use version; our $VERSION = qv('0.4');
 use namespace::clean;
 
 use autodie qw(open close);
@@ -42,21 +42,15 @@ has 'image_files' => (
     add_image_files     => $PUSH,
     _image_file_objects => $ELEMENTS,
   },
-  default => sub {
-    my $self = $_[0];
-    return map { $_->realpath->canonpath } $self->_image_file_objects;
-  },
   doc => 'Image files to process',
 );
 
-#sub _image_files ($self) {    ## no critic (RequireInterpolationOfMetachars)
-#  return map { $_->realpath->canonpath } $self->_image_file_objects;
-#}
+sub _image_files ($self) {    ## no critic (RequireInterpolationOfMetachars)
+  return map { $_->realpath->canonpath } $self->_image_file_objects;
+}
 
 # _orig_dir {{{1
 has '_orig_dir' => (
-
-  #is  => 'lazy',
   is      => 'ro',
   isa     => Types::Standard::Str,
   lazy    => $TRUE,
@@ -67,15 +61,8 @@ has '_orig_dir' => (
   doc => 'Directory in which script is run',
 );
 
-#sub _build__orig_dir ($self)
-#{ ## no critic (ProhibitUnusedPrivateSubroutines RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
-#  return $self->dir_current;
-#}
-
 # _temp_dir {{{1
 has '_temp_dir' => (
-
-  #is  => 'lazy',
   is      => 'rw',
   isa     => Types::Standard::Str,
   lazy    => $TRUE,
@@ -85,11 +72,6 @@ has '_temp_dir' => (
   },
   doc => 'Temporary working directory',
 );
-
-#sub _build__temp_dir ($self)
-#{ ## no critic (ProhibitUnusedPrivateSubroutines RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
-#  return $self->dir_temp;
-#}
 
 # _add_processed_file, _processed_files {{{1
 has '_processed_files_list' => (
@@ -122,8 +104,6 @@ has '_max_y' => (
 
 # _pixels_processed {{{1
 has '_pixels_processed' => (
-
-  #is  => 'lazy',
   is  => 'rw',
   isa =>
       Types::Standard::InstanceOf ['Dn::Images::Uniquefy::PixelsProcessed'],
@@ -134,11 +114,6 @@ has '_pixels_processed' => (
   },
   doc => 'Pixels that have been processed (altered)',
 );
-
-#sub _build__pixels_processed ($self)
-#{ ## no critic (RequireInterpolationOfMetachars ProhibitUnusedPrivateSubroutines)
-#  return Dn::Images::Uniquefy::PixelsProcessed->new;
-#}
 
 # _rgb_component_index {{{1
 has '_rgb_component_index' => (

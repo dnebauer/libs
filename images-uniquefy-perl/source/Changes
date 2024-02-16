@@ -1,5 +1,8 @@
 Revision history for Dn-Images-Uniquify
 
+0.4
+    Remove dependency on Function::Parameters
+
 0.3
     Remove dependency on Dn::Role::HasPath in script
     Fix/suppress Perl::Critic warnings

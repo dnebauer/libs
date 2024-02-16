@@ -1,12 +1,10 @@
-## no critic (RequireTidyCode PodSpelling)
 package Dn::Images::Uniquefy::ModifyImage;
-## use critic
 
 use Moo;    # {{{1
 use strictures 2;
 use 5.006;
 use 5.036_001;
-use version; our $VERSION = qv('0.1');
+use version; our $VERSION = qv('0.4');
 use namespace::clean;
 
 use autodie qw(open close);
@@ -41,8 +39,6 @@ has 'filepath' => (
 
 # width {{{1
 has $WIDTH => (
-
-  #is  => $LAZY,
   is      => 'ro',
   isa     => Types::Standard::Int,
   lazy    => $TRUE,
@@ -56,18 +52,8 @@ has $WIDTH => (
   doc => 'Image width',
 );
 
-#sub _build_width ($self)
-#{ ## no critic (ProhibitUnusedPrivateSubroutines RequireInterpolationOfMetachars)
-#  if (not $self->_image) {
-#    confess $IMAGE_NOT_CREATED;
-#  }
-#  return $self->_image->get($WIDTH);
-#}
-
 # height {{{1
 has $HEIGHT => (
-
-  #is  => $LAZY,
   is      => 'ro',
   isa     => Types::Standard::Int,
   lazy    => $TRUE,
@@ -80,14 +66,6 @@ has $HEIGHT => (
   },
   doc => 'Image height',
 );
-
-#sub _build_height ($self)
-#{ ## no critic (ProhibitUnusedPrivateSubroutines RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
-#  if (not $self->_image) {
-#    confess $IMAGE_NOT_CREATED;
-#  }
-#  return $self->_image->Get($HEIGHT);
-#}
 
 # _[set|get]_pixel_properties, _has_pixel_property {{{1
 # - properties: x, y, rgb_component_value, rgb_component_index
@@ -107,8 +85,6 @@ has '_pixel_coords_hash' => (
 
 # _image {{{1
 has '_image' => (
-
-  #is  => $LAZY,
   is      => 'ro',
   isa     => Types::Standard::InstanceOf ['Image::Magick'],
   lazy    => $LAZY,
@@ -121,14 +97,6 @@ has '_image' => (
   },
   doc => 'ImageMagick object',
 );
-
-#sub _build__image ($self)
-#{ ## no critic (ProhibitUnusedPrivateSubroutines RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
-#  if (not $self->filepath) {
-#    confess 'No image filepath provided';
-#  }
-#  return $self->image_create($self->filepath);
-#}    # }}}1
 
 # methods
 

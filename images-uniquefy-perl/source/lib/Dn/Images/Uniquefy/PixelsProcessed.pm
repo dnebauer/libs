@@ -1,10 +1,10 @@
-package Dn::Images::Uniquefy::PixelsProcessed;    ## no critic (PodSpelling)
+package Dn::Images::Uniquefy::PixelsProcessed;
 
-use Moo;                                          # {{{1
+use Moo;    # {{{1
 use strictures 2;
 use 5.006;
 use 5.036_001;
-use version; our $VERSION = qv('0.1');
+use version; our $VERSION = qv('0.4');
 use namespace::clean;
 
 use Carp qw(confess);

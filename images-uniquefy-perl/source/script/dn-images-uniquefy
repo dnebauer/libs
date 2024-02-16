@@ -1,10 +1,10 @@
-#!/usr/bin/perl ## no critic (PodSpelling RequireTidyCode)
+#!/usr/bin/perl
 
 use Moo;                 # {{{1
 use strictures 2;
 use 5.006;
 use 5.036_001;
-use version; our $VERSION = qv('0.2');
+use version; our $VERSION = qv('0.4');
 use namespace::clean;    # }}}1
 
 {
@@ -32,8 +32,6 @@ use namespace::clean;    # }}}1
 
   # _files {{{1
   has '_file_list' => (
-
-    #is          => 'lazy',
     is          => 'rw',
     isa         => Types::Standard::ArrayRef [Types::Standard::Str],
     lazy        => $TRUE,
@@ -50,20 +48,7 @@ use namespace::clean;    # }}}1
       return [@files];
     },
     doc => 'Image files',
-  );
-
-#sub _build__file_list ($self,)
-#{ ## no critic (RequireInterpolationOfMetachars ProhibitUnusedPrivateSubroutines)
-
- #  my @matches;    # get unique file names
- #  for my $arg (@ARGV) { push @matches, glob "$arg"; }
- #  my @unique_matches = List::SomeUtils::uniq @matches;
- #  my @files =
- #      grep { $self->file_readable($_) } @unique_matches;  # ignore non-files
-
-  #  return [@files];
-
-  #}    # }}}1
+  );                          # }}}1
 
   # methods
 
