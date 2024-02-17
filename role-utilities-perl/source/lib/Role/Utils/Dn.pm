@@ -2573,7 +2573,7 @@ method name conflict between roles 'Dn::Role::HasDebian' and
 'Dn::Role::HasUserInteraction', the method 'getchar' must be implemented by
 [the calling script]" when one of the roles was consumed.
 
-To prevent this situation, all utility role methods were combined into one.
+To prevent this situation, all utility role modules were combined into one.
 
 =head2 Thematic classification
 
