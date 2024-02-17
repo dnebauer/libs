@@ -1,62 +1,65 @@
-#!/usr/bin/perl 
+#!/usr/bin/perl
 
-use Moo;    #                                                          {{{1
+use Moo;                                  # {{{1
 use strictures 2;
-use 5.014_002;
+use 5.036_001;
 use namespace::clean;
-use version; our $VERSION = qv('0.1');    #                            }}}1
+use version; our $VERSION = qv('0.1');    # }}}1
 
 {
 
-    package Dn::Internal;
+  package Dn::Internal;
 
-    use Moo;    #                                                      {{{1
-    use MooX::Options;
-    use namespace::clean -except => [ '_options_data', '_options_config' ];
-    use Function::Parameters;
-    use Readonly;
-    use Carp;
-    use Dn::Common;
-    my $cp = Dn::Common->new();
-    use Dn::CommonBash;
-    my $library = Dn::CommonBash->new();
+  use Moo;                                # {{{1
+  use MooX::Options;
+  use namespace::clean -except => [ '_options_data', '_options_config' ];
+  use Const::Fast;
+  use Carp;
+  use Dn::Common;
+  my $cp = Dn::Common->new();
+  use Dn::CommonBash;
+  my $library = Dn::CommonBash->new();
 
-    Readonly my $TRUE  => 1;
-    Readonly my $FALSE => 0;
-    Readonly my $store => q{@pkgdata_dir@/perlfuncdata};    #          }}}1
+  const my $TRUE  => 1;
+  const my $FALSE => 0;
+  ## no critic (RequireInterpolationOfMetachars)
+  const my $STORE => q{@pkgdata_dir@/perlfuncdata};
+  ## use critic
 
-    # Options
-    
-    # filter (-f)                                                      {{{1
-    option 'filter' => (
-        is            => 'rw',
-        format        => 's',
-        required      => $TRUE,
-        short         => 'f',
-        documentation => 'Part or all of a function name',
-    );    #                                                            }}}1
+  # }}}1
 
-    # Methods
-    
-    # run()                                                            {{{1
-    #
-    # does:   identify function and display its details
-    # params: nil
-    # prints: nil
-    # return: n/a, dies on failure
-    method run () {
+  # Options
 
-        # user selects function to display
-        my $funcname = $library->select_function( $self->filter, $store );
+  # filter (-f) {{{1
+  option 'filter' => (
+    is            => 'rw',
+    format        => 's',
+    required      => $TRUE,
+    short         => 'f',
+    documentation => 'Part or all of a function name',
+  );    # }}}1
 
-        # display function information
-        if ($funcname) {
-            my @display
-                = $library->display_function_details( $funcname, $store );
-            select STDOUT;
-            $cp->vim_list_print(@display);
-        }
-    }    #                                                             }}}1
+  # Methods
+
+  # run() {{{1
+  #
+  # does:   identify function and display its details
+  # params: nil
+  # prints: nil
+  # return: n/a, dies on failure
+  sub run ($self) {    ## no critic (RequireInterpolationOfMetachars)
+
+    # user selects function to display
+    my $funcname = $library->select_function($self->filter, $STORE);
+
+    # display function information
+    if ($funcname) {
+      my @display = $library->display_function_details($funcname, $STORE);
+      select STDOUT;    ## no critic (ProhibitOneArgSelect)
+      $cp->vim_list_print(@display);
+    }
+    return $TRUE;
+  }    # }}}1
 
 }
 
@@ -64,7 +67,9 @@ my $p = Dn::Internal->new_with_options->run;
 
 1;
 
-# POD                                                                  {{{1
+# POD {{{1
+
+## no critic (RequirePodSections)
 
 __END__
 
@@ -88,37 +93,19 @@ Required.
 
 =head1 DESCRIPTION
 
-The user selects a function from the libdncommon-bash library. The list of function names is filtered to display only those containing the text fragment.
+The user selects a function from the libdncommon-bash library. The list of
+function names is filtered to display only those containing the text fragment.
 
-Exact matches take precedence over partial matches. That is, if the filter exactly matches a function name that function will be displayed, even if the filter partially matches other functions.
+Exact matches take precedence over partial matches. That is, if the filter
+exactly matches a function name that function will be displayed, even if the
+filter partially matches other functions.
 
 Once a function is selected, information about it is then displayed.
 
 =head1 DEPENDENCIES
 
-=over
-
-=item Carp
-
-=item Dn::Common
-
-=item Dn::CommonBash
-
-=item Function::Parameters
-
-=item Moo
-
-=item MooX::Options
-
-=item Readonly
-
-=item namespace::clean
-
-=item strictures
-
-=item version
-
-=back
+Carp, Const::Fast, Dn::Common, Dn::CommonBash, Moo, MooX::Options,
+namespace::clean, strictures, version.
 
 =head1 BUGS AND LIMITATIONS
 
@@ -130,7 +117,7 @@ David Nebauer E<lt>davidnebauer@hotkey.net.auE<gt>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (c) 2015 David Nebauer E<lt>davidnebauer@hotkey.net.auE<gt>
+Copyright (c) 2024 David Nebauer E<lt>david@nebauer.orgE<gt>
 
 This script is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
