@@ -3154,7 +3154,7 @@ Nil.
 
 Scalar string integer (undef if problem encountered).
 
-head2 debian_package_version($pkg)
+=head2 debian_package_version($pkg)
 
 =head3 Purpose
 
@@ -4483,6 +4483,37 @@ Nil.
 =head3 Returns
 
 Scalar boolean.
+
+=head2 interact_confirm($question)
+
+User answers y/n to a question.
+
+=head3 Parameters
+
+=over
+
+=item $question
+
+Question to be answered with yes or no. Can be multi-line (use "\n"). Scalar.
+Required.
+
+=back
+
+=head3 Prints
+
+User interaction. After user answers, all but the first line of the question is
+removed from the screen. The answer also remains on the screen.
+
+=head3 Returns
+
+Scalar boolean.
+
+=head3 Usage
+
+    my $prompt = "Short question?\n\nMore\nmulti-line\ntext.";
+    if ( $self->interact_confirm($prompt) ) {
+        # do stuff
+    }
 
 =head2 internet_connection([$verbose])
 
