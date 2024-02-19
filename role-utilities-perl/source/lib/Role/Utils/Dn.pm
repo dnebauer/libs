@@ -2742,7 +2742,7 @@ return parent directory
 
 =item dir_temp( )
 
-get path of temporary directory
+create and get path of temporary directory
 
 =item file_base($filepath, $exists = $FALSE)
 
@@ -3427,7 +3427,9 @@ directory path was absolute or relative.
 
 =head2 dir_temp( )
 
-Get path of temporary directory.
+Create and get path of temporary directory.
+
+The directory will be removed automatically on script exit.
 
 =head3 Parameters
 
@@ -4920,7 +4922,7 @@ This is example usage for executing a series of shell commands:
 Displays command output in real time but does not capture it. Compare with
 C<shell_command> method.
 
-=head2 shell_command($cmd)
+=head2 shell_command($cmd, $fatal = $TRUE, $timeout = 0)
 
 =head3 Purpose
 
