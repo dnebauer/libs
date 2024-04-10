@@ -8,9 +8,9 @@ use version; our $VERSION = qv('1.1.3');
 use namespace::clean;
 use Carp qw(cluck confess croak);
 use Data::Dumper::Simple;
-use Dn::Common::Types qw(NotifySysType);
-use English qw(-no_match_vars);
-use Env qw(CLUI_DIR DESKTOP_SESSION DIR HOME PAGER PWD);
+use Dn::Common::Types    qw(NotifySysType);
+use English              qw(-no_match_vars);
+use Env                  qw(CLUI_DIR DESKTOP_SESSION DIR HOME PAGER PWD);
 use Function::Parameters qw(:lax);
 use MooX::HandlesVia;
 use Readonly;
@@ -25,7 +25,7 @@ Readonly my $FALSE => 0;
 
 use Config::Simple;
 use Curses;
-use Cwd qw(abs_path getcwd);
+use Cwd                   qw(abs_path getcwd);
 use Data::Structure::Util qw(unbless);
 use Data::Validate::URI;
 use Date::Simple;
@@ -58,7 +58,7 @@ use Net::DBus;
 use Net::Ping::External qw(ping);
 use Proc::ProcessTable;
 use Scalar::Util qw(blessed reftype);
-use Storable qw(dclone retrieve store);
+use Storable     qw(dclone retrieve store);
 use Term::ANSIColor;
 use Term::Clui;
 $CLUI_DIR = 'OFF';    # do not remember responses
@@ -75,362 +75,362 @@ use experimental 'switch';    # }}}1
 
 # notify_sys_icon_path    {{{1
 has 'notify_sys_icon_path' => (
-    is            => 'rw',
-    isa           => Types::Path::Tiny::AbsFile,
-    coerce        => $TRUE,
-    lazy          => $TRUE,
-    reader        => '_notify_sys_icon_path',
-    required      => $FALSE,
-    documentation => q{Default icon for method 'notify_sys'},
+  is            => 'rw',
+  isa           => Types::Path::Tiny::AbsFile,
+  coerce        => $TRUE,
+  lazy          => $TRUE,
+  reader        => '_notify_sys_icon_path',
+  required      => $FALSE,
+  documentation => q{Default icon for method 'notify_sys'},
 );
 
 method _notify_sys_icon () {
-    if ( $self->_notify_sys_icon_path ) {
-        return $self->_notify_sys_icon_path->realpath()->canonpath();
-    }
-    return;
+  if ($self->_notify_sys_icon_path) {
+    return $self->_notify_sys_icon_path->realpath()->canonpath();
+  }
+  return;
 }
 
 # notify_sys_title    {{{1
 has 'notify_sys_title' => (
-    is            => 'rw',
-    isa           => Types::Standard::Str,
-    lazy          => $TRUE,
-    reader        => '_notify_sys_title',
-    required      => $FALSE,
-    documentation => q{Default title for method 'notify_sys'},
+  is            => 'rw',
+  isa           => Types::Standard::Str,
+  lazy          => $TRUE,
+  reader        => '_notify_sys_title',
+  required      => $FALSE,
+  documentation => q{Default title for method 'notify_sys'},
 );
 
 # notify_sys_type    {{{1
 has 'notify_sys_type' => (
-    is            => 'rw',
-    isa           => Dn::Common::Types::NotifySysType,
-    lazy          => $TRUE,
-    reader        => '_notify_sys_type',
-    required      => $FALSE,
-    documentation => q{Default type for method 'notify_sys'},
+  is            => 'rw',
+  isa           => Dn::Common::Types::NotifySysType,
+  lazy          => $TRUE,
+  reader        => '_notify_sys_type',
+  required      => $FALSE,
+  documentation => q{Default type for method 'notify_sys'},
 );
 
 # run_command_fatal    {{{1
 has 'run_command_fatal' => (
-    is            => 'rw',
-    isa           => Types::Standard::Bool,
-    lazy          => $TRUE,
-    reader        => '_run_command_fatal',
-    required      => $FALSE,
-    documentation => q{Default fatal setting for method 'run_command'},
+  is            => 'rw',
+  isa           => Types::Standard::Bool,
+  lazy          => $TRUE,
+  reader        => '_run_command_fatal',
+  required      => $FALSE,
+  documentation => q{Default fatal setting for method 'run_command'},
 );
 
 # run_command_silent    {{{1
 has 'run_command_silent' => (
-    is            => 'rw',
-    isa           => Types::Standard::Bool,
-    lazy          => $TRUE,
-    reader        => '_run_command_silent',
-    required      => $FALSE,
-    documentation => q{Default silent setting for method 'run_command'},
+  is            => 'rw',
+  isa           => Types::Standard::Bool,
+  lazy          => $TRUE,
+  reader        => '_run_command_silent',
+  required      => $FALSE,
+  documentation => q{Default silent setting for method 'run_command'},
 );
 
 # _adb    {{{1
 has '_adb' => (
-    is            => 'ro',
-    isa           => Types::Standard::Str,
-    lazy          => $TRUE,
-    builder       => '_build_adb',
-    documentation => q{An adb executable (either 'adb' or 'fb-adb')},
+  is            => 'ro',
+  isa           => Types::Standard::Str,
+  lazy          => $TRUE,
+  builder       => '_build_adb',
+  documentation => q{An adb executable (either 'adb' or 'fb-adb')},
 );
 
 method _build_adb () {
-    foreach my $adb (qw(fb-adb adb)) {
-        if ( $self->executable_path($adb) ) {
-            return $adb;
-        }
+  foreach my $adb (qw(fb-adb adb)) {
+    if ($self->executable_path($adb)) {
+      return $adb;
     }
-    warn "Cannot find 'fb-adb' or 'adb'\n";
-    return q{};
+  }
+  warn "Cannot find 'fb-adb' or 'adb'\n";
+  return q{};
 }
 
 # _android_device()    {{{1
 has '_android_device_id' => (
-    is            => 'rw',
-    isa           => Types::Standard::Str,
-    default       => q{},
-    documentation => q{Internal device id (use '_android_device()' instead)},
+  is            => 'rw',
+  isa           => Types::Standard::Str,
+  default       => q{},
+  documentation => q{Internal device id (use '_android_device()' instead)},
 );
 
 # use this method instead of directly using attribute '_android_device_id'
 # - returns android device id or dies
 method _android_device () {
 
-    # use existing android device id if still available
-    my $device = $self->_android_device_id;
-    if ( $device and $self->_android_device_available($device) ) {
-        return $device;
-    }
+  # use existing android device id if still available
+  my $device = $self->_android_device_id;
+  if ($device and $self->_android_device_available($device)) {
+    return $device;
+  }
 
-    # otherwise try to select a new device
-    $device = $self->android_device_reset();
-    if ($device) {
-        $self->_android_device_id($device);
-        return $device;
-    }
-    else {
-        die "No android device set\n";
-    }
+  # otherwise try to select a new device
+  $device = $self->android_device_reset();
+  if ($device) {
+    $self->_android_device_id($device);
+    return $device;
+  }
+  else {
+    die "No android device set\n";
+  }
 }
 
 # _configuration_files    {{{1
 has '_configuration_files' => (
-    is  => 'rw',
-    isa => Types::Standard::ArrayRef [
-        Types::Standard::InstanceOf ['Config::Simple']
-    ],
-    lazy        => $TRUE,
-    default     => sub { [] },
-    handles_via => 'Array',
-    handles     => {
-        _config_files           => 'elements',
-        _add_config_file        => 'push',       # ($obj) -> void
-        _processed_config_files => 'count',      # () -> $boolean
-    },
-    documentation => q{Details from configuration files},
+  is  => 'rw',
+  isa => Types::Standard::ArrayRef [
+    Types::Standard::InstanceOf ['Config::Simple']
+  ],
+  lazy        => $TRUE,
+  default     => sub { [] },
+  handles_via => 'Array',
+  handles     => {
+    _config_files           => 'elements',
+    _add_config_file        => 'push',       # ($obj) -> void
+    _processed_config_files => 'count',      # () -> $boolean
+  },
+  documentation => q{Details from configuration files},
 );
 
 # _desktop    {{{1
 has '_desktop' => (
-    is            => 'ro',
-    isa           => Types::Standard::Str,
-    lazy          => $TRUE,
-    builder       => '_build_desktop',
-    documentation => 'The running desktop',
+  is            => 'ro',
+  isa           => Types::Standard::Str,
+  lazy          => $TRUE,
+  builder       => '_build_desktop',
+  documentation => 'The running desktop',
 );
 
 method _build_desktop () {
-    my $desktop = Desktop::Detect->detect_desktop()->{desktop};
+  my $desktop = Desktop::Detect->detect_desktop()->{desktop};
 
-    # kde
-    # - version 4: returns 'kde-plasma'
-    if ( $desktop eq 'kde-plasma' ) { return 'kde'; }
+  # kde
+  # - version 4: returns 'kde-plasma'
+  if ($desktop eq 'kde-plasma') { return 'kde'; }
 
-    # - version 5: returns nothing, so directly inspect $DESKTOP_SESSION
-    if ( $DESKTOP_SESSION eq 'plasma' ) { return 'kde'; }
+  # - version 5: returns nothing, so directly inspect $DESKTOP_SESSION
+  if ($DESKTOP_SESSION eq 'plasma') { return 'kde'; }
 
-    # gnome
-    my %gnome_desktop
-        = map { ( $_ => $TRUE ) } qw(gnome gnome-classic gnome-fallback);
-    if ( $gnome_desktop{$desktop} ) { return $desktop; }
+  # gnome
+  my %gnome_desktop =
+      map { ($_ => $TRUE) } qw(gnome gnome-classic gnome-fallback);
+  if ($gnome_desktop{$desktop}) { return $desktop; }
 
-    # other
-    return $desktop;
+  # other
+  return $desktop;
 }
 
 # _icon_error_path    {{{1
 has '_icon_error_path' => (
-    is            => 'rw',
-    isa           => Types::Path::Tiny::AbsFile,
-    coerce        => $TRUE,
-    lazy          => $TRUE,
-    builder       => '_build_icon_error_path',
-    documentation => q{Error icon file path},
+  is            => 'rw',
+  isa           => Types::Path::Tiny::AbsFile,
+  coerce        => $TRUE,
+  lazy          => $TRUE,
+  builder       => '_build_icon_error_path',
+  documentation => q{Error icon file path},
 );
 
 method _build_icon_error_path () {
-    return $self->_get_icon('error.xpm');
+  return $self->_get_icon('error.xpm');
 }
 
 method _icon_error () {
-    if ( $self->_icon_error_path ) {
-        return $self->_icon_error_path->realpath()->canonpath();
-    }
-    return;
+  if ($self->_icon_error_path) {
+    return $self->_icon_error_path->realpath()->canonpath();
+  }
+  return;
 }
 
 # _icon_info_path    {{{1
 has '_icon_info_path' => (
-    is            => 'rw',
-    isa           => Types::Path::Tiny::AbsFile,
-    coerce        => $TRUE,
-    lazy          => $TRUE,
-    builder       => '_build_icon_info_path',
-    documentation => q{Information icon file path},
+  is            => 'rw',
+  isa           => Types::Path::Tiny::AbsFile,
+  coerce        => $TRUE,
+  lazy          => $TRUE,
+  builder       => '_build_icon_info_path',
+  documentation => q{Information icon file path},
 );
 
 method _build_icon_info_path () {
-    return $self->_get_icon('info.xpm');
+  return $self->_get_icon('info.xpm');
 }
 
 method _icon_info () {
-    if ( $self->_icon_info_path ) {
-        return $self->_icon_info_path->realpath()->canonpath();
-    }
-    return;
+  if ($self->_icon_info_path) {
+    return $self->_icon_info_path->realpath()->canonpath();
+  }
+  return;
 }
 
 # _icon_question_path    {{{1
 has '_icon_question_path' => (
-    is            => 'rw',
-    isa           => Types::Path::Tiny::AbsFile,
-    coerce        => $TRUE,
-    lazy          => $TRUE,
-    builder       => '_build_icon_question_path',
-    documentation => q{Question icon file path},
+  is            => 'rw',
+  isa           => Types::Path::Tiny::AbsFile,
+  coerce        => $TRUE,
+  lazy          => $TRUE,
+  builder       => '_build_icon_question_path',
+  documentation => q{Question icon file path},
 );
 
 method _build_icon_question_path () {
-    return $self->_get_icon('question.xpm');
+  return $self->_get_icon('question.xpm');
 }
 
 method _icon_question () {
-    if ( $self->_icon_question_path ) {
-        return $self->_icon_question_path->realpath()->canonpath();
-    }
-    return;
+  if ($self->_icon_question_path) {
+    return $self->_icon_question_path->realpath()->canonpath();
+  }
+  return;
 }
 
 # _icon_warn_path    {{{1
 has '_icon_warn_path' => (
-    is            => 'rw',
-    isa           => Types::Path::Tiny::AbsFile,
-    coerce        => $TRUE,
-    lazy          => $TRUE,
-    builder       => '_build_icon_warn_path',
-    documentation => q{Warning icon file path},
+  is            => 'rw',
+  isa           => Types::Path::Tiny::AbsFile,
+  coerce        => $TRUE,
+  lazy          => $TRUE,
+  builder       => '_build_icon_warn_path',
+  documentation => q{Warning icon file path},
 );
 
 method _build_icon_warn_path () {
-    return $self->_get_icon('warn.xpm');
+  return $self->_get_icon('warn.xpm');
 }
 
 method _icon_warn () {
-    if ( $self->_icon_warn_path ) {
-        return $self->_icon_warn_path->realpath()->canonpath();
-    }
-    return;
+  if ($self->_icon_warn_path) {
+    return $self->_icon_warn_path->realpath()->canonpath();
+  }
+  return;
 }
 
 # _kde_screensaver    {{{1
 has '_kde_screensaver' => (
-    is            => 'rw',
-    isa           => Types::Standard::InstanceOf ['Net::DBus::RemoteObject'],
-    lazy          => $TRUE,
-    builder       => '_build_kde_screensaver',
-    documentation => q{KDE screensaver object},
+  is            => 'rw',
+  isa           => Types::Standard::InstanceOf ['Net::DBus::RemoteObject'],
+  lazy          => $TRUE,
+  builder       => '_build_kde_screensaver',
+  documentation => q{KDE screensaver object},
 
-    # use lazy+builder because if use default sub then other modules
-    # that use this one can fail their build with this error:
-    #     perl Build test --verbose
-    #     t/basic.t ...............
-    #     # No DISPLAY. Looking for xvfb-run...
-    #     # Restarting with xvfb-run...
-    #     Xlib:  extension "RANDR" missing on display ":99".
-    #     org.freedesktop.DBus.Error.ServiceUnknown: The name \
-    #         org.freedesktop.ScreenSaver was not provided by \
-    #         any .service files
-    #     Compilation failed in require at t/basic.t line 3.
-    #     ...
+  # use lazy+builder because if use default sub then other modules
+  # that use this one can fail their build with this error:
+  #     perl Build test --verbose
+  #     t/basic.t ...............
+  #     # No DISPLAY. Looking for xvfb-run...
+  #     # Restarting with xvfb-run...
+  #     Xlib:  extension "RANDR" missing on display ":99".
+  #     org.freedesktop.DBus.Error.ServiceUnknown: The name \
+  #         org.freedesktop.ScreenSaver was not provided by \
+  #         any .service files
+  #     Compilation failed in require at t/basic.t line 3.
+  #     ...
 );
 
 method _build_kde_screensaver () {
-    return Net::DBus->session->get_service('org.freedesktop.ScreenSaver')
-        ->get_object('/org/freedesktop/ScreenSaver');
+  return Net::DBus->session->get_service('org.freedesktop.ScreenSaver')
+      ->get_object('/org/freedesktop/ScreenSaver');
 }
 
 # _processes    {{{1
 has '_processes' => (
-    is          => 'rw',
-    isa         => Types::Standard::HashRef [Types::Standard::Str],
-    lazy        => $TRUE,
-    default     => sub { {} },
-    handles_via => 'Hash',
-    handles     => {
-        _add_process         => 'set',       # ($pid, $cmd)->void
-        _command             => 'get',       # ($pid)->$cmd
-        _clear_processes     => 'clear',     # ()->void
-        _pids                => 'keys',      # ()->@pids
-        _commands            => 'values',    # ()->@commands
-        _processes_pair_list => 'kv',        # ()->([$pid,$cmd],...)
-        _has_processes       => 'count',     # ()->$boolean
-    },
-    documentation => q{Running processes},
+  is          => 'rw',
+  isa         => Types::Standard::HashRef [Types::Standard::Str],
+  lazy        => $TRUE,
+  default     => sub { {} },
+  handles_via => 'Hash',
+  handles     => {
+    _add_process         => 'set',       # ($pid, $cmd)->void
+    _command             => 'get',       # ($pid)->$cmd
+    _clear_processes     => 'clear',     # ()->void
+    _pids                => 'keys',      # ()->@pids
+    _commands            => 'values',    # ()->@commands
+    _processes_pair_list => 'kv',        # ()->([$pid,$cmd],...)
+    _has_processes       => 'count',     # ()->$boolean
+  },
+  documentation => q{Running processes},
 );
 
 # _screensaver_can_attempt_suspend    {{{1
 has '_screensaver_can_attempt_suspend' => (
-    is            => 'rw',
-    isa           => Types::Standard::Bool,
-    lazy          => $TRUE,
-    builder       => '_build_screensaver_can_attempt_suspend',
-    documentation => q{Whether to attempt to suspend screensaver},
+  is            => 'rw',
+  isa           => Types::Standard::Bool,
+  lazy          => $TRUE,
+  builder       => '_build_screensaver_can_attempt_suspend',
+  documentation => q{Whether to attempt to suspend screensaver},
 );
 
 method _build_screensaver_can_attempt_suspend () {
 
-    # can if xscreensaver or kde screensaver
-    my $type = $self->_screensaver_type;
-    my %can_suspend = map { ( $_ => $TRUE ) } qw(x kde);
-    return $can_suspend{$type};
+  # can if xscreensaver or kde screensaver
+  my $type        = $self->_screensaver_type;
+  my %can_suspend = map { ($_ => $TRUE) } qw(x kde);
+  return $can_suspend{$type};
 }
 
 # _screensaver_cookie    {{{1
 has '_screensaver_cookie' => (
-    is            => 'rw',
-    isa           => Types::Standard::Int,
-    lazy          => $TRUE,
-    documentation => q{Cookie used to track some suspend requests},
+  is            => 'rw',
+  isa           => Types::Standard::Int,
+  lazy          => $TRUE,
+  documentation => q{Cookie used to track some suspend requests},
 );
 
 # _screensaver_suspended    {{{1
 has '_screensaver_suspended' => (
-    is            => 'rw',
-    isa           => Types::Standard::Bool,
-    default       => $FALSE,
-    documentation => q{Flags whether screensaver is currently suspended},
+  is            => 'rw',
+  isa           => Types::Standard::Bool,
+  default       => $FALSE,
+  documentation => q{Flags whether screensaver is currently suspended},
 );
 
 # _screensaver_type    {{{1
 has '_screensaver_type' => (
-    is            => 'rw',
-    isa           => Types::Standard::Str,
-    lazy          => $TRUE,
-    builder       => '_build_screensaver_type',
-    documentation => q{ScreenSaver type, i.e., 'x', 'kde'},
+  is            => 'rw',
+  isa           => Types::Standard::Str,
+  lazy          => $TRUE,
+  builder       => '_build_screensaver_type',
+  documentation => q{ScreenSaver type, i.e., 'x', 'kde'},
 );
 
 method _build_screensaver_type () {
 
-    # x: xscreensaver
-    my $xscreensaver
-        = qr/^(xscreensaver|\/usr\/bin\/xscreensaver(\s-nosplash)?)\z/xsm;
-    if ( $self->process_running($xscreensaver) ) { return q{x}; }
+  # x: xscreensaver
+  my $xscreensaver =
+      qr/^(xscreensaver|\/usr\/bin\/xscreensaver(\s-nosplash)?)\z/xsm;
+  if ($self->process_running($xscreensaver)) { return q{x}; }
 
-    # kde: kde screensaver
-    if ( $self->_desktop eq 'kde' ) { return 'kde'; }
+  # kde: kde screensaver
+  if ($self->_desktop eq 'kde') { return 'kde'; }
 
-    return q{};
+  return q{};
 }
 
 # _script    {{{1
 has '_script' => (
-    is            => 'ro',
-    isa           => Types::Standard::Str,
-    lazy          => $TRUE,
-    default       => sub { File::Util->new()->strip_path($PROGRAM_NAME); },
-    documentation => q{Basename of calling script},
+  is            => 'ro',
+  isa           => Types::Standard::Str,
+  lazy          => $TRUE,
+  default       => sub { File::Util->new()->strip_path($PROGRAM_NAME); },
+  documentation => q{Basename of calling script},
 );
 
 # _urls    {{{1
 has '_urls' => (
-    is            => 'rw',
-    isa           => Types::Standard::ArrayRef [Types::Standard::Str],
-    lazy          => $TRUE,
-    builder       => '_build_urls',
-    handles_via   => 'Array',
-    handles       => { _ping_urls => 'elements', },
-    documentation => q{URLs to ping},
+  is            => 'rw',
+  isa           => Types::Standard::ArrayRef [Types::Standard::Str],
+  lazy          => $TRUE,
+  builder       => '_build_urls',
+  handles_via   => 'Array',
+  handles       => { _ping_urls => 'elements', },
+  documentation => q{URLs to ping},
 );
 
 method _build_urls () {
-    return [ 'www.debian.org', 'www.uq.edu.au' ];
+  return [ 'www.debian.org', 'www.uq.edu.au' ];
 }    # }}}1
 
 # Methods
@@ -473,22 +473,21 @@ eval
 # note:   respects newline if enclosed in double quotes
 method abort (@messages) {
 
-    # check args
-    if ( not @messages ) {
-        cluck 'No message provided';
-        return;
-    }
+  # check args
+  if (not @messages) {
+    cluck 'No message provided';
+    return;
+  }
 
-    # display messages
-    $self->notify(@messages);
+  # display messages
+  $self->notify(@messages);
 
-    # set prefix
-    my ( $prepend, @messages )
-        = $self->extract_key_value( 'prepend', @messages );
-    my $prefix = ($prepend) ? $self->_script . ': ' : q{};
+  # set prefix
+  my ($prepend, @messages) = $self->extract_key_value('prepend', @messages);
+  my $prefix = ($prepend) ? $self->_script . ': ' : q{};
 
-    # abort
-    die "${prefix}Aborting\n";
+  # abort
+  die "${prefix}Aborting\n";
 }
 
 # android_copy_file($source, $target, $android)    {{{1
@@ -505,30 +504,30 @@ method abort (@messages) {
 # note:   tries using 'fb-adb' then 'adb', and dies if both unavailable
 method android_copy_file ($source, $target, $android) {
 
-    # check args
-    if ( not $source )  { confess 'No source provided'; }
-    if ( not $target )  { confess 'No target provided'; }
-    if ( not $android ) { confess 'No android indicator provided'; }
-    my %valid_android = map { ( $_ => $TRUE ) } qw(source target);
-    if ( not $valid_android{$android} ) {
-        confess "Invalid android indicator '$android'";
-    }
+  # check args
+  if (not $source)  { confess 'No source provided'; }
+  if (not $target)  { confess 'No target provided'; }
+  if (not $android) { confess 'No android indicator provided'; }
+  my %valid_android = map { ($_ => $TRUE) } qw(source target);
+  if (not $valid_android{$android}) {
+    confess "Invalid android indicator '$android'";
+  }
 
-    # set variables
-    my $adb = $self->_adb;
-    if ( not $adb ) { confess 'Could not find adb on this system'; }
-    my $device = $self->_android_device;
-    my $operation = ( $android eq 'source' ) ? 'pull' : 'push';
+  # set variables
+  my $adb = $self->_adb;
+  if (not $adb) { confess 'Could not find adb on this system'; }
+  my $device    = $self->_android_device;
+  my $operation = ($android eq 'source') ? 'pull' : 'push';
 
-    # copy files
-    my $cmd = [ $adb, '-s', $device, $operation, $source, $target ];
-    my $result = $self->capture_command_output($cmd);
-    if ( not $result->success ) {
-        my $error = $result->error;
-        my @msg = ( "File copy failed\n", "System reported: $error\n" );
-        confess @msg;
-    }
-    return;
+  # copy files
+  my $cmd    = [ $adb, '-s', $device, $operation, $source, $target ];
+  my $result = $self->capture_command_output($cmd);
+  if (not $result->success) {
+    my $error = $result->error;
+    my @msg   = ("File copy failed\n", "System reported: $error\n");
+    confess @msg;
+  }
+  return;
 }
 
 # android_devices()    {{{1
@@ -541,52 +540,51 @@ method android_copy_file ($source, $target, $android) {
 #         failure code if both unavailable
 method android_devices () {
 
-    my $adb = $self->_adb;    # android debug bridge
-    if ( not $adb ) {
-        warn "Unable to search for android devices\n";
-        return;
-    }
+  my $adb = $self->_adb;    # android debug bridge
+  if (not $adb) {
+    warn "Unable to search for android devices\n";
+    return;
+  }
 
-    # get and parse android devices report
-    # - ignore failed command and parse output anyway
-    my $cmd = [ $adb, 'devices' ];
-    my $result = $self->capture_command_output($cmd);
-    my @devices;
-    my $device_count              = 0;
-    my $inaccessible_device_count = 0;
-    for my $line ( $result->stdout ) {
-        my @elements = split /\s+/xsm, $line;
-        if ( scalar @elements == 2 ) {
-            my $device = $elements[0];
-            my $type   = $elements[1];
-            if ( $type eq 'device' ) {
-                $device_count++;
+  # get and parse android devices report
+  # - ignore failed command and parse output anyway
+  my $cmd    = [ $adb, 'devices' ];
+  my $result = $self->capture_command_output($cmd);
+  my @devices;
+  my $device_count              = 0;
+  my $inaccessible_device_count = 0;
+  for my $line ($result->stdout) {
+    my @elements = split /\s+/xsm, $line;
+    if (scalar @elements == 2) {
+      my $device = $elements[0];
+      my $type   = $elements[1];
+      if ($type eq 'device') {
+        $device_count++;
 
-                # if a device is plugged into a hub charging port
-                # the device string is represented by '??????????'
-                # which results in problems when it is used in
-                # regular expressions
-                if   ( $device =~ /^\?+\z/xsm ) { $inaccessible_device_count++; }
-                else                            { push @devices, $device; }
-            }
-        }
+        # if a device is plugged into a hub charging port
+        # the device string is represented by '??????????'
+        # which results in problems when it is used in
+        # regular expressions
+        if   ($device =~ /^\?+\z/xsm) { $inaccessible_device_count++; }
+        else                          { push @devices, $device; }
+      }
     }
-    if ( $inaccessible_device_count > 0 ) {
-        if ( $inaccessible_device_count == $device_count ) {
-            my $arg = 'The attached (device was|devices were) not properly '
-                . 'registered and (is|are) inaccessible';
-            my $msg = $self->pluralise( $arg, $device_count );
-            warn "$msg\n";
-        }
-        else {    # some devices accessible and some inaccessible
-            my $arg
-                = '(An|Some) attached (device was|devices were) not properly '
-                . 'registered and (is|are) inaccessible';
-            my $msg = $self->pluralise( $arg, $device_count );
-            warn "$msg\n";
-        }
+  }
+  if ($inaccessible_device_count > 0) {
+    if ($inaccessible_device_count == $device_count) {
+      my $arg = 'The attached (device was|devices were) not properly '
+          . 'registered and (is|are) inaccessible';
+      my $msg = $self->pluralise($arg, $device_count);
+      warn "$msg\n";
     }
-    return @devices;
+    else {    # some devices accessible and some inaccessible
+      my $arg = '(An|Some) attached (device was|devices were) not properly '
+          . 'registered and (is|are) inaccessible';
+      my $msg = $self->pluralise($arg, $device_count);
+      warn "$msg\n";
+    }
+  }
+  return @devices;
 }
 
 # android_device_reset()    {{{1
@@ -605,26 +603,26 @@ method android_devices () {
 #         for those reasons this method should rarely need to be called
 #         directly
 method android_device_reset () {
-    my @devices      = $self->android_devices();
-    my $device_count = scalar @devices;
-    for ($device_count) {
+  my @devices      = $self->android_devices();
+  my $device_count = scalar @devices;
+  for ($device_count) {
 
-        # no android devices detected
-        if ( $_ == 0 ) {
-            warn "No android device detected\n";
-            return;
-        }
-
-        # if single android device, select it automatically
-        if ( $_ == 1 ) {
-            return $devices[0];
-        }
-
-        # if multiple android devices, select one
-        if ( $_ > 1 ) {
-            return $self->input_choose( 'Select android device: ', @devices );
-        }
+    # no android devices detected
+    if ($_ == 0) {
+      warn "No android device detected\n";
+      return;
     }
+
+    # if single android device, select it automatically
+    if ($_ == 1) {
+      return $devices[0];
+    }
+
+    # if multiple android devices, select one
+    if ($_ > 1) {
+      return $self->input_choose('Select android device: ', @devices);
+    }
+  }
 }
 
 # android_file_list($dir)    {{{1
@@ -636,9 +634,9 @@ method android_device_reset () {
 # note:   see notes to method 'android_device_reset' regarding
 #         selection of android device
 method android_file_list ($dir) {
-    if ( not $dir ) { $dir = q{}; }
-    my $type = 'file';
-    return $self->_android_file_or_subdir_list( $dir, $type );
+  if (not $dir) { $dir = q{}; }
+  my $type = 'file';
+  return $self->_android_file_or_subdir_list($dir, $type);
 }
 
 # android_mkdir($dir)    {{{1
@@ -653,24 +651,24 @@ method android_file_list ($dir) {
 # note:   tries using 'fb-adb' then 'adb', and dies if both unavailable
 method android_mkdir ($dir) {
 
-    # check arg
-    if ( not $dir ) { confess 'No directory provided'; }
+  # check arg
+  if (not $dir) { confess 'No directory provided'; }
 
-    # set variables
-    my $adb = $self->_adb;
-    if ( not $adb ) { confess 'Could not find adb on this system'; }
-    my $device = $self->_android_device();
+  # set variables
+  my $adb = $self->_adb;
+  if (not $adb) { confess 'Could not find adb on this system'; }
+  my $device = $self->_android_device();
 
-    # make directory
-    my $cmd = [ $adb, '-s', $device, 'shell', 'mkdir', '-p', $dir ];
-    my $result = $self->capture_command_output($cmd);
-    if ( not $result->success ) {
-        my @msg   = ("Fatal error creating directory '$dir'\n");
-        my $error = $result->error;
-        if ($error) { push @msg, "System reported: $error\n"; }
-        confess @msg;
-    }
-    return;
+  # make directory
+  my $cmd    = [ $adb, '-s', $device, 'shell', 'mkdir', '-p', $dir ];
+  my $result = $self->capture_command_output($cmd);
+  if (not $result->success) {
+    my @msg   = ("Fatal error creating directory '$dir'\n");
+    my $error = $result->error;
+    if ($error) { push @msg, "System reported: $error\n"; }
+    confess @msg;
+  }
+  return;
 }
 
 # android_subdir_list($dir)    {{{1
@@ -682,9 +680,9 @@ method android_mkdir ($dir) {
 # note:   see notes to method 'android_device_reset' regarding
 #         selection of android device
 method android_subdir_list ($dir) {
-    if ( not $dir ) { $dir = q{}; }
-    my $type = 'subdir';
-    return $self->_android_file_or_subdir_list( $dir, $type );
+  if (not $dir) { $dir = q{}; }
+  my $type = 'subdir';
+  return $self->_android_file_or_subdir_list($dir, $type);
 }
 
 # autoconf_version()    {{{1
@@ -694,18 +692,18 @@ method android_subdir_list ($dir) {
 # prints: nil, except error on failure
 # return: scalar version number, die on failure
 method autoconf_version () {
-    my $cmd = [ 'autoconf', '--version', ];
-    my $cmd_str = join q{ }, @{$cmd};
-    my $result = $self->capture_command_output($cmd);
-    if ( not $result->success ) { confess "Command '$cmd_str' failed"; }
-    my $version_line = ( $result->stdout )[0];
-    my @version_line_elements = split /\s+/xsm, $version_line;
-    foreach my $element (@version_line_elements) {
-        if ( $element =~ /^ \d+ [ [.]\d+ ]?/xsm ) {
-            return $element;
-        }
+  my $cmd     = [ 'autoconf', '--version', ];
+  my $cmd_str = join q{ }, @{$cmd};
+  my $result  = $self->capture_command_output($cmd);
+  if (not $result->success) { confess "Command '$cmd_str' failed"; }
+  my $version_line          = ($result->stdout)[0];
+  my @version_line_elements = split /\s+/xsm, $version_line;
+  foreach my $element (@version_line_elements) {
+    if ($element =~ /^ \d+ [ [.]\d+ ]?/xsm) {
+      return $element;
     }
-    confess "Did not find version number in '$version_line'";
+  }
+  confess "Did not find version number in '$version_line'";
 }
 
 # backup_file($file)    {{{1
@@ -718,21 +716,21 @@ method autoconf_version () {
 # uses:   File::Copy (move), File::Basename (fileparse)
 method backup_file ($file) {
 
-    # determine backup file name
-    my ( $base, $suffix )
-        = ( File::Basename::fileparse( $file, qr/[.][^.]*\z/xsm ) )[ 0, 2 ];
-    my $count  = 1;
-    my $backup = $base . q{_} . $count++ . $suffix;
-    while ( -e $backup ) {
-        $backup = $base . q{_} . $count++ . $suffix;
-    }
+  # determine backup file name
+  my ($base, $suffix) =
+      (File::Basename::fileparse($file, qr/[.][^.]*\z/xsm))[ 0, 2 ];
+  my $count  = 1;
+  my $backup = $base . q{_} . $count++ . $suffix;
+  while (-e $backup) {
+    $backup = $base . q{_} . $count++ . $suffix;
+  }
 
-    # do backup
-    File::Copy::move( $file, $backup )
-        or confess "Error: unable to backup $base to $backup";
+  # do backup
+  File::Copy::move($file, $backup)
+      or confess "Error: unable to backup $base to $backup";
 
-    # notify user
-    say "Existing file '$file' renamed to '$backup'";
+  # notify user
+  say "Existing file '$file' renamed to '$backup'";
 }
 
 # boolise($value)    {{{1
@@ -745,12 +743,12 @@ method backup_file ($file) {
 # prints: nil
 # return: boolean
 method boolise ($value) {
-    if ( not defined $value ) { return; }    # handle special case
-    for ($value) {
-        if ( $_ =~ /^yes$|^true$|^on$/ixsm)  { return 1; }  # true -> 1
-        if ( $_ =~ /^no$|^false$|^off$/ixsm) { return 0; }  # false -> 0
-        return $value;
-    }
+  if (not defined $value) { return; }    # handle special case
+  for ($value) {
+    if ($_ =~ /^yes$|^true$|^on$/ixsm)  { return 1; }    # true -> 1
+    if ($_ =~ /^no$|^false$|^off$/ixsm) { return 0; }    # false -> 0
+    return $value;
+  }
 }
 
 # browse($title, $text)    {{{1
@@ -760,19 +758,18 @@ method boolise ($value) {
 # prints: nil
 # return: nil
 method browse ($title, $text) {
-    return if not $title;
-    return if not $text;
-    my $text
-        = qq{\n}
-        . $title
-        . qq{\n\n}
-        . qq{[This text should be displaying in your default editor.\n}
-        . qq{If no default editor is specified, vi(m) is used.\n}
-        . q{To exit this screen, exit the editor as you normally would}
-        . q{ - 'ZQ' for vi(m).]}
-        . qq{\n\n}
-        . $text;
-    Term::Clui::edit( $title, $text );
+  return if not $title;
+  return if not $text;
+  my $text = qq{\n}
+      . $title
+      . qq{\n\n}
+      . qq{[This text should be displaying in your default editor.\n}
+      . qq{If no default editor is specified, vi(m) is used.\n}
+      . q{To exit this screen, exit the editor as you normally would}
+      . q{ - 'ZQ' for vi(m).]}
+      . qq{\n\n}
+      . $text;
+  Term::Clui::edit($title, $text);
 }
 
 # capture_command_output($cmd)    {{{1
@@ -784,61 +781,61 @@ method browse ($title, $text) {
 # uses:   Dn::Common::CommandResult, IPC::Cmd
 method capture_command_output ($cmd) {
 
-    # process arg
-    if ( not( defined $cmd ) ) { confess 'No command provided'; }
-    my $arg_type = ref $cmd;
-    if ( $arg_type eq 'ARRAY' ) {
-        my @cmd_args = @{$cmd};
-        if ( not @cmd_args ) { confess 'No command arguments provided'; }
-    }
-    elsif ( $arg_type ne q{} ) {       # if not array ref must be string
-        confess 'Command is not a string or array reference';
-    }
+  # process arg
+  if (not(defined $cmd)) { confess 'No command provided'; }
+  my $arg_type = ref $cmd;
+  if ($arg_type eq 'ARRAY') {
+    my @cmd_args = @{$cmd};
+    if (not @cmd_args) { confess 'No command arguments provided'; }
+  }
+  elsif ($arg_type ne q{}) {    # if not array ref must be string
+    confess 'Command is not a string or array reference';
+  }
 
-    # run command
-    my ( $succeed, $err, $full_ref, $stdout_ref, $stderr_ref )
-        = IPC::Cmd::run( command => $cmd );
+  # run command
+  my ($succeed, $err, $full_ref, $stdout_ref, $stderr_ref) =
+      IPC::Cmd::run(command => $cmd);
 
-    # process output
-    # - err: has trailing newline
-    if ( defined $err ) {
-        chomp $err;
-    }
-    else {
-        $err = q{};    # prevent undef which fails type constraint
-    }
+  # process output
+  # - err: has trailing newline
+  if (defined $err) {
+    chomp $err;
+  }
+  else {
+    $err = q{};    # prevent undef which fails type constraint
+  }
 
-    # - full, stdout and stderr: appears that for at least some commands
-    #   all output lines are put into a single string, separated with
-    #   embedded newlines, which is then put into a single element list
-    #   which is made into an array reference; these are unpacked below
-    my @full;
-    foreach my $chunk ( @{$full_ref} ) {
-        chomp $chunk;
-        my @lines = split /\n/xsm, $chunk;
-        push @full, @lines;
-    }
-    my @stdout;
-    foreach my $chunk ( @{$stdout_ref} ) {
-        chomp $chunk;
-        my @lines = split /\n/xsm, $chunk;
-        push @stdout, @lines;
-    }
-    my @stderr;
-    foreach my $chunk ( @{$stderr_ref} ) {
-        chomp $chunk;
-        my @lines = split /\n/xsm, $chunk;
-        push @stderr, @lines;
-    }
+  # - full, stdout and stderr: appears that for at least some commands
+  #   all output lines are put into a single string, separated with
+  #   embedded newlines, which is then put into a single element list
+  #   which is made into an array reference; these are unpacked below
+  my @full;
+  foreach my $chunk (@{$full_ref}) {
+    chomp $chunk;
+    my @lines = split /\n/xsm, $chunk;
+    push @full, @lines;
+  }
+  my @stdout;
+  foreach my $chunk (@{$stdout_ref}) {
+    chomp $chunk;
+    my @lines = split /\n/xsm, $chunk;
+    push @stdout, @lines;
+  }
+  my @stderr;
+  foreach my $chunk (@{$stderr_ref}) {
+    chomp $chunk;
+    my @lines = split /\n/xsm, $chunk;
+    push @stderr, @lines;
+  }
 
-    # return results as an object
-    return Dn::Common::CommandResult->new(
-        success      => $succeed,
-        error        => $err,
-        full_output  => [@full],
-        standard_out => [@stdout],
-        standard_err => [@stderr],
-    );
+  # return results as an object
+  return Dn::Common::CommandResult->new(
+    success      => $succeed,
+    error        => $err,
+    full_output  => [@full],
+    standard_out => [@stdout],
+    standard_err => [@stderr],
+  );
 }
 
 # centre_text($text, $width)    {{{1
@@ -850,30 +847,30 @@ method capture_command_output ($cmd) {
 # return: scalar string
 method centre_text ($text, $width) {
 
-    # check args
-    if ( not $text ) { return q{}; }
-    my $length = length $text;
-    if ( $length == 0 ) { return q{}; }
-    my $term_width = eval { $self->term_size->width };
-    if ( $term_width and not $width ) {
-        $width = $term_width;        # try to use term width if no width
-    }
-    if ( not $self->valid_positive_integer($width) ) {
-        warn "Width '$width' is not a positive integer\n";
-        return $text;
-    }
-    if ( not $width )        { return $text; }
-    if ( $length >= $width ) { return $text; }
+  # check args
+  if (not $text) { return q{}; }
+  my $length = length $text;
+  if ($length == 0) { return q{}; }
+  my $term_width = eval { $self->term_size->width };
+  if ($term_width and not $width) {
+    $width = $term_width;    # try to use term width if no width
+  }
+  if (not $self->valid_positive_integer($width)) {
+    warn "Width '$width' is not a positive integer\n";
+    return $text;
+  }
+  if (not $width)        { return $text; }
+  if ($length >= $width) { return $text; }
 
-    # calculate left padding
-    my $excess = $width - $length;
-    if ( $excess <= 1 ) { return $text; }
-    my $left_pad_size = int( $excess / 2 );
-    my $left_pad      = q{ } x $left_pad_size;
+  # calculate left padding
+  my $excess = $width - $length;
+  if ($excess <= 1) { return $text; }
+  my $left_pad_size = int($excess / 2);
+  my $left_pad      = q{ } x $left_pad_size;
 
-    # return result
-    my $padded_text = $left_pad . $text;
-    return $padded_text;
+  # return result
+  my $padded_text = $left_pad . $text;
+  return $padded_text;
 }
 
 # changelog_from_git($dir)    {{{1
@@ -885,77 +882,77 @@ method centre_text ($text, $width) {
 # return: list, empty on failure
 method changelog_from_git ($dir) {
 
-    # check directory
-    if ( not $dir ) { return; }
-    my $repo_root = $self->true_path($dir);
-    if ( not -d $repo_root ) { cluck "Invalid directory '$dir'"; }
-    my $git_dir = $repo_root . '/.git';
-    if ( not -d $git_dir ) { cluck "'$dir' is not a git repo root"; }
+  # check directory
+  if (not $dir) { return; }
+  my $repo_root = $self->true_path($dir);
+  if (not -d $repo_root) { cluck "Invalid directory '$dir'"; }
+  my $git_dir = $repo_root . '/.git';
+  if (not -d $git_dir) { cluck "'$dir' is not a git repo root"; }
 
-    # operate from repo root dir
-    local $File::chdir::CWD = $File::chdir::CWD;
-    $File::chdir::CWD = $repo_root;
+  # operate from repo root dir
+  local $File::chdir::CWD = $File::chdir::CWD;
+  $File::chdir::CWD = $repo_root;
 
-    # obtain git log output
-    my $cmd = [ 'git', 'log', '--date-order', '--date=short' ];
-    my $result = $self->capture_command_output($cmd);
-    if ( not $result->success ) {
-        cluck "Unable to get git log in '$dir'";
-        return;
-    }
+  # obtain git log output
+  my $cmd    = [ 'git', 'log', '--date-order', '--date=short' ];
+  my $result = $self->capture_command_output($cmd);
+  if (not $result->success) {
+    cluck "Unable to get git log in '$dir'";
+    return;
+  }
 
-    # process output log entries
-    my ( @log, @entry );
-    my $indent = q{ } x 4;
-    my ( $author, $email, $date );
-    foreach my $line ( $result->stdout ) {
-        next if $line =~ /^commit /xsm;
-        next if $line =~ /^\s*$/xsm;
-        my ( $key, @values ) = split /\s+/xsm, $line;
-        my $value = join q{ }, @values;
-        for ($key) {
-            if ( $_ eq 'Author:' ) {  # start of entry
-                                      # flush previous entry, if any
-                if (@entry) {
-                    push @log, "$date  $author <$email>";
-                    push @log, q{};
-                    foreach my $line (@entry) {
-                        push @log, $indent . q{* } . $line;
-                    }
-                    push @log, q{};
-                    @entry = ();
-                }
-
-                # process current line
-                elsif ( $value =~ /^([^<]+)\s+<([^>]+)>\s*$/xsm ) {
-                    $author = $1;
-                    $email  = $2;
-                }
-                else {
-                    confess "Bad match on line '$line'";
-                }
-            }
-            elsif ( $_ eq 'Date:' ) {
-                $date = $value;
-            }
-            else {    # entry detail
-                push @entry, $value;
-            }
-        }
-    }
-
-    # flush final entry
-    if (@entry) {
-        push @log, "$date  $author <$email>";
-        push @log, q{};
-        foreach my $line (@entry) {
+  # process output log entries
+  my (@log, @entry);
+  my $indent = q{ } x 4;
+  my ($author, $email, $date);
+  foreach my $line ($result->stdout) {
+    next if $line =~ /^commit /xsm;
+    next if $line =~ /^\s*$/xsm;
+    my ($key, @values) = split /\s+/xsm, $line;
+    my $value = join q{ }, @values;
+    for ($key) {
+      if ($_ eq 'Author:') {    # start of entry
+                                # flush previous entry, if any
+        if (@entry) {
+          push @log, "$date  $author <$email>";
+          push @log, q{};
+          foreach my $line (@entry) {
             push @log, $indent . q{* } . $line;
+          }
+          push @log, q{};
+          @entry = ();
         }
-        push @log, q{};
-    }
 
-    # return log
-    return @log;
+        # process current line
+        elsif ($value =~ /^([^<]+)\s+<([^>]+)>\s*$/xsm) {
+          $author = $1;
+          $email  = $2;
+        }
+        else {
+          confess "Bad match on line '$line'";
+        }
+      }
+      elsif ($_ eq 'Date:') {
+        $date = $value;
+      }
+      else {    # entry detail
+        push @entry, $value;
+      }
+    }
+  }
+
+  # flush final entry
+  if (@entry) {
+    push @log, "$date  $author <$email>";
+    push @log, q{};
+    foreach my $line (@entry) {
+      push @log, $indent . q{* } . $line;
+    }
+    push @log, q{};
+  }
+
+  # return log
+  return @log;
 }
 
 # clear_screen()    {{{1
@@ -965,13 +962,13 @@ method changelog_from_git ($dir) {
 # prints: nil
 # return: nil
 method clear_screen () {
-    my $clear = 'clear';
-    if ( $self->executable_path($clear) ) {
-        system 'clear';
-    }
-    else {
-        cluck "System command '$clear' is not available";
-    }
+  my $clear = 'clear';
+  if ($self->executable_path($clear)) {
+    system 'clear';
+  }
+  else {
+    cluck "System command '$clear' is not available";
+  }
 }
 
 # config_param($param)    {{{1
@@ -983,28 +980,28 @@ method clear_screen () {
 # uses:   Config::Simple
 method config_param ($param) {
 
-    # set and check variables
-    if ( not $param ) {
-        return;
-    }
-    my @values;
+  # set and check variables
+  if (not $param) {
+    return;
+  }
+  my @values;
 
-    # read config files if not already done
-    if ( not $self->_processed_config_files ) {
-        $self->_process_config_files;
-    }
+  # read config files if not already done
+  if (not $self->_processed_config_files) {
+    $self->_process_config_files;
+  }
 
-    # cycle through config files looking for matches
-    # - later matches override earlier matches
-    # - force list context initially
-    for my $config_file ( $self->_config_files ) {
-        if ( $config_file->param($param) ) {
-            @values = $config_file->param($param);
-        }
+  # cycle through config files looking for matches
+  # - later matches override earlier matches
+  # - force list context initially
+  for my $config_file ($self->_config_files) {
+    if ($config_file->param($param)) {
+      @values = $config_file->param($param);
     }
+  }
 
-    # return value depends on calling context
-    return @values;
+  # return value depends on calling context
+  return @values;
 }
 
 # cwd()    {{{1
@@ -1015,7 +1012,7 @@ method config_param ($param) {
 # return: scalar
 #  uses:  Cwd
 method cwd () {
-    return Cwd::getcwd();
+  return Cwd::getcwd();
 }
 
 # date_email ([$date], [$time], [$offset])    {{{1
@@ -1031,58 +1028,58 @@ method cwd () {
 # prints: message if fatal error
 # return: scalar string (undef if error)
 # note:   example output: 'Mon, 16 Jul 1979 16:45:20 +1000'
-method date_email (:$date, :$time, :$offset) {
+method date_email (: $date, : $time, : $offset) {
 
-    # date
-    if ($date) {
-        if ( not $self->valid_date($date) ) {
-            cluck "Invalid date '$date'\n";
-            return;
-        }
+  # date
+  if ($date) {
+    if (not $self->valid_date($date)) {
+      cluck "Invalid date '$date'\n";
+      return;
     }
-    else {
-        $date = $self->today();
-    }
+  }
+  else {
+    $date = $self->today();
+  }
 
-    # time
-    if ($time) {
-        if ( not $self->valid_24h_time($time) ) {
-            cluck "Invalid time '$time'\n";
-            return;
-        }
+  # time
+  if ($time) {
+    if (not $self->valid_24h_time($time)) {
+      cluck "Invalid time '$time'\n";
+      return;
     }
-    else {
-        $time = $self->now();
-    }
+  }
+  else {
+    $time = $self->now();
+  }
 
-    # timezone
-    my $timezone;
-    if ($offset) {
-        $timezone = $self->timezone_from_offset($offset);
-        if ( not $timezone ) { return; }    # error shown by previous line
-    }
-    else {
-        $timezone = $self->local_timezone();
-    }
+  # timezone
+  my $timezone;
+  if ($offset) {
+    $timezone = $self->timezone_from_offset($offset);
+    if (not $timezone) { return; }    # error shown by previous line
+  }
+  else {
+    $timezone = $self->local_timezone();
+  }
 
-    # get rfc 2822 string
-    my $ds = Date::Simple->new($date);
-    if ( not $ds ) { confess 'Unable to create Date::Simple object'; }
-    my $ts = Time::Simple->new($time);
-    if ( not $ts ) { confess 'Unable to create Time::Simple object'; }
-    my $dt = DateTime->new(
-        year      => $ds->year,
-        month     => $ds->month,
-        day       => $ds->day,
-        hour      => $ts->hour,
-        minute    => $ts->minute,
-        second    => $ts->second,
-        time_zone => $timezone,
-    );
-    if ( not $dt ) { confess 'Unable to create DateTime object'; }
-    my $email_date = DateTime::Format::Mail->format_datetime($dt);
-    if ( not $email_date ) { confess 'Unable to generate RFC2822 date'; }
-    return $email_date;
+  # get rfc 2822 string
+  my $ds = Date::Simple->new($date);
+  if (not $ds) { confess 'Unable to create Date::Simple object'; }
+  my $ts = Time::Simple->new($time);
+  if (not $ts) { confess 'Unable to create Time::Simple object'; }
+  my $dt = DateTime->new(
+    year      => $ds->year,
+    month     => $ds->month,
+    day       => $ds->day,
+    hour      => $ts->hour,
+    minute    => $ts->minute,
+    second    => $ts->second,
+    time_zone => $timezone,
+  );
+  if (not $dt) { confess 'Unable to create DateTime object'; }
+  my $email_date = DateTime::Format::Mail->format_datetime($dt);
+  if (not $email_date) { confess 'Unable to generate RFC2822 date'; }
+  return $email_date;
 }
 
 # day_of_week([$date])    {{{1
@@ -1093,22 +1090,22 @@ method date_email (:$date, :$time, :$offset) {
 # return: scalar day
 # uses:   Date::Simple
 method day_of_week ($date) {
-    if ( not $date ) { $date = $self->today(); }
-    return if not $self->valid_date($date);
-    my %day_numbers = (
-        '0' => 'Sunday',
-        '1' => 'Monday',
-        '2' => 'Tuesday',
-        '3' => 'Wednesday',
-        '4' => 'Thursday',
-        '5' => 'Friday',
-        '6' => 'Saturday',
-    );
-    my $d          = Date::Simple->new($date);
-    my $day_number = $d->day_of_week();
-    my $day        = $day_numbers{$day_number};
-    if ( not $day ) { return; }
-    return $day;
+  if (not $date) { $date = $self->today(); }
+  return if not $self->valid_date($date);
+  my %day_numbers = (
+    '0' => 'Sunday',
+    '1' => 'Monday',
+    '2' => 'Tuesday',
+    '3' => 'Wednesday',
+    '4' => 'Thursday',
+    '5' => 'Friday',
+    '6' => 'Saturday',
+  );
+  my $d          = Date::Simple->new($date);
+  my $day_number = $d->day_of_week();
+  my $day        = $day_numbers{$day_number};
+  if (not $day) { return; }
+  return $day;
 }
 
 # debhelper_compat()    {{{1
@@ -1120,33 +1117,33 @@ method day_of_week ($date) {
 # return: scalar string - version (undef if problem encountered)
 method debhelper_compat () {
 
-    # get full version
-    my $version_full = $self->debian_package_version('debhelper');
-    return if not $version_full;
+  # get full version
+  my $version_full = $self->debian_package_version('debhelper');
+  return if not $version_full;
 
-    # get semantic version
-    # - meaning only '[E:]X' and not, for example, '[E:]X.Y.Z')
-    my $match_full_version = qr{
+  # get semantic version
+  # - meaning only '[E:]X' and not, for example, '[E:]X.Y.Z')
+  my $match_full_version = qr{
         \A       # anchor to start of string
         (\d+:)?  # epoch (optional)
         [\d\.]+  # version: A.B.C...
         \Z       # anchor to start of string
     }xsm;
-    my $match_major_version = qr{
+  my $match_major_version = qr{
         \A                # anchor to start of string
         (                 # start capture
           (?:\d+:)?       # epoch (optional)
           \d+             # major version number
         )                 # end capture (don't care about string end)
     }xsm;
-    my $major_version;
-    if ( $version_full =~ $match_full_version ) {
-        $version_full =~ $match_major_version;
-        $major_version = $1;
-    }
-    return if not $major_version;
+  my $major_version;
+  if ($version_full =~ $match_full_version) {
+    $version_full =~ $match_major_version;
+    $major_version = $1;
+  }
+  return if not $major_version;
 
-    return $major_version;
+  return $major_version;
 
 }
 
@@ -1158,87 +1155,87 @@ method debhelper_compat () {
 # return: boolean
 method debian_install_deb ($deb) {
 
-    # test filepath
-    if ( not $deb ) {
-        cluck 'No debian package filepath provided';
-        return;
-    }
-    if ( not -r $deb ) {
-        cluck "Invalid filepath '$deb' provided";
-        return;
-    }
-    if ( not $self->is_deb($deb) ) {
-        cluck "File '$deb' is not a valid debian package file";
-        return;
-    }
+  # test filepath
+  if (not $deb) {
+    cluck 'No debian package filepath provided';
+    return;
+  }
+  if (not -r $deb) {
+    cluck "Invalid filepath '$deb' provided";
+    return;
+  }
+  if (not $self->is_deb($deb)) {
+    cluck "File '$deb' is not a valid debian package file";
+    return;
+  }
 
-    # set variables
-    my $installer = 'dpkg';
-    if ( not $self->executable_path($installer) ) {
-        confess "Invalid installer '$installer'";
-    }
-    my $params  = '--install';
-    my $success = $FALSE;
-    my $cmd;
+  # set variables
+  my $installer = 'dpkg';
+  if (not $self->executable_path($installer)) {
+    confess "Invalid installer '$installer'";
+  }
+  my $params  = '--install';
+  my $success = $FALSE;
+  my $cmd;
 
-    # play nice with other calling apps
-    my $silent = $self->_run_command_silent;
-    my $fatal  = $self->_run_command_fatal;
-    $self->run_command_silent($FALSE);
-    $self->run_command_fatal($FALSE);
+  # play nice with other calling apps
+  my $silent = $self->_run_command_silent;
+  my $fatal  = $self->_run_command_fatal;
+  $self->run_command_silent($FALSE);
+  $self->run_command_fatal($FALSE);
 
-    # try installing as if root
-    $cmd = [ $installer, $params, $deb ];
-    if ( $self->run_command($cmd) ) {
-        $success = $TRUE;
-        say 'Package installed successfully';
+  # try installing as if root
+  $cmd = [ $installer, $params, $deb ];
+  if ($self->run_command($cmd)) {
+    $success = $TRUE;
+    say 'Package installed successfully';
+  }
+  else {
+    warn "Looks like you are not root/superuser\n";
+  }
+
+  # try installing with sudo
+  if (not $success) {
+    $cmd = [ 'sudo', $installer, $params, $deb ];
+    if ($self->run_command($cmd)) {
+      $success = $TRUE;
+      say 'Package installed successfully';
     }
     else {
-        warn "Looks like you are not root/superuser\n";
+      warn "Okay, you do not have root privileges for '$installer'\n";
     }
+  }
 
-    # try installing with sudo
-    if ( not $success ) {
-        $cmd = [ 'sudo', $installer, $params, $deb ];
-        if ( $self->run_command($cmd) ) {
-            $success = $TRUE;
-            say 'Package installed successfully';
-        }
-        else {
-            warn "Okay, you do not have root privileges for '$installer'\n";
-        }
+  # lastly, try su
+  # - could not pass command as arrayref
+  #   . if every part is made array element then operation fails with:
+  #       /bin/su: unrecognized option '--install'
+  #   . if pass entire command spanning double quotes (including double
+  #     quotes) as a single array element, then entire command appears
+  #     to be passed to bash as a single unit, and after providing
+  #     password the operation fails with:
+  #       bash: dpkg --install ../build/FILE.deb: No such file or directory
+  if (not $success) {
+    $cmd =
+        [   'su -c' . q{ } . q{"}
+          . $installer . q{ }
+          . $params . q{ }
+          . $deb
+          . q{"} ];
+    say 'The root password is needed';
+    if ($self->run_command($cmd)) {
+      $success = $TRUE;
+      say 'Package installed successfully';
     }
-
-    # lastly, try su
-    # - could not pass command as arrayref
-    #   . if every part is made array element then operation fails with:
-    #       /bin/su: unrecognized option '--install'
-    #   . if pass entire command spanning double quotes (including double
-    #     quotes) as a single array element, then entire command appears
-    #     to be passed to bash as a single unit, and after providing
-    #     password the operation fails with:
-    #       bash: dpkg --install ../build/FILE.deb: No such file or directory
-    if ( not $success ) {
-        $cmd
-            = [   'su -c' . q{ } . q{"}
-                . $installer . q{ }
-                . $params . q{ }
-                . $deb
-                . q{"} ];
-        say 'The root password is needed';
-        if ( $self->run_command($cmd) ) {
-            $success = $TRUE;
-            say 'Package installed successfully';
-        }
-        else {
-            warn "That's it, I give up installing this package\n";
-        }
+    else {
+      warn "That's it, I give up installing this package\n";
     }
+  }
 
-    # finished trying to install
-    if ( defined $silent ) { $self->run_command_silent($silent); }
-    if ( defined $fatal )  { $self->run_command_fatal($fatal); }
-    return $success;
+  # finished trying to install
+  if (defined $silent) { $self->run_command_silent($silent); }
+  if (defined $fatal)  { $self->run_command_fatal($fatal); }
+  return $success;
 }
 
 # debian_package_version($pkg)    {{{1
@@ -1249,25 +1246,25 @@ method debian_install_deb ($deb) {
 # return: scalar string - version (undef on failure)
 method debian_package_version ($pkg) {
 
-    # check arg
-    return if not $pkg;
+  # check arg
+  return if not $pkg;
 
-    # get output of 'dpkg -s debian-policy'
-    my $cmd     = [ 'dpkg', '-s', $pkg ];
-    my $cmd_str = join q{ }, @{$cmd};
-    my $result  = $self->capture_command_output($cmd);
-    return if not $result->success;
+  # get output of 'dpkg -s debian-policy'
+  my $cmd     = [ 'dpkg', '-s', $pkg ];
+  my $cmd_str = join q{ }, @{$cmd};
+  my $result  = $self->capture_command_output($cmd);
+  return if not $result->success;
 
-    # get version line from status output
-    my $version_line
-        = List::MoreUtils::first_value {/\AVersion: /xsm} $result->stdout;
-    return if not $version_line;
+  # get version line from status output
+  my $version_line =
+      List::MoreUtils::first_value {/\AVersion: /xsm} $result->stdout;
+  return if not $version_line;
 
-    # get full version number
-    my $version = ( split /\s+/xsm, $version_line )[1];
-    return if not $version;
+  # get full version number
+  my $version = (split /\s+/xsm, $version_line)[1];
+  return if not $version;
 
-    return $version;
+  return $version;
 
 }
 
@@ -1281,21 +1278,21 @@ method debian_package_version ($pkg) {
 # return: scalar string - version
 method debian_standards_version () {
 
-    my $default = '3.9.2';
+  my $default = '3.9.2';
 
-    # get full version
-    my $version_full = $self->debian_package_version('debian-policy');
-    return $default if not $version_full;
+  # get full version
+  my $version_full = $self->debian_package_version('debian-policy');
+  return $default if not $version_full;
 
-    # get semantic version
-    # - meaning only '[E:]X.Y.Z' and not, for example, '[E:]X.Y.Z.A')
-    my $match_full_version = qr{
+  # get semantic version
+  # - meaning only '[E:]X.Y.Z' and not, for example, '[E:]X.Y.Z.A')
+  my $match_full_version = qr{
         \A       # anchor to start of string
         (\d+:)?  # epoch (optional)
         [\d\.]+  # version: A.B.C...
         \Z       # anchor to start of string
     }xsm;
-    my $match_semantic_version = qr{
+  my $match_semantic_version = qr{
         \A                # anchor to start of string
         (                 # start capture
           (?:\d+:)?       # epoch (optional)
@@ -1303,14 +1300,14 @@ method debian_standards_version () {
           (?:\.\d+){0,2}  # up to two further version levels
         )                 # end capture (don't care about string end)
     }xsm;
-    my $version;
-    if ( $version_full =~ $match_full_version ) {
-        $version_full =~ $match_semantic_version;
-        $version = $1;
-    }
-    return $default if not $version;
+  my $version;
+  if ($version_full =~ $match_full_version) {
+    $version_full =~ $match_semantic_version;
+    $version = $1;
+  }
+  return $default if not $version;
 
-    return $version;
+  return $version;
 
 }
 
@@ -1323,18 +1320,18 @@ method debian_standards_version () {
 # uses:   Data::Structure::Util, Scalar::Util, Storable
 method debless ($object) {
 
-    # check argument
-    if ( not $object ) { confess 'No object provided'; }
-    my $class = Scalar::Util::blessed($object);
-    if ( not( defined $class ) ) { confess 'Not a blessed object'; }
-    my $ref_type = Scalar::Util::reftype($object);
-    if ( $ref_type ne 'HASH' ) { confess 'Not a blessed hash'; }
+  # check argument
+  if (not $object) { confess 'No object provided'; }
+  my $class = Scalar::Util::blessed($object);
+  if (not(defined $class)) { confess 'Not a blessed object'; }
+  my $ref_type = Scalar::Util::reftype($object);
+  if ($ref_type ne 'HASH') { confess 'Not a blessed hash'; }
 
-    # get underlying data structure
-    my $clone = Storable::dclone($object);
-    my $data  = Data::Structure::Util::unbless($clone);
+  # get underlying data structure
+  my $clone = Storable::dclone($object);
+  my $data  = Data::Structure::Util::unbless($clone);
 
-    return $data;
+  return $data;
 
 }
 
@@ -1346,7 +1343,7 @@ method debless ($object) {
 # return: scalar string
 # # uses: HTML::Entities
 method deentitise ($string = q//) {
-    return HTML::Entities::decode_entities($string);
+  return HTML::Entities::decode_entities($string);
 }
 
 # denumber_list(@list)    {{{1
@@ -1357,12 +1354,12 @@ method deentitise ($string = q//) {
 # return: list
 # note:   map operation extracted to method as per Perl Best Practice
 method denumber_list (@items) {
-    map { $self->_remove_numeric_prefix($_) } @items;
+  map { $self->_remove_numeric_prefix($_) } @items;
 }
 
 method _remove_numeric_prefix ($item) {
-    $item =~ s/^\s*\d+[.]\s+//xsm;
-    $item;
+  $item =~ s/^\s*\d+[.]\s+//xsm;
+  $item;
 }
 
 # dir_add_dir($dir, @subdirs)    {{{1
@@ -1374,16 +1371,16 @@ method _remove_numeric_prefix ($item) {
 # prints: nil
 # return: scalar directory path
 method dir_add_dir ($dir, @subdirs) {
-    if ( not $dir ) { confess 'No directory provided'; }
-    if ( not @subdirs ) {
-        cluck 'No subdirectory names provided';
-        return $dir;
-    }
-    my @path = $self->path_split($dir);
-    foreach my $subdir (@subdirs) {
-        push @path, $subdir;
-    }
-    return $self->join_dir( [@path] );
+  if (not $dir) { confess 'No directory provided'; }
+  if (not @subdirs) {
+    cluck 'No subdirectory names provided';
+    return $dir;
+  }
+  my @path = $self->path_split($dir);
+  foreach my $subdir (@subdirs) {
+    push @path, $subdir;
+  }
+  return $self->join_dir([@path]);
 }
 
 # dir_add_file($dir, $file)    {{{1
@@ -1395,9 +1392,9 @@ method dir_add_dir ($dir, @subdirs) {
 # prints: nil
 # return: scalar file path
 method dir_add_file ($dir, $file) {
-    my @path = $self->path_split($dir);
-    push @path, $file;
-    return $self->join_dir( [@path] );
+  my @path = $self->path_split($dir);
+  push @path, $file;
+  return $self->join_dir([@path]);
 }
 
 # dirs_list($directory)    {{{1
@@ -1407,19 +1404,19 @@ method dir_add_file ($dir, $file) {
 # prints: nil
 # return: list, die if operation fails
 method dirs_list ($dir) {
-    if ( not $dir ) { $dir = $self->cwd(); }
-    $dir = $self->true_path($dir);
-    if ( not -d $dir ) { confess "Invalid directory '$dir'"; }
-    my $f = File::Util->new();
+  if (not $dir) { $dir = $self->cwd(); }
+  $dir = $self->true_path($dir);
+  if (not -d $dir) { confess "Invalid directory '$dir'"; }
+  my $f = File::Util->new();
 
-    # method 'list_dir' fails if directory has no subdirs, so cannot test
-    # for failure of method - assume "failure" == no subdirs in directory
-    my @dirs;
-    @dirs = $f->list_dir( $dir, { dirs_only => $TRUE } );
-    if (@dirs) {
-        @dirs = grep { !/^[.]{1,2}$/xsm } @dirs;    # exclude '.' and '..'
-    }
-    return @dirs;
+  # method 'list_dir' fails if directory has no subdirs, so cannot test
+  # for failure of method - assume "failure" == no subdirs in directory
+  my @dirs;
+  @dirs = $f->list_dir($dir, { dirs_only => $TRUE });
+  if (@dirs) {
+    @dirs = grep { !/^[.]{1,2}$/xsm } @dirs;    # exclude '.' and '..'
+  }
+  return @dirs;
 }
 
 # display($string, [$error], [$indent], [$hang])    {{{1
@@ -1433,15 +1430,15 @@ method dirs_list ($dir) {
 # usage:  $cp->display($long_string);
 #         $cp->display( $long_string, error => $TRUE )
 # uses:   Text::Wrap
-method display ($string, :$error = $FALSE) {
-    my $msg = Text::Wrap::wrap( q{}, q{}, $string );
-    chomp $msg;
-    if ($error) {
-        say $msg;
-    }
-    else {
-        warn "$msg\n";
-    }
+method display ($string, : $error = $FALSE) {
+  my $msg = Text::Wrap::wrap(q{}, q{}, $string);
+  chomp $msg;
+  if ($error) {
+    say $msg;
+  }
+  else {
+    warn "$msg\n";
+  }
 }
 
 # do_copy($src, $dest)    {{{1
@@ -1462,28 +1459,28 @@ method display ($string, :$error = $FALSE) {
 #         creating target directories where necessary
 method do_copy ($src, $dest) {
 
-    # check args - missing argument is fatal
-    if ( not $src )  { confess 'No source provided'; }
-    if ( not $dest ) { confess 'No destination provided'; }
+  # check args - missing argument is fatal
+  if (not $src)  { confess 'No source provided'; }
+  if (not $dest) { confess 'No destination provided'; }
 
-    # convert to true path
-    my $source      = $self->true_path($src);
-    my $destination = $self->true_path($dest);
+  # convert to true path
+  my $source      = $self->true_path($src);
+  my $destination = $self->true_path($dest);
 
-    # check args - source must exist
-    if ( not -e $source ) {
-        cluck "Source '$src' does not exist";
-        return;
-    }
+  # check args - source must exist
+  if (not -e $source) {
+    cluck "Source '$src' does not exist";
+    return;
+  }
 
-    # check args - cannot copy directory onto file
-    if ( -d $source and -e $destination ) {
-        cluck "Cannot copy directory '$src' onto file '$dest'";
-        return;
-    }
+  # check args - cannot copy directory onto file
+  if (-d $source and -e $destination) {
+    cluck "Cannot copy directory '$src' onto file '$dest'";
+    return;
+  }
 
-    # perform copy
-    return File::Copy::Recursive::rcopy( $source, $destination );
+  # perform copy
+  return File::Copy::Recursive::rcopy($source, $destination);
 }
 
 # do_rmdir($dir)    {{{1
@@ -1494,9 +1491,9 @@ method do_copy ($src, $dest) {
 # return: boolean
 # uses:   File::Path
 method do_rmdir ($dir) {
-    if ( not $dir )    { confess 'No directory provided'; }
-    if ( not -d $dir ) { confess "Directory '$dir' is invalid"; }
-    return File::Path::remove_tree($dir);
+  if (not $dir)    { confess 'No directory provided'; }
+  if (not -d $dir) { confess "Directory '$dir' is invalid"; }
+  return File::Path::remove_tree($dir);
 }
 
 # do_wrap($string, [$width],[$indent], [$hang], [$break])    {{{1
@@ -1539,148 +1536,145 @@ method do_rmdir ($dir) {
 # uses:   Text::Wrap
 method do_wrap ($strings, %options) {
 
-    # handle args
-    # - $strings    {{{2
-    if ( not $strings ) { confess 'No strings provided'; }
-    my $strings_ref = ref $strings;
-    my @input;
-    for ($strings_ref) {
-        if ( $_ eq 'ARRAY' ) { @input = @{$strings}; }
-        elsif ( $_ eq q{} ) { push @input, $strings; }
-        else {
-            my $err = 'Input is not a string or array reference: '
-                . Dumper($strings);
-            confess $err;
-        }
+  # handle args
+  # - $strings    {{{2
+  if (not $strings) { confess 'No strings provided'; }
+  my $strings_ref = ref $strings;
+  my @input;
+  for ($strings_ref) {
+    if    ($_ eq 'ARRAY') { @input = @{$strings}; }
+    elsif ($_ eq q{})     { push @input, $strings; }
+    else {
+      my $err =
+          'Input is not a string or array reference: ' . Dumper($strings);
+      confess $err;
+    }
+  }
+
+  # - $width    {{{2
+  my $width;
+  if ($options{'width'}) {
+    if (  $self->valid_positive_integer($options{'width'})
+      and $options{'width'} > 0)
+    {
+      $width = $options{'width'};
+    }
+    else {
+      my $err = q{Invalid option 'width': } . Dumper($options{'width'});
+      confess $err;
+    }
+  }
+  my $terminal_width = $self->term_size->width - 1;
+  if ((not $width) or ($width > $terminal_width)) {
+    $width = $terminal_width;
+  }
+  local $Text::Wrap::columns = $Text::Wrap::columns;
+  $Text::Wrap::columns = $width;
+
+  # - $indent    {{{2
+  my $indent = q{};
+  if ($options{'indent'}) {
+    if (  $self->valid_positive_integer($options{'indent'})
+      and $options{'indent'} > 0
+      and (($options{'indent'} + 10) < $width))
+    {
+      $indent = q{ } x $options{'indent'};
+    }
+    else {
+      my $err = q{Invalid option 'indent': } . Dumper($options{'indent'});
+      confess $err;
+    }
+  }
+
+  # - $hang    {{{2
+  my $hang = $indent;
+  if ($options{'hang'}) {
+    if ($self->valid_positive_integer($options{'hang'})
+      and (($options{'hang'} + 10) < $width))
+    {
+      $hang = q{ } x $options{'hang'};
+    }
+    else {
+      my $err = q{Invalid option 'hang': } . Dumper($options{'hang'});
+      confess $err;
+    }
+  }
+
+  # - $break    {{{2
+  my $break_chars = [q{ }];
+  if (defined $options{'break'}) {
+    my $break_ref = ref $options{'break'};
+    if ($break_ref eq 'ARRAY') {
+      $break_chars = $options{'break'};
+    }
+    else {
+      my $err = q{Invalid option 'break': } . Dumper($options{'break'});
+      confess $err;
+    }
+  }
+
+  # some break tokens can't be doubled, or it screws up the output
+  # - also, ensure tokens are single characters
+  my (@doubled_chars, @ignoring);
+  my @do_not_double = (q{ });
+  foreach my $char (@{$break_chars}) {
+    if (length $char > 1) {
+      push @ignoring, $char;
+      next;
     }
 
-    # - $width    {{{2
-    my $width;
-    if ( $options{'width'} ) {
-        if (    $self->valid_positive_integer( $options{'width'} )
-            and $options{'width'} > 0 )
-        {
-            $width = $options{'width'};
-        }
-        else {
-            my $err
-                = q{Invalid option 'width': } . Dumper( $options{'width'} );
-            confess $err;
-        }
+    # do not use 'x' switch as searching includes spaces
+    ## no critic (RequireExtendedFormatting)
+    if (not List::MoreUtils::any {/^$char\z/sm} @do_not_double) {
+      push @doubled_chars, $char;
     }
-    my $terminal_width = $self->term_size->width - 1;
-    if ( ( not $width ) or ( $width > $terminal_width ) ) {
-        $width = $terminal_width;
-    }
-    local $Text::Wrap::columns = $Text::Wrap::columns;
-    $Text::Wrap::columns = $width;
+    ## use critic
+  }
+  if (@ignoring) {
+    foreach my $item (@ignoring) { $item = "'$item'"; }
+    my $chars = join q{, }, @ignoring;
+    warn "Break on single characters only -- ignoring: $chars\n";
+  }
 
-    # - $indent    {{{2
-    my $indent = q{};
-    if ( $options{'indent'} ) {
-        if (    $self->valid_positive_integer( $options{'indent'} )
-            and $options{'indent'} > 0
-            and ( ( $options{'indent'} + 10 ) < $width ) )
-        {
-            $indent = q{ } x $options{'indent'};
-        }
-        else {
-            my $err
-                = q{Invalid option 'indent': } . Dumper( $options{'indent'} );
-            confess $err;
-        }
-    }
-
-    # - $hang    {{{2
-    my $hang = $indent;
-    if ( $options{'hang'} ) {
-        if ( $self->valid_positive_integer( $options{'hang'} )
-            and ( ( $options{'hang'} + 10 ) < $width ) )
-        {
-            $hang = q{ } x $options{'hang'};
-        }
-        else {
-            my $err = q{Invalid option 'hang': } . Dumper( $options{'hang'} );
-            confess $err;
-        }
-    }
-
-    # - $break    {{{2
-    my $break_chars = [q{ }];
-    if ( defined $options{'break'} ) {
-        my $break_ref = ref $options{'break'};
-        if ( $break_ref eq 'ARRAY' ) {
-            $break_chars = $options{'break'};
-        }
-        else {
-            my $err
-                = q{Invalid option 'break': } . Dumper( $options{'break'} );
-            confess $err;
-        }
-    }
-
-    # some break tokens can't be doubled, or it screws up the output
-    # - also, ensure tokens are single characters
-    my ( @doubled_chars, @ignoring );
-    my @do_not_double = (q{ });
-    foreach my $char ( @{$break_chars} ) {
-        if ( length $char > 1 ) {
-            push @ignoring, $char;
-            next;
-        }
-
-        # do not use 'x' switch as searching includes spaces
-        ## no critic (RequireExtendedFormatting)
-        if ( not List::MoreUtils::any {/^$char\z/sm} @do_not_double ) {
-            push @doubled_chars, $char;
-        }
-        ## use critic
-    }
-    if (@ignoring) {
-        foreach my $item (@ignoring) { $item = "'$item'"; }
-        my $chars = join q{, }, @ignoring;
-        warn "Break on single characters only -- ignoring: $chars\n";
-    }
-
-    # double break characters in case one is eaten by Text::Wrap
-    foreach my $char (@doubled_chars) {
-        foreach my $line (@input) {
-            $line =~ s/$char/$char$char/xsmg;
-        }
-    }
-
-    # assemble $break regex and set $Text::Wrap::break
-    my $pattern = q{};
-    if ( @{$break_chars} ) { $pattern .= ( join q{}, @{$break_chars} ); }
-    if ($pattern) { $pattern = "[$pattern]"; }
-    my $break = qr/$pattern/xsm;
-    local $Text::Wrap::break = $Text::Wrap::break;
-    $Text::Wrap::break = $break;    # }}}2
-
-    # wrap message
-    local $Text::Wrap::huge = $Text::Wrap::huge;
-    $Text::Wrap::huge = 'wrap';
-    my @output;
+  # double break characters in case one is eaten by Text::Wrap
+  foreach my $char (@doubled_chars) {
     foreach my $line (@input) {
-        my $wrapped = Text::Wrap::wrap( $indent, $hang, $line );
-        my @wrapped_lines = split /\n/xsm, $wrapped;
-        if ( scalar @wrapped_lines > 1 ) {    # add continuation character
-            my $first_line = shift @wrapped_lines;
-            foreach my $line (@wrapped_lines) { $line .= q{↩}; }    # U+21A9
-            unshift @wrapped_lines, $first_line;
-        }
-        push @output, @wrapped_lines;
+      $line =~ s/$char/$char$char/xsmg;
     }
-    chomp @output;
+  }
 
-    # reverse doubling of break tokens
-    foreach my $char (@doubled_chars) {
-        foreach my $line (@output) {
-            $line =~ s/$char$char/$char/xsmg;
-        }
+  # assemble $break regex and set $Text::Wrap::break
+  my $pattern = q{};
+  if (@{$break_chars}) { $pattern .= (join q{}, @{$break_chars}); }
+  if ($pattern)        { $pattern = "[$pattern]"; }
+  my $break = qr/$pattern/xsm;
+  local $Text::Wrap::break = $Text::Wrap::break;
+  $Text::Wrap::break = $break;    # }}}2
+
+  # wrap message
+  local $Text::Wrap::huge = $Text::Wrap::huge;
+  $Text::Wrap::huge = 'wrap';
+  my @output;
+  foreach my $line (@input) {
+    my $wrapped       = Text::Wrap::wrap($indent, $hang, $line);
+    my @wrapped_lines = split /\n/xsm, $wrapped;
+    if (scalar @wrapped_lines > 1) {    # add continuation character
+      my $first_line = shift @wrapped_lines;
+      foreach my $line (@wrapped_lines) { $line .= q{↩}; }    # U+21A9
+      unshift @wrapped_lines, $first_line;
     }
+    push @output, @wrapped_lines;
+  }
+  chomp @output;
 
-    return @output;
+  # reverse doubling of break tokens
+  foreach my $char (@doubled_chars) {
+    foreach my $line (@output) {
+      $line =~ s/$char$char/$char/xsmg;
+    }
+  }
+
+  return @output;
 }
 
 # echo_e($string)    {{{1
@@ -1690,11 +1684,11 @@ method do_wrap ($strings, %options) {
 # prints: string with shell escape sequences escaped
 # return: nil
 method echo_e ($text) {
-    if ( not $text ) {
-        confess q{No text provided};
-    }
-    my @cmd = ( q{echo}, q{-e}, $text );
-    system @cmd;
+  if (not $text) {
+    confess q{No text provided};
+  }
+  my @cmd = (q{echo}, q{-e}, $text);
+  system @cmd;
 }
 
 # echo_en($string)    {{{1
@@ -1705,11 +1699,11 @@ method echo_e ($text) {
 #         and no trailing newline
 # return: nil
 method echo_en ($text) {
-    if ( not $text ) {
-        confess q{No text provided};
-    }
-    my @cmd = ( q{echo}, q{-en}, $text );
-    system @cmd;
+  if (not $text) {
+    confess q{No text provided};
+  }
+  my @cmd = (q{echo}, q{-en}, $text);
+  system @cmd;
 }
 
 # ensure_no_trailing_slash($dir)    {{{1
@@ -1719,11 +1713,11 @@ method echo_en ($text) {
 # prints: nil
 # return: scalar string - altered dirpath
 method ensure_no_trailing_slash ($dir) {
-    if ( not $dir ) { return; }
-    while ( $dir =~ m{/$}xsm ) {
-        chop $dir;
-    }
-    return $dir;
+  if (not $dir) { return; }
+  while ($dir =~ m{/$}xsm) {
+    chop $dir;
+  }
+  return $dir;
 }
 
 # ensure_trailing_slash($dir)    {{{1
@@ -1733,12 +1727,12 @@ method ensure_no_trailing_slash ($dir) {
 # prints: nil
 # return: scalar string - altered dirpath
 method ensure_trailing_slash ($dir) {
-    if ( not $dir ) { return; }
-    while ( $dir =~ m{/$}xsm ) {
-        chop $dir;
-    }
-    $dir .= q{/};
-    return $dir;
+  if (not $dir) { return; }
+  while ($dir =~ m{/$}xsm) {
+    chop $dir;
+  }
+  $dir .= q{/};
+  return $dir;
 }
 
 # entitise($string)    {{{1
@@ -1749,7 +1743,7 @@ method ensure_trailing_slash ($dir) {
 # return: scalar string
 # # uses: HTML::Entities
 method entitise ($string = q//) {
-    return HTML::Entities::encode_entities($string);
+  return HTML::Entities::encode_entities($string);
 }
 
 # executable_path($exe)    {{{1
@@ -1761,8 +1755,8 @@ method entitise ($string = q//) {
 #         scalar boolean (undef if not found)
 # uses:   File::Which
 method executable_path ($exe) {
-    if ( not $exe ) { confess 'No executable name provided'; }
-    scalar File::Which::which($exe);
+  if (not $exe) { confess 'No executable name provided'; }
+  scalar File::Which::which($exe);
 }
 
 # extract_key_value($key, @items)    {{{1
@@ -1776,20 +1770,20 @@ method executable_path ($exe) {
 # return: list ($key_value, @amended_list)
 # usage:  my ($value, @list) = $cp->($key, @list);
 method extract_key_value ($key, @items) {
-    my ( @remainder, $value, $next_is_value );
-    for my $item (@items) {
-        if ( lc $item eq lc $key ) {      # key value next
-            $next_is_value = $TRUE;
-        }
-        elsif ($next_is_value) {          # this is prepend value
-            $value         = $item;
-            $next_is_value = $FALSE;
-        }
-        else {                            # a message item
-            push @remainder, $item;
-        }
+  my (@remainder, $value, $next_is_value);
+  for my $item (@items) {
+    if (lc $item eq lc $key) {    # key value next
+      $next_is_value = $TRUE;
     }
-    return ( $value, @remainder );
+    elsif ($next_is_value) {      # this is prepend value
+      $value         = $item;
+      $next_is_value = $FALSE;
+    }
+    else {                        # a message item
+      push @remainder, $item;
+    }
+  }
+  return ($value, @remainder);
 }
 
 # file_used_by($file)    {{{1
@@ -1800,32 +1794,32 @@ method extract_key_value ($key, @items) {
 # return: list of pids
 method file_used_by ($file) {
 
-    # check arg
-    if ( not $file )    { confess 'No file provided'; }
-    if ( not -e $file ) { confess "Cannot find file '$file'"; }
+  # check arg
+  if (not $file)    { confess 'No file provided'; }
+  if (not -e $file) { confess "Cannot find file '$file'"; }
 
-    # check for fuser
-    my $fuser = 'fuser';
-    if ( not $self->executable_path($fuser) ) {
-        confess "$fuser not available";
+  # check for fuser
+  my $fuser = 'fuser';
+  if (not $self->executable_path($fuser)) {
+    confess "$fuser not available";
+  }
+
+  # okay, let's investigate who is locking
+  my $cmd    = [ $fuser, $file ];
+  my $result = $self->capture_command_output($cmd);
+  if (not $result->success) {
+    foreach my $line ($result->full) {
+      warn "$line\n";
     }
+    my $cmd_string = join q{ }, @{$cmd};
+    confess "Command '$cmd' failed unexpectedly";
+  }
+  my $output = join q{ }, $result->stdout;
+  $output = $self->trim($output);
+  my @pids = split /\s+/xsm, $output;
 
-    # okay, let's investigate who is locking
-    my $cmd = [ $fuser, $file ];
-    my $result = $self->capture_command_output($cmd);
-    if ( not $result->success ) {
-        foreach my $line ( $result->full ) {
-            warn "$line\n";
-        }
-        my $cmd_string = join q{ }, @{$cmd};
-        confess "Command '$cmd' failed unexpectedly";
-    }
-    my $output = join q{ }, $result->stdout;
-    $output = $self->trim($output);
-    my @pids = split /\s+/xsm, $output;
-
-    # return results
-    return @pids;
+  # return results
+  return @pids;
 }
 
 # files_list([$dir_path])    {{{1
@@ -1835,16 +1829,16 @@ method file_used_by ($file) {
 # prints: nil
 # return: list, die if operation fails
 method files_list ($dir) {
-    if ( not $dir ) { $dir = $self->cwd(); }
-    $dir = $self->true_path($dir);
-    if ( not -d $dir ) { confess "Invalid directory '$dir'"; }
-    my $f = File::Util->new();
+  if (not $dir) { $dir = $self->cwd(); }
+  $dir = $self->true_path($dir);
+  if (not -d $dir) { confess "Invalid directory '$dir'"; }
+  my $f = File::Util->new();
 
-    # method 'list_dir' fails if directory has no files, so cannot test
-    # for failure of method - assume "failure" == no files in directory
-    my @files;
-    @files = $f->list_dir( $dir, { files_only => $TRUE } );
-    return @files;
+  # method 'list_dir' fails if directory has no files, so cannot test
+  # for failure of method - assume "failure" == no files in directory
+  my @files;
+  @files = $f->list_dir($dir, { files_only => $TRUE });
+  return @files;
 }
 
 # find_files_in_dir($dir, $pattern)    {{{1
@@ -1857,17 +1851,17 @@ method files_list ($dir) {
 # return: list of absolute file paths
 # note:   does not recurse into subdirectories
 # uses:   Cwd, File::Find::Rule
-method find_files_in_dir ( $dir, $pattern ) {
-    if ( not $pattern ) {
-        cluck 'No file pattern provided';
-        return;
-    }
-    if ( not $dir ) {
-        cluck 'No directory provided';
-        return;
-    }
-    my $dir_path = Cwd::abs_path($dir);
-    return File::Find::Rule->file->maxdepth(1)->name($pattern)->in($dir_path);
+method find_files_in_dir ($dir, $pattern) {
+  if (not $pattern) {
+    cluck 'No file pattern provided';
+    return;
+  }
+  if (not $dir) {
+    cluck 'No directory provided';
+    return;
+  }
+  my $dir_path = Cwd::abs_path($dir);
+  return File::Find::Rule->file->maxdepth(1)->name($pattern)->in($dir_path);
 }
 
 # future_date($date)    {{{1
@@ -1879,17 +1873,17 @@ method find_files_in_dir ( $dir, $pattern ) {
 # return: boolean (dies if invalid date)
 method future_date ($date) {
 
-    # check date
-    if ( not $self->valid_date($date) ) {
-        confess "Invalid date '$date'";
-    }
+  # check date
+  if (not $self->valid_date($date)) {
+    confess "Invalid date '$date'";
+  }
 
-    # get dates
-    my $iso_date = Date::Simple->new($date);
-    my $today    = Date::Simple->new();
+  # get dates
+  my $iso_date = Date::Simple->new($date);
+  my $today    = Date::Simple->new();
 
-    # evaluate date sequence
-    return ( $iso_date >= $today );
+  # evaluate date sequence
+  return ($iso_date >= $today);
 }
 
 # get_filename($filepath)    {{{1
@@ -1901,8 +1895,8 @@ method future_date ($date) {
 # uses:   File::Basename
 # note:   returns last element in path, which may be dir in dirpath
 method get_filename ($filepath) {
-    if ( not $filepath ) { confess 'No file path provided'; }
-    return File::Basename::fileparse($filepath);
+  if (not $filepath) { confess 'No file path provided'; }
+  return File::Basename::fileparse($filepath);
 }
 
 # get_last_subdir($dirpath)    {{{1
@@ -1913,27 +1907,27 @@ method get_filename ($filepath) {
 # return: scalar path
 # uses:   File::Spec
 method get_last_subdir ($dirpath) {
-    if ( not $dirpath ) { confess 'No directory path provided'; }
-    my @path = File::Spec->splitdir($dirpath);
-    my $last_dir;
-    while ( not $last_dir ) {       # final element empty if trailing slash
-        $last_dir = pop @path;
+  if (not $dirpath) { confess 'No directory path provided'; }
+  my @path = File::Spec->splitdir($dirpath);
+  my $last_dir;
+  while (not $last_dir) {    # final element empty if trailing slash
+    $last_dir = pop @path;
+  }
+  if (not $last_dir) {
+    if (@path) {
+      my $residual = $self->join_dir([@path]);
+      my @err      = (
+        qq{Unable to resolve last directory:\n},
+        qq{  Received path '$dirpath' and wound up with an empty\n},
+        qq{  last directory and residual path '$residual'\n},
+      );
+      confess @err;
     }
-    if ( not $last_dir ) {
-        if (@path) {
-            my $residual = $self->join_dir( [@path] );
-            my @err = (
-                qq{Unable to resolve last directory:\n},
-                qq{  Received path '$dirpath' and wound up with an empty\n},
-                qq{  last directory and residual path '$residual'\n},
-            );
-            confess @err;
-        }
-        else {    # no path and no last_dir -- assume root
-            return q{/};
-        }
+    else {    # no path and no last_dir -- assume root
+      return q{/};
     }
-    return $last_dir;
+  }
+  return $last_dir;
 }
 
 # get_path($filepath)    {{{1
@@ -1944,12 +1938,12 @@ method get_last_subdir ($dirpath) {
 # return: scalar path
 # uses:   File::Util
 method get_path ($filepath) {
-    if ( not $filepath ) { confess 'No file path provided'; }
-    my $path = File::Util->new()->return_path($filepath);
-    if ( $path eq $filepath ) {
-        $path = q{};
-    }
-    return $path;
+  if (not $filepath) { confess 'No file path provided'; }
+  my $path = File::Util->new()->return_path($filepath);
+  if ($path eq $filepath) {
+    $path = q{};
+  }
+  return $path;
 }
 
 # input_ask($prompt, [$default],[$prepend])    {{{1
@@ -1967,14 +1961,13 @@ method get_path ($filepath) {
 # uses:   Term::Clui
 method input_ask ($prompt, $default, @options) {
 
-    # process args
-    if ( not $prompt ) { return; }
-    ( my $prepend, @options )
-        = $self->extract_key_value( 'prepend', @options );
-    if ($prepend) { $prompt = $self->_script . ': ' . $prompt; }
+  # process args
+  if (not $prompt) { return; }
+  (my $prepend, @options) = $self->extract_key_value('prepend', @options);
+  if ($prepend) { $prompt = $self->_script . ': ' . $prompt; }
 
-    # get user input
-    return Term::Clui::ask( $prompt, $default );
+  # get user input
+  return Term::Clui::ask($prompt, $default);
 }
 
 # input_choose($prompt, @options, [$prepend])    {{{1
@@ -2000,14 +1993,13 @@ method input_ask ($prompt, $default, @options) {
 # uses:   Term::Clui
 method input_choose ($prompt, @options) {
 
-    # process args
-    if ( not @options ) { return; }
-    ( my $prepend, @options )
-        = $self->extract_key_value( 'prepend', @options );
-    if ($prepend) { $prompt = $self->_script . ': ' . $prompt; }
+  # process args
+  if (not @options) { return; }
+  (my $prepend, @options) = $self->extract_key_value('prepend', @options);
+  if ($prepend) { $prompt = $self->_script . ': ' . $prompt; }
 
-    # get user selection
-    return Term::Clui::choose( $prompt, @options );
+  # get user selection
+  return Term::Clui::choose($prompt, @options);
 }
 
 # input_confirm($question, [$prepend])    {{{1
@@ -2029,14 +2021,13 @@ method input_choose ($prompt, @options) {
 # uses:   Term::Clui
 method input_confirm ($question, @options) {
 
-    # set variables
-    if ( not $question ) { return; }
-    ( my $prepend, @options )
-        = $self->extract_key_value( 'prepend', @options );
-    if ($prepend) { $question = $self->_script . ': ' . $question; }
+  # set variables
+  if (not $question) { return; }
+  (my $prepend, @options) = $self->extract_key_value('prepend', @options);
+  if ($prepend) { $question = $self->_script . ': ' . $question; }
 
-    # get user response
-    return Term::Clui::confirm($question);
+  # get user response
+  return Term::Clui::confirm($question);
 }
 
 # input_large($prompt, [$default],[$prepend])    {{{1
@@ -2054,40 +2045,39 @@ method input_confirm ($question, @options) {
 # uses:   Term::Clui
 method input_large ($prompt, $default, @options) {
 
-    # set variables
-    if ( not $prompt ) { return; }
-    ( my $prepend, @options )
-        = $self->extract_key_value( 'prepend', @options );
-    if ($prepend) { $prompt = $self->_script . ': ' . $prompt; }
-    my $rule = q{-} x 60;
-    my $content
-        = "[Everything to first horizontal rule will be deleted]\n"
-        . $prompt . "\n"
-        . $rule . "\n"
-        . $default;
+  # set variables
+  if (not $prompt) { return; }
+  (my $prepend, @options) = $self->extract_key_value('prepend', @options);
+  if ($prepend) { $prompt = $self->_script . ': ' . $prompt; }
+  my $rule = q{-} x 60;
+  my $content =
+        "[Everything to first horizontal rule will be deleted]\n"
+      . $prompt . "\n"
+      . $rule . "\n"
+      . $default;
 
-    # get user input
-    # - put into list splitting on newline
-    my @data = split /\n/xsm, Term::Clui::edit( $prompt, $content );
+  # get user input
+  # - put into list splitting on newline
+  my @data = split /\n/xsm, Term::Clui::edit($prompt, $content);
 
-    # get index of horizontal rule
-    # - first line if no horizontal rule
-    my ( $index, $rule_index ) = ( 1, 0 );
-    foreach my $line (@data) {
-        chomp $line;
-        if ( $line =~ /^-+$/xsm ) {
-            $rule_index = $index;
-        }
-        $index++;
+  # get index of horizontal rule
+  # - first line if no horizontal rule
+  my ($index, $rule_index) = (1, 0);
+  foreach my $line (@data) {
+    chomp $line;
+    if ($line =~ /^-+$/xsm) {
+      $rule_index = $index;
     }
+    $index++;
+  }
 
-    # return user input lines following horizontal rule
-    if (@data) {
-        return join "\n", @data[ $rule_index .. $#data ];
-    }
-    else {
-        return;
-    }
+  # return user input lines following horizontal rule
+  if (@data) {
+    return join "\n", @data[ $rule_index .. $#data ];
+  }
+  else {
+    return;
+  }
 }
 
 # internet_connection([$verbose])    {{{1
@@ -2098,38 +2088,39 @@ method input_large ($prompt, $default, @options) {
 # return: boolean
 # uses:   Net::Ping::External
 method internet_connection ($verbose = $FALSE) {
-    my $connected;
-    my @urls         = $self->_ping_urls;
-    my $max_attempts = scalar @urls;
-    my $timeout      = 1;                        # seconds
-    if ($verbose) {
-        say "Checking internet connection (maximum $max_attempts attempts):";
-    }
-    while ( my ( $index, $url ) = each @urls ) {
-        my $attempt_number = $index + 1;
-        if ($verbose) { print "  Attempt $attempt_number... "; }
-        if (Net::Ping::External::ping(
-                hostname => $url,
-                timeout  => $timeout,            # appears to be ignored
-            )
-            )
-        {
-            $connected = $TRUE;
-            if ($verbose) { say 'OK'; }
-            last;
-        }
-        else {
-            if ($verbose) { say 'Failed'; }
-        }
-    }
-    if ($connected) {
-        if ($verbose) { say 'Internet connection detected'; }
-        return $TRUE;
+  my $connected;
+  my @urls         = $self->_ping_urls;
+  my $max_attempts = scalar @urls;
+  my $timeout      = 1;                   # seconds
+  if ($verbose) {
+    say "Checking internet connection (maximum $max_attempts attempts):";
+  }
+  while (my ($index, $url) = each @urls) {
+    my $attempt_number = $index + 1;
+    if ($verbose) { print "  Attempt $attempt_number... "; }
+    if (
+      Net::Ping::External::ping(
+        hostname => $url,
+        timeout  => $timeout,    # appears to be ignored
+      )
+        )
+    {
+      $connected = $TRUE;
+      if ($verbose) { say 'OK'; }
+      last;
     }
     else {
-        if ($verbose) { say 'No internet connection detected'; }
-        return;
+      if ($verbose) { say 'Failed'; }
     }
+  }
+  if ($connected) {
+    if ($verbose) { say 'Internet connection detected'; }
+    return $TRUE;
+  }
+  else {
+    if ($verbose) { say 'No internet connection detected'; }
+    return;
+  }
 }
 
 # is_android_directory($path)    {{{1
@@ -2141,9 +2132,9 @@ method internet_connection ($verbose = $FALSE) {
 # note:   see notes to method 'android_device_reset' regarding
 #         selection of android device
 method is_android_directory ($path) {
-    if ( not $path ) { $path = q{}; }
-    my $type = 'dir';
-    return $self->_is_android_file_or_dir( $path, $type );
+  if (not $path) { $path = q{}; }
+  my $type = 'dir';
+  return $self->_is_android_file_or_dir($path, $type);
 }
 
 # is_android_file($path)    {{{1
@@ -2155,9 +2146,9 @@ method is_android_directory ($path) {
 # note:   see notes to method 'android_device_reset' regarding
 #         selection of android device
 method is_android_file ($path) {
-    if ( not $path ) { $path = q{}; }
-    my $type = 'file';
-    return $self->_is_android_file_or_dir( $path, $type );
+  if (not $path) { $path = q{}; }
+  my $type = 'file';
+  return $self->_is_android_file_or_dir($path, $type);
 }
 
 # is_boolean($value)    {{{1
@@ -2169,9 +2160,9 @@ method is_android_file ($path) {
 # prints: nil
 # return: boolean (undefined if no value provided)
 method is_boolean ($value) {
-    if ( not defined $value ) { return; }
-    $value = $self->boolise($value);
-    return $value =~ /(^1$|^0$)/xsm;
+  if (not defined $value) { return; }
+  $value = $self->boolise($value);
+  return $value =~ /(^1$|^0$)/xsm;
 }
 
 # is_deb($filepath)    {{{1
@@ -2182,22 +2173,22 @@ method is_boolean ($value) {
 # prints: nil
 # return: scalar boolean
 method is_deb ($filepath) {
-    if ( not $filepath ) {
-        cluck 'No filepath provided';
-        return;
-    }
-    if ( not -r $filepath ) {
-        cluck "Invalid filepath '$filepath'";
-        return;
-    }
-    my @mimetypes
-        = ( 'application/x-deb', 'application/vnd.debian.binary-package', );
-    foreach my $mimetype (@mimetypes) {
-        if ( $self->_is_mimetype( $filepath, $mimetype ) ) {
-            return $TRUE;
-        }
-    }
+  if (not $filepath) {
+    cluck 'No filepath provided';
     return;
+  }
+  if (not -r $filepath) {
+    cluck "Invalid filepath '$filepath'";
+    return;
+  }
+  my @mimetypes =
+      ('application/x-deb', 'application/vnd.debian.binary-package',);
+  foreach my $mimetype (@mimetypes) {
+    if ($self->_is_mimetype($filepath, $mimetype)) {
+      return $TRUE;
+    }
+  }
+  return;
 }
 
 # is_mp3($filepath)    {{{1
@@ -2208,15 +2199,15 @@ method is_deb ($filepath) {
 # prints: nil
 # return: scalar boolean
 method is_mp3 ($filepath) {
-    if ( not $filepath ) {
-        cluck 'No filepath provided';
-        return;
-    }
-    if ( not -r $filepath ) {
-        cluck "Invalid filepath '$filepath'";
-        return;
-    }
-    return $self->_is_mimetype( $filepath, 'audio/mpeg' );
+  if (not $filepath) {
+    cluck 'No filepath provided';
+    return;
+  }
+  if (not -r $filepath) {
+    cluck "Invalid filepath '$filepath'";
+    return;
+  }
+  return $self->_is_mimetype($filepath, 'audio/mpeg');
 }
 
 # is_mp4($filepath)    {{{1
@@ -2227,15 +2218,15 @@ method is_mp3 ($filepath) {
 # prints: nil
 # return: scalar boolean
 method is_mp4 ($filepath) {
-    if ( not $filepath ) {
-        cluck 'No filepath provided';
-        return;
-    }
-    if ( not -r $filepath ) {
-        cluck "Invalid filepath '$filepath'";
-        return;
-    }
-    return $self->_is_mimetype( $filepath, 'video/mp4' );
+  if (not $filepath) {
+    cluck 'No filepath provided';
+    return;
+  }
+  if (not -r $filepath) {
+    cluck "Invalid filepath '$filepath'";
+    return;
+  }
+  return $self->_is_mimetype($filepath, 'video/mp4');
 }
 
 # is_perl($filepath)    {{{1
@@ -2246,40 +2237,40 @@ method is_mp4 ($filepath) {
 # prints: nil
 # return: scalar boolean
 method is_perl ($filepath) {
-    if ( not $filepath ) {
-        cluck 'No filepath provided';
-        return;
-    }
-    if ( not -r $filepath ) {
-        cluck "Invalid filepath '$filepath'";
-        return;
-    }
-
-    # check for mimetype match
-    if ( $self->_is_mimetype( $filepath, 'application/x-perl' ) ) {
-        return $TRUE;
-    }
-
-    # mimetype detection can fail if filename has no extension
-    # look for shebang and see if it is a perl interpreter
-    my $fh;
-    if ( not( open $fh, '<', $filepath ) ) {
-        confess "Unable to open file '$filepath' for reading";
-    }
-    my @lines = <$fh>;
-    if ( not( close $fh ) ) {
-        confess "Unable to close file '$filepath'";
-    }
-    chomp @lines;
-    foreach my $line (@lines) {
-        if ( $line =~ /^ \s* [#] [!] (\S+) /xsm ) {
-            my $interpreter = $1;
-            my $executable  = $self->get_filename($interpreter);
-            return $TRUE if $executable eq 'perl';
-            last;
-        }
-    }
+  if (not $filepath) {
+    cluck 'No filepath provided';
     return;
+  }
+  if (not -r $filepath) {
+    cluck "Invalid filepath '$filepath'";
+    return;
+  }
+
+  # check for mimetype match
+  if ($self->_is_mimetype($filepath, 'application/x-perl')) {
+    return $TRUE;
+  }
+
+  # mimetype detection can fail if filename has no extension
+  # look for shebang and see if it is a perl interpreter
+  my $fh;
+  if (not(open $fh, '<', $filepath)) {
+    confess "Unable to open file '$filepath' for reading";
+  }
+  my @lines = <$fh>;
+  if (not(close $fh)) {
+    confess "Unable to close file '$filepath'";
+  }
+  chomp @lines;
+  foreach my $line (@lines) {
+    if ($line =~ /^ \s* [#] [!] (\S+) /xsm) {
+      my $interpreter = $1;
+      my $executable  = $self->get_filename($interpreter);
+      return $TRUE if $executable eq 'perl';
+      last;
+    }
+  }
+  return;
 }
 
 # join_dir($dir)    {{{1
@@ -2291,12 +2282,12 @@ method is_perl ($filepath) {
 #         die on error
 # uses: File::Spec
 method join_dir ($dir) {
-    if ( ref $dir ne 'ARRAY' ) {
-        confess "Directory parameter is not an arrayref: $dir";
-    }
-    my @dir_parts = @{$dir};
-    if ( not @dir_parts ) { return; }
-    return File::Spec->catdir(@dir_parts);
+  if (ref $dir ne 'ARRAY') {
+    confess "Directory parameter is not an arrayref: $dir";
+  }
+  my @dir_parts = @{$dir};
+  if (not @dir_parts) { return; }
+  return File::Spec->catdir(@dir_parts);
 }
 
 # kde_desktop()    {{{1
@@ -2308,15 +2299,15 @@ method join_dir ($dir) {
 # uses:   Desktop::Detect
 method kde_desktop () {
 
-    # try Desktop::Detect module (currently does not work on kde5)
-    my $desktop = Desktop::Detect->detect_desktop()->{desktop};
-    if ( $desktop eq 'kde-plasma' ) { return $TRUE; }
+  # try Desktop::Detect module (currently does not work on kde5)
+  my $desktop = Desktop::Detect->detect_desktop()->{desktop};
+  if ($desktop eq 'kde-plasma') { return $TRUE; }
 
-    # directly inspect $DESKTOP_SESSION (for kde5)
-    if ( $DESKTOP_SESSION eq 'plasma' ) { return $TRUE; }
+  # directly inspect $DESKTOP_SESSION (for kde5)
+  if ($DESKTOP_SESSION eq 'plasma') { return $TRUE; }
 
-    # if those tests failed, then presumably not kde
-    return;
+  # if those tests failed, then presumably not kde
+  return;
 }
 
 # konsolekalendar_date_format($date)    {{{1
@@ -2329,15 +2320,15 @@ method kde_desktop () {
 # return: scalar date string
 method konsolekalendar_date_format ($date) {
 
-    # get date
-    if ( not $date ) { $date = $self->today(); }
-    if ( not $self->valid_date($date) ) { return; }
+  # get date
+  if (not $date)                    { $date = $self->today(); }
+  if (not $self->valid_date($date)) { return; }
 
-    # reformat
-    my $format = '%a, %e %b %Y';
-    my $d      = Date::Simple->new($date)->format($format);
-    $d =~ s/  / /gsm;                        # dates 1-9 have leading space
-    return $d;
+  # reformat
+  my $format = '%a, %e %b %Y';
+  my $d      = Date::Simple->new($date)->format($format);
+  $d =~ s/  / /gsm;    # dates 1-9 have leading space
+  return $d;
 }
 
 # kill_process($pid)    {{{1
@@ -2348,28 +2339,28 @@ method konsolekalendar_date_format ($date) {
 # return: list ($success, $err)
 method kill_process ($pid) {
 
-    # check arg
-    if ( not $pid ) { confess 'No pid provided'; }
-    if ( not $self->pid_running($pid) ) {
-        cluck "PID $pid is not running";
-        return ( $FALSE, "PID $pid was not running" );
-    }
+  # check arg
+  if (not $pid) { confess 'No pid provided'; }
+  if (not $self->pid_running($pid)) {
+    cluck "PID $pid is not running";
+    return ($FALSE, "PID $pid was not running");
+  }
 
-    # attempt to kill process
-    my @signals = qw(TERM INT HUP KILL);    # 15, 2, 1, 9
-    foreach my $signal (@signals) {
-        kill $signal, $pid;
-        last if not $self->pid_running($pid);
-        Time::HiRes::usleep(250);
-    }
+  # attempt to kill process
+  my @signals = qw(TERM INT HUP KILL);    # 15, 2, 1, 9
+  foreach my $signal (@signals) {
+    kill $signal, $pid;
+    last if not $self->pid_running($pid);
+    Time::HiRes::usleep(250);
+  }
 
-    # report success
-    if ( $self->pid_running($pid) ) {
-        return ( $FALSE, "Unable to kill process $pid" );
-    }
-    else {
-        return ($TRUE);
-    }
+  # report success
+  if ($self->pid_running($pid)) {
+    return ($FALSE, "Unable to kill process $pid");
+  }
+  else {
+    return ($TRUE);
+  }
 }
 
 # listify(@items)    {{{1
@@ -2379,43 +2370,43 @@ method kill_process ($pid) {
 # prints: warnings for other reference types
 # return: list
 method listify (@items) {
-    my ( @scalars, $scalar, @array, %hash );
-    for my $item (@items) {
-        my $ref = ref $item;
-        if ($ref) {
-            for ($ref) {
-                if (/SCALAR/xsm) {
-                    $scalar = ${$item};
-                    push @scalars, $self->listify($scalar);
-                }
-                elsif (/ARRAY/xsm) {
-                    @array = @{$item};
-                    foreach my $element (@array) {
-                        push @scalars, $self->listify($element);
-                    }
-                }
-                elsif (/HASH/xsm) {
-                    %hash = %{$item};
-                    foreach my $key ( keys %hash ) {
-                        push @scalars, $self->listify($key);
-                        push @scalars, $self->listify( $hash{$key} );
-                    }
-                }
-                else {
-                    cluck "Cannot listify a '$ref'";
-                    say 'Item dump:';
-                    say q{-} x 30;
-                    cluck Dumper($item);
-                    say q{-} x 30;
-                }
-            }
+  my (@scalars, $scalar, @array, %hash);
+  for my $item (@items) {
+    my $ref = ref $item;
+    if ($ref) {
+      for ($ref) {
+        if (/SCALAR/xsm) {
+          $scalar = ${$item};
+          push @scalars, $self->listify($scalar);
+        }
+        elsif (/ARRAY/xsm) {
+          @array = @{$item};
+          foreach my $element (@array) {
+            push @scalars, $self->listify($element);
+          }
+        }
+        elsif (/HASH/xsm) {
+          %hash = %{$item};
+          foreach my $key (keys %hash) {
+            push @scalars, $self->listify($key);
+            push @scalars, $self->listify($hash{$key});
+          }
         }
         else {
-            push @scalars, $item;
+          cluck "Cannot listify a '$ref'";
+          say 'Item dump:';
+          say q{-} x 30;
+          cluck Dumper($item);
+          say q{-} x 30;
         }
+      }
     }
-    if ( not @scalars ) { return; }
-    return @scalars;
+    else {
+      push @scalars, $item;
+    }
+  }
+  if (not @scalars) { return; }
+  return @scalars;
 }
 
 # local_timezone()    {{{1
@@ -2425,7 +2416,7 @@ method listify (@items) {
 # prints: nil
 # return: scalar string
 method local_timezone () {
-    return DateTime::TimeZone->new( name => 'local' )->name();
+  return DateTime::TimeZone->new(name => 'local')->name();
 }
 
 # logger($message, [$type])    {{{1
@@ -2442,29 +2433,30 @@ method local_timezone () {
 # uses:   Logger::Syslog
 method logger ($message, $type = 'notice') {
 
-    # set and check variables
-    return if not $message;
-    $type =~ s/(.*)/\L$1/gxsm;               # lowercase
-    my %valid_type = map {$_ => $TRUE } qw(debug notice warning error);
-    if (not(exists $valid_type{$type})) { confess "Invalid type '$type'";}
+  # set and check variables
+  return if not $message;
+  $type =~ s/(.*)/\L$1/gxsm;    # lowercase
+  my %valid_type = map { $_ => $TRUE } qw(debug notice warning error);
+  if (not(exists $valid_type{$type})) { confess "Invalid type '$type'"; }
 
-    # log message
-    my $dispatch = {
-      debug => \&Logger::Syslog::debug,
-      notice => \&Logger::Syslog::notice,
-      warning => \&Logger::Syslog::warning,
-      error => \&Logger::Syslog::error,
-    };
-    $dispatch->{$type}->($message);
-    #for ($type) {
-    #    if    ($_ =~ /^debug$/xsm)   { Logger::Syslog::debug($message) }
-    #    elsif ($_ =~ /^notice$/xsm)  { Logger::Syslog::notice($message) }
-    #    elsif ($_ =~ /^warning$/xsm) { Logger::Syslog::warning($message) }
-    #    elsif ($_ =~ /^error$/xsm)   { Logger::Syslog::error($message) }
-    #    else                         { confess "Invalid type '$type'" }
-    #}
+  # log message
+  my $dispatch = {
+    debug   => \&Logger::Syslog::debug,
+    notice  => \&Logger::Syslog::notice,
+    warning => \&Logger::Syslog::warning,
+    error   => \&Logger::Syslog::error,
+  };
+  $dispatch->{$type}->($message);
 
-    return;
+  #for ($type) {
+  #    if    ($_ =~ /^debug$/xsm)   { Logger::Syslog::debug($message) }
+  #    elsif ($_ =~ /^notice$/xsm)  { Logger::Syslog::notice($message) }
+  #    elsif ($_ =~ /^warning$/xsm) { Logger::Syslog::warning($message) }
+  #    elsif ($_ =~ /^error$/xsm)   { Logger::Syslog::error($message) }
+  #    else                         { confess "Invalid type '$type'" }
+  #}
+
+  return;
 }
 
 # make_dir($dir_path)    {{{1
@@ -2476,9 +2468,9 @@ method logger ($message, $type = 'notice') {
 # note:   if directory already exists does nothing but return true
 # uses:   File::Util
 method make_dir ($dir_path) {
-    if ( not $dir_path ) { confess 'No directory path provided'; }
-    File::Util->new()->make_dir( $dir_path, { if_not_exists => $TRUE } )
-        or confess "Unable to create '$dir_path'";
+  if (not $dir_path) { confess 'No directory path provided'; }
+  File::Util->new()->make_dir($dir_path, { if_not_exists => $TRUE })
+      or confess "Unable to create '$dir_path'";
 }
 
 # moox_option_bool_is_true($value)    {{{1
@@ -2490,12 +2482,12 @@ method make_dir ($dir_path) {
 # note:   when true value is '1'
 #         when false value is '[]', which evaluates as true
 method moox_option_bool_is_true ($value) {
-    if ( not( defined $value ) ) { confess 'No option value provided'; }
-    for ( ref $value ) {
-        if ( $_ eq q{} )     { return $value; }       # scalar
-        elsif ( $_ eq 'ARRAY' ) { return @{$value}; }    # array ref
-        else { confess "Value is a $_ reference"; }  # neither
-    }
+  if (not(defined $value)) { confess 'No option value provided'; }
+  for (ref $value) {
+    if    ($_ eq q{})     { return $value; }                       # scalar
+    elsif ($_ eq 'ARRAY') { return @{$value}; }                    # array ref
+    else                  { confess "Value is a $_ reference"; }   # neither
+  }
 }
 
 # msg_box([$msg], [$title])    {{{1
@@ -2507,11 +2499,11 @@ method moox_option_bool_is_true ($value) {
 # return: nil
 # uses:   UI::Dialog
 method msg_box ($msg, $title) {
-    if ( not $title ) { $title = $self->scriptname(); }
-    if ( not $msg )   { $msg   = 'Press OK button to proceed'; }
-    my @widget_preference = $self->_ui_dialog_widget_preference();
-    my $ui = UI::Dialog->new( order => [@widget_preference] );
-    return $ui->msgbox( title => $title, text => $msg );
+  if (not $title) { $title = $self->scriptname(); }
+  if (not $msg)   { $msg   = 'Press OK button to proceed'; }
+  my @widget_preference = $self->_ui_dialog_widget_preference();
+  my $ui                = UI::Dialog->new(order => [@widget_preference]);
+  return $ui->msgbox(title => $title, text => $msg);
 }
 
 # notify(@messages, [$prepend])    {{{1
@@ -2527,17 +2519,16 @@ method msg_box ($msg, $title) {
 # note:   respects newline if enclosed in double quotes
 method notify (@messages) {
 
-    # set prepend flag and display messages
-    my ( $prepend, @messages )
-        = $self->extract_key_value( 'prepend', @messages );
+  # set prepend flag and display messages
+  my ($prepend, @messages) = $self->extract_key_value('prepend', @messages);
 
-    # set prefix
-    my $prefix = ($prepend) ? $self->_script . ': ' : q{};
+  # set prefix
+  my $prefix = ($prepend) ? $self->_script . ': ' : q{};
 
-    # display messages
-    for my $message (@messages) {
-        say "$prefix$message";
-    }
+  # display messages
+  for my $message (@messages) {
+    say "$prefix$message";
+  }
 }
 
 # notify_sys($msg, [$title], [$type], [$icon], [$time])    {{{1
@@ -2562,59 +2553,60 @@ method notify (@messages) {
 #         the child process to hang without any feedback to user
 # note:   not guaranteed to respect newlines
 # uses:   Net::DBus
-method notify_sys ($msg, :$title, :$type, :$icon, :$time) {
+method notify_sys ($msg, : $title, : $type, : $icon, : $time) {
 
-    # parameters
-    # - msg
-    if ( not $msg ) { return; }
+  # parameters
+  # - msg
+  if (not $msg) { return; }
 
-    # - title
-    if ( not $title ) {
-        if ( $self->_notify_sys_title ) {
-            $title = $self->_notify_sys_title;
-        }
-        else {
-            $title = $self->_script;
-        }
+  # - title
+  if (not $title) {
+    if ($self->_notify_sys_title) {
+      $title = $self->_notify_sys_title;
     }
-
-    # - type
-    my %is_valid_type = map { ( $_ => 1 ) } qw/info question warn error/;
-    if ( not( $type and $is_valid_type{$type} ) ) {
-        if ( $self->_notify_sys_type ) {
-            $type = $self->_notify_sys_type;
-        }
-        else {
-            $type = 'info';
-        }
+    else {
+      $title = $self->_script;
     }
+  }
 
-    # - icon
-    if ( not( $icon and -e $icon ) ) {
-        if ( $self->_notify_sys_icon ) {
-            $icon = $self->_notify_sys_icon;
-        }
-        else {
-            $icon = $type eq "info"     ? $self->_icon_info
-                  : $type eq "question" ? $self->_icon_question
-                  : $type eq "warn"     ? $self->_icon_warn
-                  : $type eq "error"    ? $self->_icon_error
-                  :                       undef;
-            if (not defined($icon)) { confess "Invalid type '$type'"; }
-        }
+  # - type
+  my %is_valid_type = map { ($_ => 1) } qw/info question warn error/;
+  if (not($type and $is_valid_type{$type})) {
+    if ($self->_notify_sys_type) {
+      $type = $self->_notify_sys_type;
     }
-
-    # - time
-    if ( not( $time and $time =~ /^[1-9]\d+\z/xsm ) ) {
-        $time = 10_000;
+    else {
+      $type = 'info';
     }
+  }
 
-    # display notification popup
-    my $bus = Net::DBus->session;
-    my $svc = $bus->get_service('org.freedesktop.Notifications');
-    my $obj = $svc->get_object('/org/freedesktop/Notifications');
-    $obj->Notify( $self->_script, 0, $icon, $title, $msg, [], {}, $time );
-    return;
+  # - icon
+  if (not($icon and -e $icon)) {
+    if ($self->_notify_sys_icon) {
+      $icon = $self->_notify_sys_icon;
+    }
+    else {
+      $icon =
+            $type eq "info"     ? $self->_icon_info
+          : $type eq "question" ? $self->_icon_question
+          : $type eq "warn"     ? $self->_icon_warn
+          : $type eq "error"    ? $self->_icon_error
+          :                       undef;
+      if (not defined($icon)) { confess "Invalid type '$type'"; }
+    }
+  }
+
+  # - time
+  if (not($time and $time =~ /^[1-9]\d+\z/xsm)) {
+    $time = 10_000;
+  }
+
+  # display notification popup
+  my $bus = Net::DBus->session;
+  my $svc = $bus->get_service('org.freedesktop.Notifications');
+  my $obj = $svc->get_object('/org/freedesktop/Notifications');
+  $obj->Notify($self->_script, 0, $icon, $title, $msg, [], {}, $time);
+  return;
 }
 
 # now()    {{{1
@@ -2624,7 +2616,7 @@ method notify_sys ($msg, :$title, :$type, :$icon, :$time) {
 # prints: nil
 # return: scalar string
 method now () {
-    return Time::Simple->new()->format;
+  return Time::Simple->new()->format;
 }
 
 # number_list(@items)    {{{1
@@ -2636,23 +2628,23 @@ method now () {
 # return: list
 # note:   map operation extracted to method as per Perl Best Practice
 method number_list (@items) {
-    if ( not @items ) { return; }
-    my $prefix_length = length scalar @items;
-    my $index         = 1;
-    my @numbered_list
-        = map { $self->_add_numeric_prefix( $_, $prefix_length ) } @items;
-    return @numbered_list;
+  if (not @items) { return; }
+  my $prefix_length = length scalar @items;
+  my $index         = 1;
+  my @numbered_list =
+      map { $self->_add_numeric_prefix($_, $prefix_length) } @items;
+  return @numbered_list;
 }
 
 method _add_numeric_prefix ($item, $prefix_length) {
-    state $index = 1;
-    my $index_width   = length $index;
-    my $padding_width = $prefix_length - $index_width;
-    my $padding       = q{ } x $padding_width;
-    my $prefix        = "$padding$index. ";
-    $index++;
-    $item = "$prefix$item";
-    return $item;
+  state $index = 1;
+  my $index_width   = length $index;
+  my $padding_width = $prefix_length - $index_width;
+  my $padding       = q{ } x $padding_width;
+  my $prefix        = "$padding$index. ";
+  $index++;
+  $item = "$prefix$item";
+  return $item;
 }
 
 # offset_date($offset)    {{{1
@@ -2664,9 +2656,9 @@ method _add_numeric_prefix ($item, $prefix_length) {
 # return: ISO-formatted date (die if fails)
 # uses:   Date::Simple
 method offset_date ($offset) {
-    if ( not( $offset and $self->valid_integer($offset) ) ) { return; }
-    my $date = Date::Simple->today() + $offset;
-    return $date->format('%Y-%m-%d');
+  if (not($offset and $self->valid_integer($offset))) { return; }
+  my $date = Date::Simple->today() + $offset;
+  return $date->format('%Y-%m-%d');
 }
 
 # pager($lines)    {{{1
@@ -2683,26 +2675,26 @@ method offset_date ($offset) {
 # uses:   IO::Pager
 method pager ($lines, $prefer) {
 
-    # check args
-    if ( not $lines ) { confess 'No lines provided'; }
-    my $ref_type = ref $lines;
-    if ( $ref_type ne 'ARRAY' ) { confess 'Not an array reference'; }
-    my $default_pager;
-    if ( $prefer and $self->executable_path($prefer) and $prefer ne $PAGER ) {
-        $default_pager = $PAGER;
-        $PAGER         = $prefer;
-    }
+  # check args
+  if (not $lines) { confess 'No lines provided'; }
+  my $ref_type = ref $lines;
+  if ($ref_type ne 'ARRAY') { confess 'Not an array reference'; }
+  my $default_pager;
+  if ($prefer and $self->executable_path($prefer) and $prefer ne $PAGER) {
+    $default_pager = $PAGER;
+    $PAGER         = $prefer;
+  }
 
-    # display lines
-    my @output = @{$lines};
-    chomp @output;
-    my $pager = IO::Pager->new();
-    foreach my $line (@output) {
-        $pager->print("$line\n");
-    }
+  # display lines
+  my @output = @{$lines};
+  chomp @output;
+  my $pager = IO::Pager->new();
+  foreach my $line (@output) {
+    $pager->print("$line\n");
+  }
 
-    # restore default pager
-    if ($default_pager) { $PAGER = $default_pager; }
+  # restore default pager
+  if ($default_pager) { $PAGER = $default_pager; }
 }
 
 # parent_dir($dir)    {{{1
@@ -2713,10 +2705,10 @@ method pager ($lines, $prefer) {
 # return: scalar (absolute directory path)
 # note:   converts to, and returns, absolute path
 method parent_dir ($dir) {
-    if ( not $dir ) { confess 'No path provided'; }
-    my @dir_path = $self->path_split( $self->true_path($dir) );
-    pop @dir_path;         # remove current dir to get parent
-    return $self->join_dir( [@dir_path] );
+  if (not $dir) { confess 'No path provided'; }
+  my @dir_path = $self->path_split($self->true_path($dir));
+  pop @dir_path;    # remove current dir to get parent
+  return $self->join_dir([@dir_path]);
 }
 
 # path_split($path)    {{{1
@@ -2729,27 +2721,27 @@ method parent_dir ($dir) {
 # uses:   File::Spec
 method path_split ($path) {
 
-    # check arg
-    if ( not $path ) { confess 'No path provided'; }
+  # check arg
+  if (not $path) { confess 'No path provided'; }
 
-    # get path parts
-    my ( $volume, $dir, $file ) = File::Spec->splitpath(shift);
-    my @path;
+  # get path parts
+  my ($volume, $dir, $file) = File::Spec->splitpath(shift);
+  my @path;
 
-    # process volume
-    if ($volume) { push @path, $volume; }
+  # process volume
+  if ($volume) { push @path, $volume; }
 
-    # process directory
-    # - last directory item can be empty
-    if ($dir) { push @path, File::Spec->splitdir($dir); }
-    my $final = pop @path;    # keep last item if not empty
-    if ($final) { push @path, $final; }
+  # process directory
+  # - last directory item can be empty
+  if ($dir) { push @path, File::Spec->splitdir($dir); }
+  my $final = pop @path;    # keep last item if not empty
+  if ($final) { push @path, $final; }
 
-    # process file
-    if ($file) { push @path, $file; }
+  # process file
+  if ($file) { push @path, $file; }
 
-    # return result
-    return @path;
+  # return result
+  return @path;
 }
 
 # pid_command($pid)    {{{1
@@ -2759,12 +2751,12 @@ method path_split ($path) {
 # prints: nil, except error messages
 # return: scalar string (process command)
 method pid_command ($pid) {
-    if ( not $pid ) { confess 'No pid providede'; }
-    if ( not $self->pid_running($pid) ) {
-        warn "PID $pid is not running\n";
-        return;
-    }
-    return $self->_command($pid);
+  if (not $pid) { confess 'No pid providede'; }
+  if (not $self->pid_running($pid)) {
+    warn "PID $pid is not running\n";
+    return;
+  }
+  return $self->_command($pid);
 }
 
 # pid_running($pid)    {{{1
@@ -2775,10 +2767,10 @@ method pid_command ($pid) {
 # prints: nil
 # return: boolean scalar
 method pid_running ($pid) {
-    if ( not $pid ) { return; }
-    $self->_reload_processes;
-    my @pids = $self->_pids();
-    return scalar grep {/^$pid$/xsm} @pids;    # force scalar context
+  if (not $pid) { return; }
+  $self->_reload_processes;
+  my @pids = $self->_pids();
+  return scalar grep {/^$pid$/xsm} @pids;    # force scalar context
 }
 
 # pluralise($string, $numeric)    {{{1
@@ -2792,16 +2784,16 @@ method pid_running ($pid) {
 # uses:   Text::Pluralizer
 method pluralise ($string, $number) {
 
-    # check args
-    if ( not( defined $string ) ) { confess 'No string provided'; }
-    if ( not $string )            { return q{}; }
-    if ( not $number )            { confess "No number provided"; }
-    if ( not $self->valid_positive_integer($number) ) {
-        confess "Number '$number' is not an integer";
-    }
+  # check args
+  if (not(defined $string)) { confess 'No string provided'; }
+  if (not $string)          { return q{}; }
+  if (not $number)          { confess "No number provided"; }
+  if (not $self->valid_positive_integer($number)) {
+    confess "Number '$number' is not an integer";
+  }
 
-    # use Text::Pluralize
-    return Text::Pluralize::pluralize( $string, $number );
+  # use Text::Pluralize
+  return Text::Pluralize::pluralize($string, $number);
 }
 
 # process_children($pid)    {{{1
@@ -2812,15 +2804,15 @@ method pluralise ($string, $number) {
 # return: list of pids
 method process_children ($pid) {
 
-    # check arg
-    if ( not $pid ) { confess 'No pid provided'; }
-    if ( not $self->pid_running($pid) ) {
-        confess "PID '$pid' is not running";
-    }
+  # check arg
+  if (not $pid) { confess 'No pid provided'; }
+  if (not $self->pid_running($pid)) {
+    confess "PID '$pid' is not running";
+  }
 
-    # get child processes
-    my $t = Proc::ProcessTable->new();
-    return map { $_->pid() } grep { $_->ppid() == $pid } @{ $t->table() };
+  # get child processes
+  my $t = Proc::ProcessTable->new();
+  return map { $_->pid() } grep { $_->ppid() == $pid } @{ $t->table() };
 }
 
 # process_ids($cmd_re, [$silent])    {{{1
@@ -2831,37 +2823,37 @@ method process_children ($pid) {
 #                   [named parameter, optional, default=false]
 # prints: warning (if not suppressed)
 # return: list of scalar integers
-method process_ids ($cmd_re, :$silent = $FALSE) {
+method process_ids ($cmd_re, : $silent = $FALSE) {
 
-    # set and check variables
-    if ( not $cmd_re ) { return; }
-    $self->_reload_processes;
-    my @pids = $self->_pids;
+  # set and check variables
+  if (not $cmd_re) { return; }
+  $self->_reload_processes;
+  my @pids = $self->_pids;
 
-    # search process commands for matches
-    my @matching_pids;
-    foreach my $pid (@pids) {
-        my $cmd = $self->_command($pid);
-        if ( $cmd =~ $cmd_re ) {
-            push @matching_pids, $pid;
-        }
+  # search process commands for matches
+  my @matching_pids;
+  foreach my $pid (@pids) {
+    my $cmd = $self->_command($pid);
+    if ($cmd =~ $cmd_re) {
+      push @matching_pids, $pid;
     }
+  }
 
-    # provide warning if triggered and feedback requested
-    if ( not $silent ) {
-        my $match_count = scalar @matching_pids;
-        if ( $match_count == 0 ) {
-            warn "No matches for process command '$cmd_re'\n";
-        }
-        if ( $match_count > 1 ) {
-            my $msg = "Multiple ($match_count) matches for "
-                . "process command '$cmd_re'\n";
-            cluck $msg;
-        }
+  # provide warning if triggered and feedback requested
+  if (not $silent) {
+    my $match_count = scalar @matching_pids;
+    if ($match_count == 0) {
+      warn "No matches for process command '$cmd_re'\n";
     }
+    if ($match_count > 1) {
+      my $msg = "Multiple ($match_count) matches for "
+          . "process command '$cmd_re'\n";
+      cluck $msg;
+    }
+  }
 
-    # return matches
-    return @matching_pids;
+  # return matches
+  return @matching_pids;
 }
 
 # process_parent($pid)    {{{1
@@ -2872,20 +2864,20 @@ method process_ids ($cmd_re, :$silent = $FALSE) {
 # return: scalar int (pid)
 method process_parent ($pid) {
 
-    # check arg
-    if ( not $pid ) { confess 'No pid provided'; }
-    if ( not $self->pid_running($pid) ) {
-        confess "PID '$pid' is not running";
-    }
+  # check arg
+  if (not $pid) { confess 'No pid provided'; }
+  if (not $self->pid_running($pid)) {
+    confess "PID '$pid' is not running";
+  }
 
-    # get parent process
-    my $t = Proc::ProcessTable->new();
-    my @parents
-        = map { $_->ppid() } grep { $_->pid() == $pid } @{ $t->table() };
-    my $parent_count = scalar @parents;
-    if ( $parent_count == 0 ) { confess 'No parent PIDs found'; }
-    if ( $parent_count > 1 )  { confess 'Multiple parent PIDs found'; }
-    return $parents[0];
+  # get parent process
+  my $t = Proc::ProcessTable->new();
+  my @parents =
+      map { $_->ppid() } grep { $_->pid() == $pid } @{ $t->table() };
+  my $parent_count = scalar @parents;
+  if ($parent_count == 0) { confess 'No parent PIDs found'; }
+  if ($parent_count > 1)  { confess 'Multiple parent PIDs found'; }
+  return $parents[0];
 }
 
 # process_running($regex)    {{{1
@@ -2897,13 +2889,13 @@ method process_parent ($pid) {
 # return: boolean
 method process_running ($regex) {
 
-    # set and check variables
-    if ( not $regex ) { return; }
-    $self->_reload_processes;
-    my @cmds = $self->_commands;
+  # set and check variables
+  if (not $regex) { return; }
+  $self->_reload_processes;
+  my @cmds = $self->_commands;
 
-    # search process commands for matches
-    return scalar grep {/$regex/xsm} @cmds;
+  # search process commands for matches
+  return scalar grep {/$regex/xsm} @cmds;
 }
 
 # prompt([message])    {{{1
@@ -2914,15 +2906,15 @@ method process_running ($regex) {
 # prints: prompt message
 # return: nil
 method prompt ($message) {
-    if ( not $message ) { $message = 'Press any key to continue... '; }
-    print $message;
-    Term::ReadKey::ReadMode('raw');
-    while ($TRUE) {
-        my $key = Term::ReadKey::ReadKey(0);
-        last if defined $key;
-    }
-    Term::ReadKey::ReadMode('restore');
-    print "\n";
+  if (not $message) { $message = 'Press any key to continue... '; }
+  print $message;
+  Term::ReadKey::ReadMode('raw');
+  while ($TRUE) {
+    my $key = Term::ReadKey::ReadKey(0);
+    last if defined $key;
+  }
+  Term::ReadKey::ReadMode('restore');
+  print "\n";
 }
 
 # push_arrayref($arrayref, @items)    {{{1
@@ -2934,16 +2926,16 @@ method prompt ($message) {
 # return: array reference (dies on failure)
 method push_arrayref ($arrayref, @items) {
 
-    # check args
-    if ( not @items )    { confess 'No items provided'; }
-    if ( not $arrayref ) { confess 'No array reference provided'; }
-    my $ref_type = ref $arrayref;
-    if ( $ref_type ne 'ARRAY' ) { confess 'Not an array reference'; }
+  # check args
+  if (not @items)    { confess 'No items provided'; }
+  if (not $arrayref) { confess 'No array reference provided'; }
+  my $ref_type = ref $arrayref;
+  if ($ref_type ne 'ARRAY') { confess 'Not an array reference'; }
 
-    # add items
-    my @list = @{$arrayref};
-    push @list, @items;
-    return [@list];
+  # add items
+  my @list = @{$arrayref};
+  push @list, @items;
+  return [@list];
 }
 
 # restore_screensaver([$title])    {{{1
@@ -2955,21 +2947,21 @@ method push_arrayref ($arrayref, @items) {
 # uses:   Net::DBus::RemoteObject
 #         DBus service org.freedesktop.ScreenSaver
 method restore_screensaver ($title) {
-    if ( not $title ) { $title = $self->_script; }
-    my $type = $self->_screensaver_type;
+  if (not $title) { $title = $self->_script; }
+  my $type = $self->_screensaver_type;
 
-    # handle based on screensaver type
-    for ($type) {
-        if (/^kde\z/xsm) { return $self->_restore_kde_screensaver($title); }
-        elsif (/^x\z/xsm)   { return $self->_restore_xscreensaver(); }
-        else {
-            my $msg = 'Unable to manipulate ';
-            if ($type) { $msg .= "'$type'"; }
-            else       { $msg = 'Cannot detect any screensaver'; }
-            $self->notify_sys( $msg, title => $title, type => 'error' );
-        }
+  # handle based on screensaver type
+  for ($type) {
+    if    (/^kde\z/xsm) { return $self->_restore_kde_screensaver($title); }
+    elsif (/^x\z/xsm)   { return $self->_restore_xscreensaver(); }
+    else {
+      my $msg = 'Unable to manipulate ';
+      if ($type) { $msg .= "'$type'"; }
+      else       { $msg = 'Cannot detect any screensaver'; }
+      $self->notify_sys($msg, title => $title, type => 'error');
     }
-    return;
+  }
+  return;
 }
 
 # retrieve_store($file)    {{{1
@@ -2983,8 +2975,8 @@ method restore_screensaver ($title) {
 #         my $ref = $self->retrieve_store($storage_file);
 #         my %data = %{$ref};
 method retrieve_store ($file) {
-    if ( not -r $file ) { confess "Cannot read file '$file'"; }
-    return Storable::retrieve $file;
+  if (not -r $file) { confess "Cannot read file '$file'"; }
+  return Storable::retrieve $file;
 }
 
 # run_command($cmd, [$silent], [$fatal])    {{{1
@@ -3009,78 +3001,78 @@ method retrieve_store ($file) {
 #         execution completes -- for a long-running command this can
 #         result in an apparently unresponsive terminal
 # uses:   Curses, IPC::Cmd
-method run_command ($cmd, :$silent, :$fatal) {
+method run_command ($cmd, : $silent, : $fatal) {
 
-    # process arguments
-    # - $cmd
-    if ( not( defined $cmd ) ) { confess 'No command provided'; }
-    my $arg_type = ref $cmd;
-    if ( $arg_type ne 'ARRAY' ) {
-        confess 'Command is not array reference';
+  # process arguments
+  # - $cmd
+  if (not(defined $cmd)) { confess 'No command provided'; }
+  my $arg_type = ref $cmd;
+  if ($arg_type ne 'ARRAY') {
+    confess 'Command is not array reference';
+  }
+  my @cmd_args = @{$cmd};
+  if (not @cmd_args) { confess 'No command arguments provided'; }
+
+  # - silent/verbose
+  if (not(defined $silent)) {
+    if (defined $self->_run_command_silent) {
+      $silent = $self->_run_command_silent;
     }
-    my @cmd_args = @{$cmd};
-    if ( not @cmd_args ) { confess 'No command arguments provided'; }
+  }
+  my $verbose = not $silent;
 
-    # - silent/verbose
-    if ( not( defined $silent ) ) {
-        if ( defined $self->_run_command_silent ) {
-            $silent = $self->_run_command_silent;
-        }
+  # - fatal
+  if (not(defined $fatal)) {
+    if (defined $self->_run_command_fatal) {
+      $fatal = $self->_run_command_fatal;
     }
-    my $verbose = not $silent;
+  }
 
-    # - fatal
-    if ( not( defined $fatal ) ) {
-        if ( defined $self->_run_command_fatal ) {
-            $fatal = $self->_run_command_fatal;
-        }
-    }
+  # build dividers
+  my ($div_top, $div_bottom);
+  if (not $silent) {
+    my ($height, $width);
+    my $mwh = Curses->new();
+    $mwh->getmaxyx($height, $width);    # terminal dimensions
+    endwin();
+    if ($width > 61) { $width = 60; }
+    else             { $width--; }
+    $div_top    = q{-} x $width;
+    $div_bottom = q{=} x $width;
+  }
 
-    # build dividers
-    my ( $div_top, $div_bottom );
-    if ( not $silent ) {
-        my ( $height, $width );
-        my $mwh = Curses->new();
-        $mwh->getmaxyx( $height, $width );    # terminal dimensions
-        endwin();
-        if ( $width > 61 ) { $width = 60; }
-        else               { $width--; }
-        $div_top    = q{-} x $width;
-        $div_bottom = q{=} x $width;
-    }
+  # provide initial feedback
+  my $cmd_string;
+  if (not $silent) {
+    say q{ };
+    $cmd_string = join q{ }, @cmd_args;
+    say "Running '$cmd_string':";
+    say $div_top;
+  }
 
-    # provide initial feedback
-    my $cmd_string;
-    if ( not $silent ) {
-        say q{ };
-        $cmd_string = join q{ }, @cmd_args;
-        say "Running '$cmd_string':";
-        say $div_top;
-    }
+  # run command
+  my ($succeed, $err, $full, $stdout, $stderr) =
+      IPC::Cmd::run(command => $cmd, verbose => $verbose);
 
-    # run command
-    my ( $succeed, $err, $full, $stdout, $stderr )
-        = IPC::Cmd::run( command => $cmd, verbose => $verbose );
+  # provide final feedback
+  if ($verbose) {
 
-    # provide final feedback
-    if ($verbose) {
+    # errors supposedly displayed during execution,
+    # but show again to be sure
+    if ($err) { warn "$err\n"; }
+    say $div_bottom;
+    if (not $succeed) { say "Command failed\n"; }
+  }
 
-        # errors supposedly displayed during execution,
-        # but show again to be sure
-        if ($err) { warn "$err\n"; }
-        say $div_bottom;
-        if ( not $succeed ) { say "Command failed\n"; }
-    }
+  if ($fatal and not $succeed) {
+    if (not $err) { warn "No error message available\n"; }
+    my $msg = 'Stopping execution due to error';
+    if   ($verbose) { die "$msg\n"; }    # errors already displayed
+    else            { confess $msg; }    # break silence now
+  }
 
-    if ( $fatal and not $succeed ) {
-        if ( not $err ) { warn "No error message available\n"; }
-        my $msg = 'Stopping execution due to error';
-        if   ($verbose) { die "$msg\n"; }    # errors already displayed
-        else            { confess $msg; }    # break silence now
-    }
-
-    # return
-    return (wantarray) ? ( $succeed, $err ) : $succeed;
+  # return
+  return (wantarray) ? ($succeed, $err) : $succeed;
 }
 
 # save_store($ref, $file)    {{{1
@@ -3094,21 +3086,21 @@ method run_command ($cmd, :$silent, :$fatal) {
 # usage:  my $storage_dir = '/path/to/filename';
 #         $self->save_store( \%data, $storage_file );
 method save_store ($ref, $file) {
-    if ( not $ref ) { return; }
+  if (not $ref) { return; }
 
-    # path must exist
-    my $path = $self->get_path($file);
-    if ( $path && !-d $path ) {
-        confess "Invalid path in '$file'";
-    }
+  # path must exist
+  my $path = $self->get_path($file);
+  if ($path && !-d $path) {
+    confess "Invalid path in '$file'";
+  }
 
-    # will overwrite, but warn user
-    if ( -e $file ) {
-        cluck "Overwriting '$file'";
-    }
+  # will overwrite, but warn user
+  if (-e $file) {
+    cluck "Overwriting '$file'";
+  }
 
-    # save data
-    return Storable::store $ref, $file;
+  # save data
+  return Storable::store $ref, $file;
 }
 
 # scriptname    {{{1
@@ -3118,7 +3110,7 @@ method save_store ($ref, $file) {
 # prints: nil
 # return: scalar file name
 method scriptname () {
-    return $self->_script;
+  return $self->_script;
 }
 
 # sequential_24h_times($time1, $time2)    {{{1
@@ -3132,18 +3124,18 @@ method scriptname () {
 # return: boolean (dies if invalid time)
 method sequential_24h_times ($time1, $time2) {
 
-    # check times
-    if ( not $self->valid_24h_time($time1) ) {
-        confess "Invalid time '$time1'";
-    }
-    if ( not $self->valid_24h_time($time2) ) {
-        confess "Invalid time '$time2'";
-    }
+  # check times
+  if (not $self->valid_24h_time($time1)) {
+    confess "Invalid time '$time1'";
+  }
+  if (not $self->valid_24h_time($time2)) {
+    confess "Invalid time '$time2'";
+  }
 
-    # compare
-    my $t1 = Time::Simple->new($time1);
-    my $t2 = Time::Simple->new($time2);
-    return ( $t2 > $t1 );
+  # compare
+  my $t1 = Time::Simple->new($time1);
+  my $t2 = Time::Simple->new($time2);
+  return ($t2 > $t1);
 }
 
 # sequential_dates($date1, $date2)    {{{1
@@ -3155,20 +3147,20 @@ method sequential_24h_times ($time1, $time2) {
 # return: boolean (die on failure)
 method sequential_dates ($date1, $date2) {
 
-    # check dates
-    if ( not $date1 ) { confess 'Missing date'; }
-    if ( not $date2 ) { confess 'Missing date'; }
-    if ( not $self->valid_date($date1) ) {
-        confess "Invalid date '$date1'";
-    }
-    if ( not $self->valid_date($date2) ) {
-        confess "Invalid date '$date2'";
-    }
+  # check dates
+  if (not $date1) { confess 'Missing date'; }
+  if (not $date2) { confess 'Missing date'; }
+  if (not $self->valid_date($date1)) {
+    confess "Invalid date '$date1'";
+  }
+  if (not $self->valid_date($date2)) {
+    confess "Invalid date '$date2'";
+  }
 
-    # compare dates
-    my $d1 = Date::Simple->new($date1);
-    my $d2 = Date::Simple->new($date2);
-    return ( $d2 > $d1 );
+  # compare dates
+  my $d1 = Date::Simple->new($date1);
+  my $d2 = Date::Simple->new($date2);
+  return ($d2 > $d1);
 }
 
 # shared_module_file_milla($dist, $file)    {{{1
@@ -3180,17 +3172,17 @@ method sequential_dates ($date1, $date2) {
 # return: scalar file path (undef if not found)
 #         (so also functions as boolean)
 method shared_module_file_milla ($dist, $file) {
-    if ( not $file ) { confess 'No file provided'; }
-    if ( not $dist ) { confess 'No dist provided'; }
-    my $branch = "auto/share/dist/$dist/$file";
-    my $fp;
-    for my $root (@INC) {
-        if ( -e "$root/$branch" ) {
-            $fp = "$root/$branch";
-            last;
-        }
+  if (not $file) { confess 'No file provided'; }
+  if (not $dist) { confess 'No dist provided'; }
+  my $branch = "auto/share/dist/$dist/$file";
+  my $fp;
+  for my $root (@INC) {
+    if (-e "$root/$branch") {
+      $fp = "$root/$branch";
+      last;
     }
-    return $fp;
+  }
+  return $fp;
 }
 
 # shell_underline($string)    {{{1
@@ -3200,11 +3192,11 @@ method shared_module_file_milla ($dist, $file) {
 # prints: nil
 # return: string with enclosing shell commands
 method shell_underline ($string) {
-    if ( not $string )         { return; }
-    if ( length $string == 0 ) { return $string; }
-    my $underline_on  = q{\033[4m};
-    my $underline_off = q{\033[24m};
-    return $underline_on . $string . $underline_off;
+  if (not $string)         { return; }
+  if (length $string == 0) { return $string; }
+  my $underline_on  = q{\033[4m};
+  my $underline_off = q{\033[24m};
+  return $underline_on . $string . $underline_off;
 }
 
 # shorten($string, [$limit], [$cont])    {{{1
@@ -3220,44 +3212,44 @@ method shell_underline ($string) {
 # return: scalar string
 method shorten ($string, $limit, $cont) {
 
-    # variables
-    my $default_limit = 72;
-    my $default_cont  = '...';
+  # variables
+  my $default_limit = 72;
+  my $default_cont  = '...';
 
-    # - cont
-    if ( not $cont ) {
-        $cont = $default_cont;
-    }
-    if ( length $cont > 3 ) {
-        cluck "Continuation sequence '$cont' too long; using default '$cont'";
-        $cont = $default_cont;
-    }
+  # - cont
+  if (not $cont) {
+    $cont = $default_cont;
+  }
+  if (length $cont > 3) {
+    cluck "Continuation sequence '$cont' too long; using default '$cont'";
+    $cont = $default_cont;
+  }
 
-    # - limit
-    if ( not $limit ) {
-        $limit = $default_limit;
-    }
-    if ( not $self->valid_positive_integer($limit) ) {
-        cluck "Non-integer '$limit'; using default '$default_limit'";
-        $limit = $default_limit;
-    }
-    if ( $limit <= 10 ) {
-        cluck "Limit '$limit' too short; using default '$default_limit'";
-        $limit = $default_limit;
-    }
-    $limit = $limit - length $cont;
+  # - limit
+  if (not $limit) {
+    $limit = $default_limit;
+  }
+  if (not $self->valid_positive_integer($limit)) {
+    cluck "Non-integer '$limit'; using default '$default_limit'";
+    $limit = $default_limit;
+  }
+  if ($limit <= 10) {
+    cluck "Limit '$limit' too short; using default '$default_limit'";
+    $limit = $default_limit;
+  }
+  $limit = $limit - length $cont;
 
-    # - string
-    if ( not $string ) {
-        confess q{No parameter 'string' provided at};
-    }
+  # - string
+  if (not $string) {
+    confess q{No parameter 'string' provided at};
+  }
 
-    # truncate if necessary
-    if ( length($string) > $limit ) {
-        $string = substr( $string, 0, $limit - 1 ) . $cont;
-    }
+  # truncate if necessary
+  if (length($string) > $limit) {
+    $string = substr($string, 0, $limit - 1) . $cont;
+  }
 
-    return $string;
+  return $string;
 }
 
 # suspend_screensaver([$title], [$msg])    {{{1
@@ -3270,27 +3262,27 @@ method shorten ($string, $limit, $cont) {
 # prints: nil (feedback via popup notification)
 # return: boolean
 method suspend_screensaver ($title, $msg) {
-    if ( not $title ) { $title = $self->_script; }
-    if ( not $msg )   { $msg   = "request from $PID"; }
+  if (not $title) { $title = $self->_script; }
+  if (not $msg)   { $msg   = "request from $PID"; }
 
-    # handle based on screensaver type
-    my $type = $self->_screensaver_type;
-    for ($type) {
-        if ($_ =~ /^kde\z/xsm) {
-            return $self->_suspend_kde_screensaver( $title, $msg );
-        }
-        elsif ($_ =~ /^x\z/xsm) {
-            return $self->_suspend_xscreensaver( $title, $msg );
-        }
-        else {    # presume no screensaver, so exit with success
-            my $msg = 'Unable to manipulate ';
-            if ($type) { $msg .= "'$type'"; }
-            else       { $msg = 'No screensaver detected'; }
-            $self->notify_sys( $msg, title => $title );
-            return $TRUE;
-        }
+  # handle based on screensaver type
+  my $type = $self->_screensaver_type;
+  for ($type) {
+    if ($_ =~ /^kde\z/xsm) {
+      return $self->_suspend_kde_screensaver($title, $msg);
     }
-    return;
+    elsif ($_ =~ /^x\z/xsm) {
+      return $self->_suspend_xscreensaver($title, $msg);
+    }
+    else {    # presume no screensaver, so exit with success
+      my $msg = 'Unable to manipulate ';
+      if ($type) { $msg .= "'$type'"; }
+      else       { $msg = 'No screensaver detected'; }
+      $self->notify_sys($msg, title => $title);
+      return $TRUE;
+    }
+  }
+  return;
 }
 
 # tabify($string, [$tab_size])    {{{1
@@ -3302,13 +3294,13 @@ method suspend_screensaver ($title, $msg) {
 # return: scalar string
 method tabify ($string = q//, $tab_size = 4) {
 
-    # set tab
-    if ( $tab_size !~ /^[1-9]\d*\z/xsm ) { $tab_size = 4; }
-    my $tab = q{ } x $tab_size;
+  # set tab
+  if ($tab_size !~ /^[1-9]\d*\z/xsm) { $tab_size = 4; }
+  my $tab = q{ } x $tab_size;
 
-    # convert tabs
-    $string =~ s/\\t/$tab/gxsm;
-    return $string;
+  # convert tabs
+  $string =~ s/\\t/$tab/gxsm;
+  return $string;
 }
 
 # temp_dir()    {{{1
@@ -3319,7 +3311,7 @@ method tabify ($string = q//, $tab_size = 4) {
 # return: scalar directory path
 # uses:   File::Temp
 method temp_dir () {
-    return File::Temp::tempdir( CLEANUP => $TRUE );
+  return File::Temp::tempdir(CLEANUP => $TRUE);
 }
 
 # term_size()    {{{1
@@ -3334,7 +3326,7 @@ method temp_dir () {
 #         my ( $height, $width ) = ( $ts->height, $ts->width );
 # uses:   Curses
 method term_size () {
-    return Dn::Common::TermSize->new();
+  return Dn::Common::TermSize->new();
 }
 
 # timezone_from_offset($offset)    {{{1
@@ -3344,38 +3336,37 @@ method term_size () {
 # prints: nil
 # return: scalar string
 method timezone_from_offset ($offset) {
-    if ( not $offset ) { confess 'No offset provided'; }
+  if (not $offset) { confess 'No offset provided'; }
 
-    # get timezones for all offsets
-    my @countries = DateTime::TimeZone->countries();
-    my %timezone;
-    foreach my $country (@countries) {
-        my @names = DateTime::TimeZone->names_in_country($country);
-        foreach my $name (@names) {
-            my $dt = DateTime->now( time_zone => $name, );
-            my $offset_seconds = $dt->offset();
-            my $offset
-                = DateTime::TimeZone->offset_as_string($offset_seconds);
-            push @{ $timezone{$offset} }, $name;
-        }
+  # get timezones for all offsets
+  my @countries = DateTime::TimeZone->countries();
+  my %timezone;
+  foreach my $country (@countries) {
+    my @names = DateTime::TimeZone->names_in_country($country);
+    foreach my $name (@names) {
+      my $dt             = DateTime->now(time_zone => $name,);
+      my $offset_seconds = $dt->offset();
+      my $offset = DateTime::TimeZone->offset_as_string($offset_seconds);
+      push @{ $timezone{$offset} }, $name;
     }
+  }
 
-    # find timezones for given offset
-    if ( not $timezone{$offset} ) {
-        cluck "No timezones for offset '$offset'\n";
-        return;
-    }
-    my @timezones = sort @{ $timezone{$offset} };
+  # find timezones for given offset
+  if (not $timezone{$offset}) {
+    cluck "No timezones for offset '$offset'\n";
+    return;
+  }
+  my @timezones = sort @{ $timezone{$offset} };
 
-    # prefer Australian timezone
-    my $oz_timezone
-        = List::MoreUtils::first_result { $_ if /Australia/sm } @timezones;
-    if ($oz_timezone) {
-        return $oz_timezone;
-    }
-    else {
-        return $timezones[0];
-    }
+  # prefer Australian timezone
+  my $oz_timezone =
+      List::MoreUtils::first_result { $_ if /Australia/sm } @timezones;
+  if ($oz_timezone) {
+    return $oz_timezone;
+  }
+  else {
+    return $timezones[0];
+  }
 }
 
 # today()    {{{1
@@ -3386,7 +3377,7 @@ method timezone_from_offset ($offset) {
 # return: ISO-formatted date
 # uses:   Date::Simple
 method today () {
-    return Date::Simple->today()->format('%Y-%m-%d');
+  return Date::Simple->today()->format('%Y-%m-%d');
 }
 
 # tools_available(@tools)    {{{1
@@ -3400,21 +3391,20 @@ method today () {
 #             Required executable is not available: not-here
 #             Required executables are not available: not-here, me-either
 method tools_available (@tools) {
-    if ( not @tools ) { return; }
-    my @missing = grep { not $self->executable_path($_) } @tools;
-    if (@missing) {
-        my $missing_tools = join q{, }, @missing;
-        my $err
-            = $self->pluralise(
-            'Required (executable is|executables are) not available: ',
-            scalar @missing )
-            . $missing_tools . "\n";
-        $self->display( $err, error => $TRUE );
-        return;
-    }
-    else {
-        return $TRUE;
-    }
+  if (not @tools) { return; }
+  my @missing = grep { not $self->executable_path($_) } @tools;
+  if (@missing) {
+    my $missing_tools = join q{, }, @missing;
+    my $err = $self->pluralise(
+      'Required (executable is|executables are) not available: ',
+      scalar @missing)
+        . $missing_tools . "\n";
+    $self->display($err, error => $TRUE);
+    return;
+  }
+  else {
+    return $TRUE;
+  }
 }
 
 # trim($string)    {{{1
@@ -3424,9 +3414,9 @@ method tools_available (@tools) {
 # prints: nil
 # return: scalar string
 method trim ($string = q//) {
-    $string =~ s/^\s+//xsm;
-    $string =~ s/\s+\z//xsm;
-    return $string;
+  $string =~ s/^\s+//xsm;
+  $string =~ s/\s+\z//xsm;
+  return $string;
 }
 
 # true_path($filepath)    {{{1
@@ -3452,14 +3442,14 @@ method trim ($string = q//) {
 #           quoted; if not, passing a value like './' results in an error
 #           as the value is somehow reduced to an empty value
 method true_path ($filepath) {
-    if ( not $filepath ) { return; }
+  if (not $filepath) { return; }
 
-    # invalid directory path causes abs_path to fail, so return unchanged
-    my $path = $self->get_path($filepath);
-    if ( $path and not -d $path ) { return $filepath; }
+  # invalid directory path causes abs_path to fail, so return unchanged
+  my $path = $self->get_path($filepath);
+  if ($path and not -d $path) { return $filepath; }
 
-    # do conversion
-    return abs_path($filepath);
+  # do conversion
+  return abs_path($filepath);
 }
 
 # valid_24h_time($time)    {{{1
@@ -3470,14 +3460,14 @@ method true_path ($filepath) {
 # prints: nil
 # return: boolean
 method valid_24h_time ($time) {
-    if ( not $time ) { return; }
+  if (not $time) { return; }
 
-    # deal with case of 4-digit time, e.g., '0520'
-    if ( $time =~ /^ ( \d{2} ) ( \d{2} ) \z/xsm ) { $time = "$1:$2"; }
+  # deal with case of 4-digit time, e.g., '0520'
+  if ($time =~ /^ ( \d{2} ) ( \d{2} ) \z/xsm) { $time = "$1:$2"; }
 
-    # evaluate time value
-    my $value = eval { Time::Simple->new($time); 1 };
-    return $value;
+  # evaluate time value
+  my $value = eval { Time::Simple->new($time); 1 };
+  return $value;
 }
 
 # valid_date($date)    {{{1
@@ -3487,8 +3477,8 @@ method valid_24h_time ($time) {
 # prints: nil
 # return: boolean
 method valid_date ($date) {
-    if ( not $date ) { return; }
-    return Date::Simple->new($date);
+  if (not $date) { return; }
+  return Date::Simple->new($date);
 }
 
 # valid_email($email)    {{{1
@@ -3498,8 +3488,8 @@ method valid_date ($date) {
 # prints: nil
 # return: boolean
 method valid_email ($email) {
-    if ( not $email ) { return; }
-    return Email::Valid->address($email);
+  if (not $email) { return; }
+  return Email::Valid->address($email);
 }
 
 # valid_integer($value)    {{{1
@@ -3509,12 +3499,12 @@ method valid_email ($email) {
 # prints: nil
 # return: boolean
 method valid_integer ($value) {
-    if ( not defined $value ) { return; }
-    for ($value) {
-        if ($_ =~ /^[+-]?0\z/xsm)        { return $TRUE; }    # zero
-        elsif ($_ =~ /^[+-]?[1-9]\d*\z/xsm) { return $TRUE; }    # other int
-        else                      { return; }
-    }
+  if (not defined $value) { return; }
+  for ($value) {
+    if    ($_ =~ /^[+-]?0\z/xsm)        { return $TRUE; }    # zero
+    elsif ($_ =~ /^[+-]?[1-9]\d*\z/xsm) { return $TRUE; }    # other int
+    else                                { return; }
+  }
 }
 
 # valid_positive_integer($value)    {{{1
@@ -3524,12 +3514,12 @@ method valid_integer ($value) {
 # prints: nil
 # return: boolean
 method valid_positive_integer ($value) {
-    if ( not defined $value ) { return; }
-    for ($value) {
-        if ($_ =~ /^[+]?0$/xsm)         { return $TRUE; }    # zero
-        elsif ($_ =~ /^[+]?[1-9]\d*\z/xsm) { return $TRUE; }    # above zero
-        else                     { return; }
-    }
+  if (not defined $value) { return; }
+  for ($value) {
+    if    ($_ =~ /^[+]?0$/xsm)         { return $TRUE; }    # zero
+    elsif ($_ =~ /^[+]?[1-9]\d*\z/xsm) { return $TRUE; }    # above zero
+    else                               { return; }
+  }
 }
 
 # valid_timezone_offset($offset)    {{{1
@@ -3539,20 +3529,19 @@ method valid_positive_integer ($value) {
 # prints: nil
 # return: boolean
 method valid_timezone_offset ($offset) {
-    if ( not $offset ) { confess 'No offset provided'; }
-    my @countries = DateTime::TimeZone->countries();
-    my %is_valid_offset;
-    foreach my $country (@countries) {
-        my @names = DateTime::TimeZone->names_in_country($country);
-        foreach my $name (@names) {
-            my $dt = DateTime->new( year => 1999, time_zone => $name, );
-            my $offset_seconds = $dt->offset();
-            my $offset
-                = DateTime::TimeZone->offset_as_string($offset_seconds);
-            $is_valid_offset{$offset} = $TRUE;
-        }
+  if (not $offset) { confess 'No offset provided'; }
+  my @countries = DateTime::TimeZone->countries();
+  my %is_valid_offset;
+  foreach my $country (@countries) {
+    my @names = DateTime::TimeZone->names_in_country($country);
+    foreach my $name (@names) {
+      my $dt             = DateTime->new(year => 1999, time_zone => $name,);
+      my $offset_seconds = $dt->offset();
+      my $offset = DateTime::TimeZone->offset_as_string($offset_seconds);
+      $is_valid_offset{$offset} = $TRUE;
     }
-    return $is_valid_offset{$offset};
+  }
+  return $is_valid_offset{$offset};
 }
 
 # valid_web_url($url)    {{{1
@@ -3562,9 +3551,9 @@ method valid_timezone_offset ($offset) {
 # prints: nil
 # return: boolean
 method valid_web_url ($url) {
-    if ( not $url ) { return; }
-    my $validator = Data::Validate::URI->new();
-    return $validator->is_web_uri($url);
+  if (not $url) { return; }
+  my $validator = Data::Validate::URI->new();
+  return $validator->is_web_uri($url);
 }
 
 # vim_list_print(@messages)    {{{1
@@ -3579,21 +3568,21 @@ method valid_web_url ($url) {
 # prints: messages in requested styles
 # return: nil
 method vim_list_print (@messages) {
-    my @messages = $self->listify(@messages);
-    my ( $index, $flag );
-    foreach my $message (@messages) {
-        for ($message) {
-            ## no critic (ProhibitCascadingIfElse)
-            if    ($_ =~ /^::title::/ixsm)  { $index = 9;  $flag = 't' }
-            elsif ($_ =~ /^::error::/ixsm)  { $index = 9;  $flag = 'e' }
-            elsif ($_ =~ /^::warn::/ixsm)   { $index = 8;  $flag = 'w' }
-            elsif ($_ =~ /^::prompt::/ixsm) { $index = 10; $flag = 'p' }
-            else                            { $index = 0;  $flag = 'n' }
-            ## use critic
-        }
-        $message = substr $message, $index;
-        $self->vim_print( $flag, $message );
+  my @messages = $self->listify(@messages);
+  my ($index, $flag);
+  foreach my $message (@messages) {
+    for ($message) {
+      ## no critic (ProhibitCascadingIfElse)
+      if    ($_ =~ /^::title::/ixsm)  { $index = 9;  $flag = 't' }
+      elsif ($_ =~ /^::error::/ixsm)  { $index = 9;  $flag = 'e' }
+      elsif ($_ =~ /^::warn::/ixsm)   { $index = 8;  $flag = 'w' }
+      elsif ($_ =~ /^::prompt::/ixsm) { $index = 10; $flag = 'p' }
+      else                            { $index = 0;  $flag = 'n' }
+      ## use critic
     }
+    $message = substr $message, $index;
+    $self->vim_print($flag, $message);
+  }
 }
 
 # vim_print($type, @messages)    {{{1
@@ -3621,25 +3610,25 @@ method vim_list_print (@messages) {
 # uses:   Term::ANSIColor
 method vim_print ($type, @messages) {
 
-    # variables
-    # - messages
-    @messages = $self->listify(@messages);
+  # variables
+  # - messages
+  @messages = $self->listify(@messages);
 
-    # - type
-    if ( not $type ) { $type = 'normal'; }
+  # - type
+  if (not $type) { $type = 'normal'; }
 
-    # - attributes (to pass to function 'colored')
-    my $attributes = $type eq 't' ? [ 'bold', 'magenta' ]
-                   : $type eq 'p' ? [ 'bold', 'bright_green' ]
-                   : $type eq 'w' ? ['bright_red']
-                   : $type eq 'e' ? [ 'bold', 'white', 'on_red' ]
-                   :                ['reset']
-                   ;
+  # - attributes (to pass to function 'colored')
+  my $attributes =
+        $type eq 't' ? [ 'bold', 'magenta' ]
+      : $type eq 'p' ? [ 'bold', 'bright_green' ]
+      : $type eq 'w' ? ['bright_red']
+      : $type eq 'e' ? [ 'bold', 'white', 'on_red' ]
+      :                ['reset'];
 
-    # print messages
-    for my $message (@messages) {
-        say Term::ANSIColor::colored( $attributes, $message );
-    }
+  # print messages
+  for my $message (@messages) {
+    say Term::ANSIColor::colored($attributes, $message);
+  }
 }
 
 # vim_printify($type, $message)    {{{1
@@ -3655,31 +3644,31 @@ method vim_print ($type, @messages) {
 #         what format to use (prefix is stripped before printing)
 method vim_printify ($type, $message) {
 
-    # variables
-    # - message
-    if ( not $message ) { return q{}; }
+  # variables
+  # - message
+  if (not $message) { return q{}; }
 
-    # - type
-    if ( not $type ) { $type = 'normal'; }
+  # - type
+  if (not $type) { $type = 'normal'; }
 
-    # - token to prepend to message
-    #my $token;
-    #for ($type) {
-    #    if ($_ =~ /^t/ixsm) { $token = '::title::' }
-    #    elsif ($_ =~ /^p/ixsm) { $token = '::prompt::' }
-    #    elsif ($_ =~ /^w/ixsm) { $token = '::warn::' }
-    #    elsif ($_ =~ /^e/ixsm) { $token = '::error::' }
-    #    else         { $token = q{} }
-    #}
-    my $token = $type =~ /^t/ixsm ? '::title::'
-              : $type =~ /^p/ixsm ? '::prompt::'
-              : $type =~ /^w/ixsm ? '::warn::'
-              : $type =~ /^e/ixsm ? '::error::'
-              :                     q{}
-              ;
+  # - token to prepend to message
+  #my $token;
+  #for ($type) {
+  #    if ($_ =~ /^t/ixsm) { $token = '::title::' }
+  #    elsif ($_ =~ /^p/ixsm) { $token = '::prompt::' }
+  #    elsif ($_ =~ /^w/ixsm) { $token = '::warn::' }
+  #    elsif ($_ =~ /^e/ixsm) { $token = '::error::' }
+  #    else         { $token = q{} }
+  #}
+  my $token =
+        $type =~ /^t/ixsm ? '::title::'
+      : $type =~ /^p/ixsm ? '::prompt::'
+      : $type =~ /^w/ixsm ? '::warn::'
+      : $type =~ /^e/ixsm ? '::error::'
+      :                     q{};
 
-    # return altered string
-    return "$token$message";
+  # return altered string
+  return "$token$message";
 }
 
 # write_file($file, $content, [$silent], [$fatal], [$no_newline])    {{{1
@@ -3699,67 +3688,65 @@ method vim_printify ($type, $message) {
 # return: boolean success
 # note:   if $fatal is true and write operation fails, an error message
 #         is provided on dying event if $silent is true
-method write_file ($file, $content, :$silent, :$fatal, :$no_newline) {
+method write_file ($file, $content, : $silent, : $fatal, : $no_newline) {
 
-    # check args
-    if ( not $file )    { confess 'No file path provided'; }
-    if ( not $content ) { confess 'No file content provided'; }
+  # check args
+  if (not $file)    { confess 'No file path provided'; }
+  if (not $content) { confess 'No file content provided'; }
 
-    # prepare content
-    my @filling = $self->listify($content);
-    if ( not @filling ) { confess 'No file content provided'; }
-    chomp @filling;
-    if ( not $no_newline ) {
-        foreach my $line (@filling) { $line .= "\n"; }
+  # prepare content
+  my @filling = $self->listify($content);
+  if (not @filling) { confess 'No file content provided'; }
+  chomp @filling;
+  if (not $no_newline) {
+    foreach my $line (@filling) { $line .= "\n"; }
+  }
+
+  # remove existing file
+  if (-e $file) {
+    if (not(unlink $file)) {    # sets $ERRNO on failure
+      my @err =
+          ("Unable to delete existing file '$file'\n", "Error: $ERRNO\n",);
+      if ($fatal)      { confess @err; }
+      if (not $silent) { cluck @err; }
+      return;
     }
+  }
 
-    # remove existing file
-    if ( -e $file ) {
-        if ( not( unlink $file ) ) {    # sets $ERRNO on failure
-            my @err = (
-                "Unable to delete existing file '$file'\n",
-                "Error: $ERRNO\n",
-            );
-            if ($fatal)        { confess @err; }
-            if ( not $silent ) { cluck @err; }
-            return;
-        }
-    }
+  # write file
+  my $fh;
+  if (not(open $fh, '>', $file)) {    ## no critic (RequireBriefOpen)
+    my $err = "Unable to create '$file'";
+    if ($fatal)      { confess $err; }
+    if (not $silent) { cluck $err; }
+    return;
+  }
+  my $retval = $TRUE;                 # to ensure we try to close file
+  if (not(print {$fh} @filling)) {
+    my $err = "Unable to write to '$file'";
+    if ($fatal)      { confess $err; }
+    if (not $silent) { cluck $err; }
+    $retval = $FALSE;
+  }
+  if (not(close $fh)) {
+    my $err = "Unable to close '$file'";
+    if ($fatal)      { confess $err; }
+    if (not $silent) { cluck $err; }
+    $retval = $FALSE;
+  }
 
-    # write file
-    my $fh;
-    if ( not( open $fh, '>', $file ) ) { ## no critic (RequireBriefOpen)
-        my $err = "Unable to create '$file'";
-        if ($fatal)        { confess $err; }
-        if ( not $silent ) { cluck $err; }
-        return;
-    }
-    my $retval = $TRUE;    # to ensure we try to close file
-    if ( not( print {$fh} @filling ) ) {
-        my $err = "Unable to write to '$file'";
-        if ($fatal)        { confess $err; }
-        if ( not $silent ) { cluck $err; }
-        $retval = $FALSE;
-    }
-    if ( not( close $fh ) ) {
-        my $err = "Unable to close '$file'";
-        if ($fatal)        { confess $err; }
-        if ( not $silent ) { cluck $err; }
-        $retval = $FALSE;
-    }
+  # final check that a file was created
+  if (not -e $file) {
+    my $err = "Unable to create '$file'";
+    if ($fatal)      { confess $err; }
+    if (not $silent) { cluck $err; }
+    $retval = $FALSE;
+  }
 
-    # final check that a file was created
-    if ( not -e $file ) {
-        my $err = "Unable to create '$file'";
-        if ($fatal)        { confess $err; }
-        if ( not $silent ) { cluck $err; }
-        $retval = $FALSE;
-    }
+  # provide feedback if successful
+  if ($retval and not $silent) { say "Created file '$file'"; }
 
-    # provide feedback if successful
-    if ( $retval and not $silent ) { say "Created file '$file'"; }
-
-    return $retval;
+  return $retval;
 }
 
 # yesno($question, [$title])    {{{1
@@ -3772,11 +3759,11 @@ method write_file ($file, $content, :$silent, :$fatal, :$no_newline) {
 # note:   aborting dialog with Esc returns false
 # uses:   UI::Dialog
 method yesno ($question, $title) {
-    if ( not $title ) { $title = $self->scriptname(); }
-    if ( not $question ) { confess 'No question provided'; }
-    my @widget_preference = $self->_ui_dialog_widget_preference();
-    my $ui = UI::Dialog->new( order => [@widget_preference] );
-    return $ui->yesno( title => $title, text => $question );
+  if (not $title)    { $title = $self->scriptname(); }
+  if (not $question) { confess 'No question provided'; }
+  my @widget_preference = $self->_ui_dialog_widget_preference();
+  my $ui                = UI::Dialog->new(order => [@widget_preference]);
+  return $ui->yesno(title => $title, text => $question);
 }
 
 # _android_device_available($device)    {{{1
@@ -3786,10 +3773,10 @@ method yesno ($question, $title) {
 # prints: nil, except error messages
 # return: scalar boolean, dies on failure
 method _android_device_available ($device) {
-    if ( not $device ) { confess 'No device provided'; }
-    my @devices = $self->android_devices();
-    if ( not @devices ) { return; }
-    return List::MoreUtils::any {/^$device\z/xsm} @devices;
+  if (not $device) { confess 'No device provided'; }
+  my @devices = $self->android_devices();
+  if (not @devices) { return; }
+  return List::MoreUtils::any {/^$device\z/xsm} @devices;
 }
 
 # _android_file_or_subdir_list($dir, $type)    {{{1
@@ -3806,51 +3793,51 @@ method _android_device_available ($device) {
 # note:   tries using 'fb-adb' then 'adb', and dies if both unavailable
 method _android_file_or_subdir_list ($dir, $type) {
 
-    # check args
-    if ( not $dir )  { confess 'No directory provided'; }
-    if ( not $type ) { confess 'No type provided'; }
-    my %valid_type = map { ( $_ => $TRUE ) } qw(file subdir);
-    if ( not $valid_type{$type} ) { confess "Invalid type '$type'"; }
-    my $device = $self->_android_device();
+  # check args
+  if (not $dir)  { confess 'No directory provided'; }
+  if (not $type) { confess 'No type provided'; }
+  my %valid_type = map { ($_ => $TRUE) } qw(file subdir);
+  if (not $valid_type{$type}) { confess "Invalid type '$type'"; }
+  my $device = $self->_android_device();
 
-    # select android debug bridge
-    my $adb = $self->_adb;
-    if ( not $adb ) { confess 'Could not find adb on this system'; }
+  # select android debug bridge
+  my $adb = $self->_adb;
+  if (not $adb) { confess 'Could not find adb on this system'; }
 
-    # confirm directory exists
-    if ( not $self->is_android_directory($dir) ) {
-        confess "Invalid android directory '$dir'\n";
+  # confirm directory exists
+  if (not $self->is_android_directory($dir)) {
+    confess "Invalid android directory '$dir'\n";
+  }
+
+  # obtain directory listing
+  my $cmd    = [ $adb, '-s', $device, 'shell', 'ls', '-aF', $dir ];
+  my $result = $self->capture_command_output($cmd);
+  if (not $result->success) {
+    my $error = $result->error;
+    my @msg   = (
+      "Unable to obtain listing from directory '$dir'\n",
+      "System reported error: $error\n",
+    );
+    confess @msg;
+  }
+  my @stdout = $result->stdout;
+
+  # get matching files or directories
+  # - files in output have '- ' prepended
+  # - subdirectories in output have 'd ' prepended
+  my $match;
+  for ($type) {
+    if    ($_ =~ /^file\z/xsm)   { $match = qr/^ -\s ( [\s\S]+ ) $/xsm; }
+    elsif ($_ =~ /^subdir\z/xsm) { $match = qr/^ d\s ( [\s\S]+ ) $/xsm; }
+  }
+  my @items;
+  foreach my $line (@stdout) {
+    if ($line =~ $match) {
+      push @items, $1;
     }
+  }
 
-    # obtain directory listing
-    my $cmd = [ $adb, '-s', $device, 'shell', 'ls', '-aF', $dir ];
-    my $result = $self->capture_command_output($cmd);
-    if ( not $result->success ) {
-        my $error = $result->error;
-        my @msg   = (
-            "Unable to obtain listing from directory '$dir'\n",
-            "System reported error: $error\n",
-        );
-        confess @msg;
-    }
-    my @stdout = $result->stdout;
-
-    # get matching files or directories
-    # - files in output have '- ' prepended
-    # - subdirectories in output have 'd ' prepended
-    my $match;
-    for ($type) {
-        if ($_ =~ /^file\z/xsm)   { $match = qr/^ -\s ( [\s\S]+ ) $/xsm; }
-        elsif ($_ =~ /^subdir\z/xsm) { $match = qr/^ d\s ( [\s\S]+ ) $/xsm; }
-    }
-    my @items;
-    foreach my $line (@stdout) {
-        if ( $line =~ $match ) {
-            push @items, $1;
-        }
-    }
-
-    return @items;
+  return @items;
 }
 
 # _file_mime_type($filepath)    {{{1
@@ -3866,9 +3853,9 @@ method _android_file_or_subdir_list ($dir, $type) {
 #         'application/octet-stream'
 # note:   alternatives include File::MMagic and File::MMagic:Magic
 method _file_mime_type ($filepath) {
-    if ( not $filepath )    { confess 'No filepath provided'; }
-    if ( not -r $filepath ) { confess "Invalid filepath '$filepath'"; }
-    return File::MimeInfo->new()->mimetype($filepath);
+  if (not $filepath)    { confess 'No filepath provided'; }
+  if (not -r $filepath) { confess "Invalid filepath '$filepath'"; }
+  return File::MimeInfo->new()->mimetype($filepath);
 }
 
 # _get_icon($icon)    {{{1
@@ -3878,9 +3865,9 @@ method _file_mime_type ($filepath) {
 # prints: nil
 # return: icon url using file:// protocol
 method _get_icon ($icon) {
-    my $fp = $self->shared_module_file_milla( 'Dn-Common', $icon );
-    cluck "Unable to locate 'Dn-Common/$icon'" if not $fp;
-    return $fp;
+  my $fp = $self->shared_module_file_milla('Dn-Common', $icon);
+  cluck "Unable to locate 'Dn-Common/$icon'" if not $fp;
+  return $fp;
 }
 
 # _is_android_file_or_dir($path, $type)    {{{1
@@ -3897,22 +3884,22 @@ method _get_icon ($icon) {
 # note:   tries using 'fb-adb' then 'adb', and dies if both unavailable
 method _is_android_file_or_dir ($path, $type) {
 
-    # check args
-    if ( not $path ) { confess 'No path provided'; }
-    if ( not $type ) { confess 'No type provided'; }
-    my %valid_type = map { ( $_ => $TRUE ) } qw(file dir);
-    if ( not $valid_type{$type} ) { confess "Invalid type '$type'"; }
-    my $device = $self->_android_device();
+  # check args
+  if (not $path) { confess 'No path provided'; }
+  if (not $type) { confess 'No type provided'; }
+  my %valid_type = map { ($_ => $TRUE) } qw(file dir);
+  if (not $valid_type{$type}) { confess "Invalid type '$type'"; }
+  my $device = $self->_android_device();
 
-    # select android debug bridge
-    my $adb = $self->_adb;
-    if ( not $adb ) { confess 'Could not find adb on this system'; }
+  # select android debug bridge
+  my $adb = $self->_adb;
+  if (not $adb) { confess 'Could not find adb on this system'; }
 
-    # test path
-    my $flag = ( $type eq 'file' ) ? '-f' : '-d';
-    my $cmd = [ $adb, '-s', $device, 'shell', 'test', $flag, $path ];
-    my $result = $self->capture_command_output($cmd);
-    return $result->success;
+  # test path
+  my $flag   = ($type eq 'file') ? '-f' : '-d';
+  my $cmd    = [ $adb, '-s', $device, 'shell', 'test', $flag, $path ];
+  my $result = $self->capture_command_output($cmd);
+  return $result->success;
 }
 
 # _is_mimetype($filepath, $mimetype)    {{{1
@@ -3925,10 +3912,10 @@ method _is_android_file_or_dir ($path, $type) {
 # return: scalar boolean
 # uses:   File::MimeInfo
 method _is_mimetype ($filepath, $mimetype) {
-    if ( not $mimetype ) { confess 'No mimetype provided'; }
-    my $filetype = $self->_file_mime_type($filepath);
-    if ( not $filetype ) { return; }
-    return $filetype =~ m{^$mimetype\z}xsm;
+  if (not $mimetype) { confess 'No mimetype provided'; }
+  my $filetype = $self->_file_mime_type($filepath);
+  if (not $filetype) { return; }
+  return $filetype =~ m{^$mimetype\z}xsm;
 }
 
 # _load_processes()    {{{1
@@ -3938,10 +3925,10 @@ method _is_mimetype ($filepath, $mimetype) {
 # prints: nil
 # return: nil
 method _load_processes () {
-    $self->_clear_processes;
-    foreach my $process ( @{ Proc::ProcessTable->new()->table() } ) {
-        $self->_add_process( $process->pid, $process->cmndline );
-    }
+  $self->_clear_processes;
+  foreach my $process (@{ Proc::ProcessTable->new()->table() }) {
+    $self->_add_process($process->pid, $process->cmndline);
+  }
 }
 
 # _process_config_files()    {{{1
@@ -3952,31 +3939,31 @@ method _load_processes () {
 # prints: nil
 # return: nil
 method _process_config_files () {
-    my $root = File::Util->new()->strip_path($PROGRAM_NAME);
+  my $root = File::Util->new()->strip_path($PROGRAM_NAME);
 
-    # set directory and filename possibilities to try
-    my ( @dirs, @files );
-    push @dirs,  $PWD;                # ./     == bash $( pwd )
-    push @dirs,  '/usr/local/etc';    # /usr/local/etc/
-    push @dirs,  '/etc';              # /etc/
-    push @dirs,  "/etc/$root";        # /etc/FOO/
-    push @dirs,  $HOME;               # ~/     == bash $HOME
-    push @files, "${root}config";     # FOOconfig
-    push @files, "${root}conf";       # FOOconf
-    push @files, "${root}.config";    # FOO.config
-    push @files, "${root}.conf";      # FOO.conf
-    push @files, "${root}rc";         # FOOrc
-    push @files, ".${root}rc";        # .FOOrc
+  # set directory and filename possibilities to try
+  my (@dirs, @files);
+  push @dirs,  $PWD;                # ./     == bash $( pwd )
+  push @dirs,  '/usr/local/etc';    # /usr/local/etc/
+  push @dirs,  '/etc';              # /etc/
+  push @dirs,  "/etc/$root";        # /etc/FOO/
+  push @dirs,  $HOME;               # ~/     == bash $HOME
+  push @files, "${root}config";     # FOOconfig
+  push @files, "${root}conf";       # FOOconf
+  push @files, "${root}.config";    # FOO.config
+  push @files, "${root}.conf";      # FOO.conf
+  push @files, "${root}rc";         # FOOrc
+  push @files, ".${root}rc";        # .FOOrc
 
-    # look for existing combinations and capture those config files
-    for my $dir (@dirs) {
-        for my $file (@files) {
-            my $cf = sprintf '%s/%s', $dir, $file;
-            if ( -r "$cf" ) {
-                $self->_add_config_file( Config::Simple->new($cf) );
-            }
-        }
+  # look for existing combinations and capture those config files
+  for my $dir (@dirs) {
+    for my $file (@files) {
+      my $cf = sprintf '%s/%s', $dir, $file;
+      if (-r "$cf") {
+        $self->_add_config_file(Config::Simple->new($cf));
+      }
     }
+  }
 }
 
 # _reload_processes()    {{{1
@@ -3986,7 +3973,7 @@ method _process_config_files () {
 # prints: nil
 # return: nil
 method _reload_processes () {
-    $self->_load_processes;
+  $self->_load_processes;
 }
 
 # _restore_kde_screensaver([$title])    {{{1
@@ -3998,40 +3985,40 @@ method _reload_processes () {
 # uses:   Net::DBus::RemoteObject
 #         DBus service org.freedesktop.ScreenSaver
 method _restore_kde_screensaver ($title) {
-    my $cookie;
+  my $cookie;
 
-    # sanity checks
-    my $err;
-    if ( $self->_screensaver_cookie ) {
-        $cookie = $self->_screensaver_cookie;
-    }
-    else {                                 # must first be suspended
-        $err = 'Screensaver has not been suspended by this process';
-        $self->notify_sys( $err, type => 'error', title => $title );
-        return;
-    }
-    if ( not $self->_screensaver_can_attempt_suspend ) {
-        $err = 'Cannot suspend screensaver';
-        $self->notify_sys( $err, type => 'error', title => $title );
-        return;
-    }
+  # sanity checks
+  my $err;
+  if ($self->_screensaver_cookie) {
+    $cookie = $self->_screensaver_cookie;
+  }
+  else {    # must first be suspended
+    $err = 'Screensaver has not been suspended by this process';
+    $self->notify_sys($err, type => 'error', title => $title);
+    return;
+  }
+  if (not $self->_screensaver_can_attempt_suspend) {
+    $err = 'Cannot suspend screensaver';
+    $self->notify_sys($err, type => 'error', title => $title);
+    return;
+  }
 
-    # restore kde screensaver
-    if ( !eval { $self->_kde_screensaver->UnInhibit($cookie); 1 } ) {   # fail
-        $err = 'Unable to restore kde screensaver programmatically';
-        $self->notify_sys( $err, type => 'error', title => $title );
-        $err = "Error: $EVAL_ERROR";
-        $self->notify_sys( $err, type => 'error', title => $title );
-        $err = 'It should restore automatically as this script exits';
-        $self->notify_sys( $err, type => 'error', title => $title );
-        return;
-    }
-    else {    # succeeded
-        $self->notify_sys( 'Restored kde screensaver', title => $title );
-        $self->_screensaver_cookie();
-        $self->_screensaver_suspended($FALSE);    # no longer suspended
-        return $TRUE;
-    }
+  # restore kde screensaver
+  if (!eval { $self->_kde_screensaver->UnInhibit($cookie); 1 }) {    # fail
+    $err = 'Unable to restore kde screensaver programmatically';
+    $self->notify_sys($err, type => 'error', title => $title);
+    $err = "Error: $EVAL_ERROR";
+    $self->notify_sys($err, type => 'error', title => $title);
+    $err = 'It should restore automatically as this script exits';
+    $self->notify_sys($err, type => 'error', title => $title);
+    return;
+  }
+  else {    # succeeded
+    $self->notify_sys('Restored kde screensaver', title => $title);
+    $self->_screensaver_cookie();
+    $self->_screensaver_suspended($FALSE);    # no longer suspended
+    return $TRUE;
+  }
 }
 
 # _restore_xscreensaver([$title])    {{{1
@@ -4042,33 +4029,33 @@ method _restore_kde_screensaver ($title) {
 # return: boolean
 method _restore_xscreensaver ($title) {
 
-    # first check that screensaver is suspended
-    if ( not $self->_screensaver_suspended ) {
-        $self->notify_sys(
-            'Screensaver is not currently suspended',
-            title => $title,
-            type  => 'error',
-        );
-        return;
-    }
+  # first check that screensaver is suspended
+  if (not $self->_screensaver_suspended) {
+    $self->notify_sys(
+      'Screensaver is not currently suspended',
+      title => $title,
+      type  => 'error',
+    );
+    return;
+  }
 
-    # simply restart xscreensaver
-    my $cmd = 'xscreensaver &';
+  # simply restart xscreensaver
+  my $cmd = 'xscreensaver &';
 
-    # detect and handle failure
-    my $err = 'Unable to restore xscreensaver';
-    if ( !eval { system $cmd; 1 } ) {
-        $self->notify_sys( $err, type => 'error', title => $title );
-        return;
-    }
-    if ( not $self->process_running(qr/^xscreensaver\z/xsm) ) {
-        $self->notify_sys( $err, type => 'error', title => $title );
-        return;
-    }
+  # detect and handle failure
+  my $err = 'Unable to restore xscreensaver';
+  if (!eval { system $cmd; 1 }) {
+    $self->notify_sys($err, type => 'error', title => $title);
+    return;
+  }
+  if (not $self->process_running(qr/^xscreensaver\z/xsm)) {
+    $self->notify_sys($err, type => 'error', title => $title);
+    return;
+  }
 
-    # succeeded
-    $self->_screensaver_suspended($FALSE);    # no longer suspended
-    return $TRUE;
+  # succeeded
+  $self->_screensaver_suspended($FALSE);    # no longer suspended
+  return $TRUE;
 }
 
 # _suspend_kde_screensaver([$title], [$msg])    {{{1
@@ -4081,43 +4068,40 @@ method _restore_xscreensaver ($title) {
 # uses:   Net::DBus::RemoteObject
 #         DBus service org.freedesktop.ScreenSaver
 method _suspend_kde_screensaver ($title, $msg) {
-    if ( not $title ) { confess 'No title provided'; }
-    if ( not $msg )   { confess 'No message provided'; }
-    my $cookie;
+  if (not $title) { confess 'No title provided'; }
+  if (not $msg)   { confess 'No message provided'; }
+  my $cookie;
 
-    # sanity checks
-    my $err;
-    if ( $self->_screensaver_cookie ) {
+  # sanity checks
+  my $err;
+  if ($self->_screensaver_cookie) {
 
-        # do not repeat request
-        $err
-            = 'This process has already requested KDE screensaver suspension';
-        $self->notify_sys( $err, type => 'error', title => $title );
-        return;
-    }
-    if ( not $self->_screensaver_can_attempt_suspend ) {
-        $err = 'Am not able to suspend KDE screensaver';
-        $self->notify_sys( $err, type => 'error', title => $title );
-        return;
-    }
+    # do not repeat request
+    $err = 'This process has already requested KDE screensaver suspension';
+    $self->notify_sys($err, type => 'error', title => $title);
+    return;
+  }
+  if (not $self->_screensaver_can_attempt_suspend) {
+    $err = 'Am not able to suspend KDE screensaver';
+    $self->notify_sys($err, type => 'error', title => $title);
+    return;
+  }
 
-    # suspend screensaver
-    if ( !eval { $cookie = $self->_kde_screensaver->Inhibit( $PID, $msg ); 1 }
-        )
-    {
-        $err = 'Failed to suspend KDE screensaver';    # failed
-        $self->notify_sys( $err, type => 'error', title => $title );
-        $err = "Error: $EVAL_ERROR";
-        $self->notify_sys( $err, type => 'error', title => $title );
-        $self->_screensaver_can_attempt_suspend($FALSE);
-        return;
-    }
-    else {                                             # succeeded
-        $self->notify_sys( 'Suspended KDE screensaver', title => $title );
-        $self->_screensaver_suspended($TRUE);
-        $self->_screensaver_cookie($cookie);
-        return $TRUE;
-    }
+  # suspend screensaver
+  if (!eval { $cookie = $self->_kde_screensaver->Inhibit($PID, $msg); 1 }) {
+    $err = 'Failed to suspend KDE screensaver';    # failed
+    $self->notify_sys($err, type => 'error', title => $title);
+    $err = "Error: $EVAL_ERROR";
+    $self->notify_sys($err, type => 'error', title => $title);
+    $self->_screensaver_can_attempt_suspend($FALSE);
+    return;
+  }
+  else {    # succeeded
+    $self->notify_sys('Suspended KDE screensaver', title => $title);
+    $self->_screensaver_suspended($TRUE);
+    $self->_screensaver_cookie($cookie);
+    return $TRUE;
+  }
 }
 
 # _suspend_xscreensaver([$title], [$msg])    {{{1
@@ -4128,37 +4112,37 @@ method _suspend_kde_screensaver ($title, $msg) {
 # prints: nil (feedback via popup notification)
 # return: boolean
 method _suspend_xscreensaver ($title, $msg) {
-    if ( not $title ) { confess 'No title provided'; }
-    if ( not $msg )   { confess 'No message provided'; }
+  if (not $title) { confess 'No title provided'; }
+  if (not $msg)   { confess 'No message provided'; }
 
-    # sanity checks
-    my $err;
-    if ( $self->_screensaver_suspended ) {    # do not repeat request
-        $err = 'This process has already requested xscreensaver suspension';
-        $self->notify_sys( $err, type => 'error', title => $title );
-        return;
-    }
-    if ( not $self->_screensaver_can_attempt_suspend ) {
-        $err = 'Am not able to suspend xscreensaver';
-        $self->notify_sys( $err, type => 'error', title => $title );
-        return;
-    }
+  # sanity checks
+  my $err;
+  if ($self->_screensaver_suspended) {    # do not repeat request
+    $err = 'This process has already requested xscreensaver suspension';
+    $self->notify_sys($err, type => 'error', title => $title);
+    return;
+  }
+  if (not $self->_screensaver_can_attempt_suspend) {
+    $err = 'Am not able to suspend xscreensaver';
+    $self->notify_sys($err, type => 'error', title => $title);
+    return;
+  }
 
-    # suspend screensaver
-    my @cmd = qw(xscreensaver-command -exit);
-    if ( !eval { system @cmd; 1 } ) {
-        $err = 'Failed to suspend xscreensaver';    # failed
-        $self->notify_sys( $err, type => 'error', title => $title );
-        $err = "Error: $EVAL_ERROR";
-        $self->notify_sys( $err, type => 'error', title => $title );
-        $self->_screensaver_can_attempt_suspend($FALSE);
-        return;
-    }
-    else {                                          # succeeded
-        $self->notify_sys( 'Suspended xscreensaver', title => $title );
-        $self->_screensaver_suspended($TRUE);
-        return $TRUE;
-    }
+  # suspend screensaver
+  my @cmd = qw(xscreensaver-command -exit);
+  if (!eval { system @cmd; 1 }) {
+    $err = 'Failed to suspend xscreensaver';    # failed
+    $self->notify_sys($err, type => 'error', title => $title);
+    $err = "Error: $EVAL_ERROR";
+    $self->notify_sys($err, type => 'error', title => $title);
+    $self->_screensaver_can_attempt_suspend($FALSE);
+    return;
+  }
+  else {    # succeeded
+    $self->notify_sys('Suspended xscreensaver', title => $title);
+    $self->_screensaver_suspended($TRUE);
+    return $TRUE;
+  }
 }
 
 # _ui_dialog_widget_preference()    {{{1
@@ -4169,8 +4153,8 @@ method _suspend_xscreensaver ($title, $msg) {
 # return: list
 # uses:   File::Which
 method _ui_dialog_widget_preference () {
-    my @widgets = qw(kdialog zenity gdialog cdialog whiptail ascii);
-    return grep { File::Which::which $_ } @widgets;
+  my @widgets = qw(kdialog zenity gdialog cdialog whiptail ascii);
+  return grep { File::Which::which $_ } @widgets;
 }    # }}}1
 
 1;
