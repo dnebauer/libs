@@ -8,6 +8,9 @@ requires 'Cwd', '3.78';
 requires 'Data::Dumper', '2.174_01';
 requires 'Data::Dumper::Simple', '0.11';
 requires 'Date::Simple', '3.03';
+requires 'DateTime', '1.65';
+requires 'DateTime::Format::Mail', '0.4030';
+requires 'DateTime::TimeZone', '2.62';
 requires 'English', '1.11';
 requires 'Env', '1.04';
 requires 'experimental', '0.020';
@@ -38,6 +41,7 @@ requires 'Symbol', '1.08';
 requires 'Term::Clui', '1.76';
 requires 'Term::ProgressBar::Simple', '0.03';
 requires 'Text::Wrap', '2013.0523';
+requires 'Time::Simple', '0.06',
 requires 'version', '0.9929';
 
 ontest=>sub{

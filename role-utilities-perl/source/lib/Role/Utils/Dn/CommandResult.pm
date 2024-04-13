@@ -2,8 +2,8 @@ package Role::Utils::Dn::CommandResult;
 
 use Moo;
 use strictures 2;
-use 5.036_001;
-use version; our $VERSION = qv('0.3');
+use 5.038_001;
+use version; our $VERSION = qv('0.4');
 use namespace::clean;
 
 use Const::Fast;

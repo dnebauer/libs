@@ -4,7 +4,11 @@ Upstream-Contact: David Nebauer <david@nebauer.org>
 Upstream-Name: Role-Utils-Dn
 
 Files: *
-Copyright: David Nebauer <david@nebauer.org>
+Copyright: 2024, David Nebauer <david@nebauer.org>
+License: Artistic or GPL-1+
+
+Files: debian/*
+Copyright: 2024, David Nebauer <david@nebauer.org>
 License: Artistic or GPL-1+
 
 License: Artistic

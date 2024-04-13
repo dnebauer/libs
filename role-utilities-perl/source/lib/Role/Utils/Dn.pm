@@ -3,8 +3,8 @@ package Role::Utils::Dn;
 use Moo::Role;    # {{{1
 use strictures 2;
 use 5.006;
-use 5.036_001;
-use version; our $VERSION = qv('0.3');
+use 5.038_001;
+use version; our $VERSION = qv('0.4');
 use namespace::clean;
 
 use autodie qw(open close);
@@ -14,8 +14,11 @@ use Clipboard;
 use Curses;
 use Data::Dumper::Simple;
 use Date::Simple qw(today);
-use English      qw(-no_match_vars);
-use Env          qw($PAGER);
+use DateTime;
+use DateTime::Format::Mail;
+use DateTime::TimeZone;
+use English qw(-no_match_vars);
+use Env     qw($PAGER);
 use Feature::Compat::Try;
 use File::Basename;
 use File::Compare;
@@ -42,6 +45,7 @@ use Term::Clui;
 use Term::ProgressBar::Simple;
 use Text::Pluralize;
 use Text::Wrap;
+use Time::Simple;
 use experimental qw(switch);
 
 const my $TRUE                   => 1;
@@ -53,6 +57,7 @@ const my $EMPTY_STRING           => q{};
 const my $FILE_COMPARE_ERROR     => -1;
 const my $KEY_BACKGROUND         => 'background';
 const my $KEY_BREAK              => 'break';
+const my $KEY_FATAL              => $TRUE;
 const my $KEY_CONT               => 'cont';
 const my $KEY_FONT               => 'font';
 const my $KEY_GEOMETRY           => 'geometry';
@@ -60,7 +65,10 @@ const my $KEY_GRAVITY            => 'gravity';
 const my $KEY_HANG               => 'hang';
 const my $KEY_HEIGHT             => 'height';
 const my $KEY_INDENT             => 'indent';
+const my $KEY_SILENT             => 'silent';
+const my $KEY_TIMEOUT            => 0;
 const my $KEY_WIDTH              => 'width';
+const my $LIST_STAR              => '* ';
 const my $MOD_PATH_TINY          => 'Path::Tiny';
 const my $MSG_INSTALL_GOOD       => 'Package installed successfully';
 const my $MSG_NO_COMMAND         => 'No command provided';
@@ -84,8 +92,6 @@ const my $REF_TYPE_HASH  => 'HASH';
 const my $RGB_ARG_COUNT  => 3;
 const my $RGB_ARG_MAX    => 255;
 const my $SPACE          => q{ };
-const my $TERM_MIN_WIDTH => 10;
-const my $TERM_GUTTER    => 5;
 const my $VAL_CENTER     => 'Center';
 const my $VAL_LEFT       => 'left';    # }}}1
 
@@ -111,6 +117,109 @@ sub array_push ($self, $arrayref, @items)
   my @list = @{$arrayref};
   push @list, @items;
   return [@list];
+}
+
+# autoconf_version()    {{{1
+#
+# does:   gets autoconf version
+# params: nil
+# prints: nil, except error on failure
+# return: scalar version number, die on failure
+sub autoconf_version ($self) {  ## no critic (RequireInterpolationOfMetachars)
+  my $cmd     = [ 'autoconf', '--version', ];
+  my $cmd_str = join $SPACE, @{$cmd};
+  my $result  = $self->shell_command($cmd);
+  if (not $result->success) { confess "Command '$cmd_str' failed"; }
+  my $version_line          = ($result->stdout)[0];
+  my @version_line_elements = split /\s+/xsm, $version_line;
+  foreach my $element (@version_line_elements) {
+    if ($element =~ /^ \d+ [ [.]\d+ ]?/xsm) {
+      return $element;
+    }
+  }
+  confess "Did not find version number in '$version_line'";
+}
+
+# changelog_from_git($dir)    {{{1
+#
+# does:   get ChangeLog content from git repository
+# params: $dir = root file of repository [required]
+#                must contain a '.git' directory
+# prints: nil, feedback on failure
+# return: list, dies on failure
+sub changelog_from_git ($self, $dir)
+{    ## no critic (RequireInterpolationOfMetachars)
+
+  # check directory
+  if (not $dir) { return (); }
+  my $repo_root = $self->path_true($dir);
+  if (not -d $repo_root) { croak "Invalid directory '$dir'"; }
+  my $git_dir = $repo_root . '/.git';
+  if (not -d $git_dir) { croak "'$dir' is not a git repo root"; }
+
+  # operate from repo root dir
+  local $File::chdir::CWD = $File::chdir::CWD;
+  $File::chdir::CWD = $repo_root;
+
+  # obtain git log output
+  my $cmd    = [ 'git', 'log', '--date-order', '--date=short' ];
+  my $result = $self->shell_command($cmd);
+  if (not $result->success) {
+    croak "Unable to get git log in '$dir'";
+  }
+
+  # process output log entries
+  my (@log, @entry);
+  my $indent = $SPACE x 4;    ## no critic (ProhibitMagicNumbers)
+  my ($author, $email, $date);
+  foreach my $line ($result->stdout) {
+    next if $line =~ /^commit /xsm;
+    next if $line =~ /^\s*$/xsm;
+    my ($key, @values) = split /\s+/xsm, $line;
+    my $value = join $SPACE, @values;
+    for ($key) {
+      if ($_ eq 'Author:') {    # start of entry
+                                # flush previous entry, if any
+        if (@entry) {
+          push @log, "$date  $author <$email>";
+          push @log, q{};
+          foreach my $line (@entry) {
+            push @log, $indent . $LIST_STAR . $line;
+          }
+          push @log, q{};
+          @entry = ();
+        }
+
+        # process current line
+        elsif ($value =~ /^([^<]+)\s+<([^>]+)>\s*$/xsm) {
+          $author = $1;
+          $email  = $2;
+        }
+        else {
+          confess "Bad match on line '$line'";
+        }
+      }
+      elsif ($_ eq 'Date:') {
+        $date = $value;
+      }
+      else {    # entry detail
+        push @entry, $value;
+      }
+    }
+  }
+
+  # flush final entry
+  if (@entry) {
+    push @log, "$date  $author <$email>";
+    push @log, q{};
+    foreach my $line (@entry) {
+      push @log, $indent . $LIST_STAR . $line;
+    }
+    push @log, q{};
+  }
+
+  # return log
+  return @log;
 }
 
 # changelog_version_regex()    {{{1
@@ -140,7 +249,7 @@ sub array_push ($self, $arrayref, @items)
 #                 my $version = "$LAST_PAREN_MATCH{'version'}";
 #                 # ...
 #             }
-sub changelog_version_regex ($self = undef)
+sub changelog_version_regex ($self)
 {    ## no critic (RequireInterpolationOfMetachars)
 
   # building blocks
@@ -215,7 +324,7 @@ sub changelog_version_regex ($self = undef)
 #                 my $version = "$LAST_PAREN_MATCH{'version'}";
 #                 # ...
 #             }
-sub configure_ac_version_regex ($self = undef)
+sub configure_ac_version_regex ($self)
 {    ## no critic (RequireInterpolationOfMetachars)
 
   # building blocks
@@ -330,7 +439,7 @@ sub copy_to_clipboard ($self, $val)
 # params: nil
 # prints: nil
 # return: scalar string
-sub cwd ($self = undef) {    ## no critic (RequireInterpolationOfMetachars)
+sub cwd ($self) {    ## no critic (RequireInterpolationOfMetachars)
   return Path::Tiny::path($DOT)->realpath;
 }
 
@@ -341,9 +450,85 @@ sub cwd ($self = undef) {    ## no critic (RequireInterpolationOfMetachars)
 # prints: nil
 # return: scalar string
 # uses:   Date::Simple
-sub date_current_iso ($self = undef)
-{    ## no critic (RequireInterpolationOfMetachars)
+sub date_current_iso ($self) {  ## no critic (RequireInterpolationOfMetachars)
   return Date::Simple->today()->format('%Y-%m-%d');
+}
+
+# date_email ([$date], [$time], [$offset])    {{{1
+#
+# does:   produce a date formatted according to RFC 2822
+#         (Internet Message Format)
+# params: $date   - iso-format date
+#                   [named parameter, optional, default=today]
+#         $time   - 24 hour time [named parameter, optional, default=now]
+#                   leading hour zero, and seconds, are optional
+#         $offset - timezone offset, e.g., +0930
+#                   [named parameter, optional, default=local timezone offset]
+# prints: message if fatal error
+# return: scalar string, dies on failure
+# note:   example output: 'Mon, 16 Jul 1979 16:45:20 +1000'
+sub date_email ($self, $date = undef, $time = undef, $offset = undef)
+{    ## no critic (RequireInterpolationOfMetachars)
+
+  # date
+  if ($date) {
+    if (not $self->date_valid($date)) {
+      croak "Invalid date '$date'";
+    }
+  }
+  else {
+    $date = $self->date_current_iso();
+  }
+
+  # time
+  if ($time) {
+    if (not $self->time_24h_valid($time)) {
+      croak "Invalid time '$time'";
+    }
+  }
+  else {
+    $time = $self->time_now();
+  }
+
+  # timezone
+  my $timezone;
+  if ($offset) {
+    $timezone = $self->time_zone_from_offset($offset);
+    if (not $timezone) { croak; }    # error shown by previous line
+  }
+  else {
+    $timezone = $self->time_zone_local();
+  }
+
+  # get rfc 2822 string
+  my $ds = Date::Simple->new($date);
+  if (not $ds) { confess 'Unable to create Date::Simple object'; }
+  my $ts = Time::Simple->new($time);
+  if (not $ts) { confess 'Unable to create Time::Simple object'; }
+  my $dt = DateTime->new(
+    year      => $ds->year,
+    month     => $ds->month,
+    day       => $ds->day,
+    hour      => $ts->hour,
+    minute    => $ts->minute,
+    second    => $ts->second,
+    time_zone => $timezone,
+  );
+  if (not $dt) { confess 'Unable to create DateTime object'; }
+  my $email_date = DateTime::Format::Mail->format_datetime($dt);
+  if (not $email_date) { confess 'Unable to generate RFC2822 date'; }
+  return $email_date;
+}
+
+# date_valid($date)    {{{1
+#
+# does:   determine whether date is valid and in ISO format
+# params: $date - candidate date [required]
+# prints: nil
+# return: boolean
+sub date_valid ($self, $date) { ## no critic (RequireInterpolationOfMetachars)
+  if (not $date) { return $FALSE; }
+  return Date::Simple->new($date);
 }
 
 # debhelper_compat()    {{{1
@@ -353,8 +538,7 @@ sub date_current_iso ($self = undef)
 # params: nil
 # prints: nil
 # return: scalar string - version (undef if problem encountered)
-sub debhelper_compat ($self = undef)
-{    ## no critic (RequireInterpolationOfMetachars)
+sub debhelper_compat ($self) {  ## no critic (RequireInterpolationOfMetachars)
 
   # get full version
   # - called method dies on failure
@@ -366,7 +550,7 @@ sub debhelper_compat ($self = undef)
             \A                  # anchor to start of string
             (\d+:)?             # epoch (optional)
             [\d\N{FULL STOP}]+  # version: A.B.C...
-            \Z                  # anchor to start of string
+            \z                  # anchor to end of string
         }xsm;
   my $match_major_version = qr{
             \A                # anchor to start of string
@@ -484,7 +668,7 @@ sub debian_package_version ($self, $pkg)
 
   # get output of 'dpkg -s PKG'
   my $cmd    = [ $PARAM_DPKG, '-s', $pkg ];
-  my $result = $self->shell_command([$cmd]);
+  my $result = $self->shell_command($cmd);
   return $FALSE if not $result->success;
 
   # get version line from status output
@@ -509,7 +693,7 @@ sub debian_package_version ($self, $pkg)
 # params: nil
 # prints: nil
 # return: scalar string - version
-sub debian_standards_version ($self = undef)
+sub debian_standards_version ($self)
 {    ## no critic (RequireInterpolationOfMetachars)
 
   # get full version
@@ -619,8 +803,7 @@ sub dir_copy ($self, $source_dir, $target_dir)
 # params: nil
 # prints: nil
 # return: scalar string
-sub dir_current ($self = undef)
-{    ## no critic (RequireInterpolationOfMetachars)
+sub dir_current ($self) {    ## no critic (RequireInterpolationOfMetachars)
   return Path::Tiny::path($DOT)->absolute->canonpath;
 }
 
@@ -631,6 +814,7 @@ sub dir_current ($self = undef)
 # prints: nil
 # return: scalar string path
 #         die on error
+# usage:  my $fp = $self->dir_join($root, $dir, $subdir)
 sub dir_join ($self, @dirs) {    ##no critic (RequireInterpolationOfMetachars)
   return $EMPTY_STRING if not @dirs;
   return File::Spec->catdir(@dirs);
@@ -703,23 +887,39 @@ sub dir_parent ($self, $dir) {  ## no critic (RequireInterpolationOfMetachars)
 # params: nil
 # prints: nil
 # return: scalar string
-sub dir_temp ($self = undef) {  ## no critic (RequireInterpolationOfMetachars)
+sub dir_temp ($self) {    ## no critic (RequireInterpolationOfMetachars)
   return File::Temp::tempdir(CLEANUP => $TRUE);
 }
 
-# divider()    {{{1
+# divider($type)    {{{1
 #
 # does:   get divider string (dashes) as wide as current terminal
-# params: nil
+# params: $type = divider type ('top'|'bottom', optional, default='top')
 # prints: nil
 # return: scalar string
-sub divider ($self = undef) {   ## no critic (RequireInterpolationOfMetachars)
+# note:   top divider char = '-', bottom divider = '='
+sub divider ($self, $type = 'top')
+{    ## no critic (RequireInterpolationOfMetachars)
+
+  # params
+  my %divider_char = (top => q{-}, bottom => q{=});
+  if (not exists $divider_char{$type}) {
+    croak "Invalid divider type '$type'";
+  }
+
+  # key values
+  const my $TERM_MIN_WIDTH => 10;
+  const my $TERM_GUTTER    => 5;
+
+  # get divider length
   my $width = $self->term_width;
   if ($width < $TERM_MIN_WIDTH) {
     confess "Terminal < $TERM_MIN_WIDTH chars($width)";
   }
-  my $length  = $width - $TERM_GUTTER;
-  my $divider = q{-} x $length;
+  my $length = $width - $TERM_GUTTER;
+
+  # create divider
+  my $divider = $divider_char{$type} x $length;
 
   return $divider;
 }
@@ -777,7 +977,8 @@ sub file_base ($self, $filepath, $exists = $FALSE)
 # file_cat_dir($filepath, $dirpath, $exists = $FALSE)    {{{1
 #
 # does:   extract filename from filepath and add it to a dirpath
-# params: $filepath - path from which to extract file name [required, str]
+# params: $filepath - path from which to extract file name
+#                     [required, str, can be file name only]
 #         $dirpath  - path to add file to [required, str]
 #         $exists   - die if either param does not exist
 #                     [optional, bool, default=false]
@@ -808,9 +1009,8 @@ sub file_cat_dir ($self, $filepath, $dirpath, $exists = $FALSE)
 # params: nil
 # prints: error messages
 # return: list of strings
-sub file_cmdline_args ($self = undef)
-{    ## no critic (RequireInterpolationOfMetachars)
-  my @matches;    # get unique file names
+sub file_cmdline_args ($self) { ## no critic (RequireInterpolationOfMetachars)
+  my @matches;                  # get unique file names
   for my $arg (@ARGV) { push @matches, glob "$arg"; }
   my @unique_matches = List::SomeUtils::uniq @matches;
   my @files =
@@ -910,6 +1110,49 @@ sub file_is_mimetype ($self, $filepath, $mimetype)
   return $filetype =~ m{\A$mimetype\z}xsm;
 }
 
+# file_is_perl($filepath)    {{{1
+#
+# does:   determine whether file is a perl executable file,
+#         does not detect perl module files
+# params: $filepath - file to analyse [required]
+#                     dies if missing or invalid
+# prints: nil
+# return: scalar boolean
+sub file_is_perl ($self, $filepath)
+{    ## no critic (RequireInterpolationOfMetachars)
+  if (not $filepath)    { confess $MSG_NO_FILEPATH; }
+  if (not -r $filepath) { confess "Invalid filepath '$filepath'"; }
+
+  # check for mimetype match
+  my @mimetypes = ('application/x-perl', 'text/x-perl');
+  foreach my $mimetype (@mimetypes) {
+    if ($self->file_is_mimetype($filepath, $mimetype)) {
+      return $TRUE;
+    }
+  }
+
+  # mimetype detection can fail if filename has no extension
+  # so look for shebang and see if it is a perl interpreter
+  my $fh;
+  if (not(open $fh, '<', $filepath)) {
+    confess "Unable to open file '$filepath' for reading";
+  }
+  my @lines = <$fh>;
+  if (not(close $fh)) {
+    confess "Unable to close file '$filepath'";
+  }
+  chomp @lines;
+  foreach my $line (@lines) {
+    if ($line =~ /^ \s* [#] [!] (\S+) /xsm) {
+      my $interpreter = $1;
+      my $executable  = $self->file_name($interpreter);
+      if ($executable eq 'perl') { return $TRUE; }
+      last;
+    }
+  }
+  return $FALSE;
+}
+
 # file_list([$dir[, $pattern]])    {{{1
 #
 # does:   list files in directory
@@ -951,7 +1194,9 @@ sub file_list ($self, $dir = undef, $pattern = undef)
   my @fp_objects = grep { not $_->is_dir } @children;
   my @files      = map  { $_->basename } @fp_objects;
 
-  return @files;
+  # sort for return
+  my @sorted_files = sort @files;
+  return @sorted_files;
 }
 
 # file_move($source_file, $target)    {{{1
@@ -1003,7 +1248,8 @@ sub file_mime_type ($self, $filepath)
 # file_name($filepath, $exists = $FALSE)    {{{1
 #
 # does:   extract filename from filepath
-# params: $filepath - path from which to extract file name [required, str]
+# params: $filepath - path from which to extract file name
+#                     [required, str, can be file name only]
 #         $exists   - die if filepath does not exist
 #                     [optional, bool, default=false]
 # prints: error messages
@@ -1071,6 +1317,62 @@ sub file_name_parts ($self, $filepath, $exists = $FALSE)
   return (File::Basename::fileparse($filepath, qr/[.][^.]*\z/xsm))[ 0, 2 ];
 }
 
+# file_read($fp)    {{{1
+#
+# does:   read contents of a file
+# params: $fp - file path to read from
+#               [string or Path::Tiny object, required]
+# prints: error messages
+# return: arrayref of content lines, dies on failure
+sub file_read ($self, $fp) {    ## no critic (RequireInterpolationOfMetachars)
+
+  # set vars
+  if (not defined $fp) { confess $MSG_NO_FILEPATH; }
+  my $fp_reftype  = Scalar::Util::reftype $fp;
+  my $fp_obj_type = Scalar::Util::blessed $fp;
+  my $src;
+
+  if (defined $fp_reftype) {
+
+    # is a reference
+    if (defined $fp_obj_type) {
+
+      # is an object
+      if ($fp_obj_type eq $MOD_PATH_TINY) {
+        $src = $fp;
+      }
+      else {
+        confess "Invalid file: is $fp_obj_type object";
+      }
+    }
+    else {
+      # is a reference that is not an object
+      confess "Invalid file: is $fp_reftype";
+    }
+  }
+  else {
+    # scalar, presumed to be string file path
+    $src = Path::Tiny::path($fp)->absolute;
+  }
+  if (not $src) {
+    confess 'Unable to determine source file path';
+  }
+
+  # read file
+  # - slurp reads file contents into a scalar variable
+  my $contents;
+  try {
+    $contents = $src->slurp_utf8;
+  }
+  catch ($err) {
+    confess "Unable to read from '$src': $err";
+  }
+  my @lines = split /\n/xsm, $contents;
+
+  # return file contents
+  return [@lines];
+}
+
 # file_readable(@filepaths)    {{{1
 #
 # does:   determine whether paths are (symlinks to) valid plain
@@ -1086,8 +1388,8 @@ sub file_readable ($self, @filepaths)
 
   # cycle through filepaths
   for my $filepath (@filepaths) {
-    my $true_path = $self->path_true($filepath);
-    if (not(-e $true_path and -r $true_path)) { return $FALSE; }
+    my $path_true = $self->path_true($filepath);
+    if (not(-e $path_true and -r $path_true)) { return $FALSE; }
   }
 
   # no unreadable files found
@@ -1110,7 +1412,7 @@ sub file_write ($self, $content, $fp, $perm = undef)
   # set vars
   if (not $content)                    { confess 'No content provided'; }
   if (ref $content ne $REF_TYPE_ARRAY) { confess 'Content not an array'; }
-  if (not $fp)                         { confess 'No file provided'; }
+  if (not $fp)                         { confess $MSG_NO_FILEPATH; }
   my $dest;
   my $fp_reftype  = Scalar::Util::reftype $fp;
   my $fp_obj_type = Scalar::Util::blessed $fp;
@@ -1793,6 +2095,24 @@ sub int_valid ($self, $value)
   return $FALSE;
 }
 
+# interact_ask($prompt, [$default])    {{{1
+#
+# does:   get input from user
+# params: $prompt  - user prompt [required, can be multi-line (use "\n")]
+#         $default - default input [optional, default=q{}]
+# prints: user interaction
+#         after user answers, all but first line of question
+#           is removed from the screen
+#         input also remains on screen
+# return: user input (scalar)
+# note:   intended for entering short values
+#         once the line wraps the user cannot move to previous line
+# uses:   Term::Clui
+sub interact_ask ($self, $prompt, $default = q{})
+{    ## no critic (RequireInterpolationOfMetachars)
+  return Term::Clui::ask($prompt, $default);
+}
+
 # interact_confirm($question)    {{{1
 #
 # does:   user answers y/n to a question
@@ -1813,6 +2133,26 @@ sub interact_confirm ($self, $question)
   if (not $question) { return $FALSE; }
   local $ENV{CLUI_DIR} = 'OFF';    # do not remember responses
   return Term::Clui::confirm($question);
+}
+
+# interact_prompt([message])    {{{1
+#
+# does:   display message and prompt user to press any key
+# params: message - prompt message [optional]
+#                   [default='Press any key to continue...']
+# prints: prompt message
+# return: nil
+sub interact_prompt ($self, $message = 'Press any key to continue...')
+{    ## no critic (RequireInterpolationOfMetachars)
+  print $message or croak;
+  Term::ReadKey::ReadMode('raw');
+  while ($TRUE) {
+    my $key = Term::ReadKey::ReadKey(0);
+    last if defined $key;
+  }
+  Term::ReadKey::ReadMode('restore');
+  print $NEWLINE or croak;
+  return;
 }
 
 # internet_connection([$verbose])    {{{1
@@ -2029,6 +2369,48 @@ sub path_canon ($self, $path) { ## no critic (RequireInterpolationOfMetachars)
   return File::Spec->canonpath($glob_matches[0]);
 }
 
+# path_copy($src, $dest)    {{{1
+#
+# does:   copy source file or directory to target file or directory
+# params: $src  - source file or directory [required]
+#                 must exist
+#         $dest - destination file or directory [required]
+#                 need not exist
+# prints: nil, except for error message
+# return: boolean success of copy
+#         die if missing argument
+# note:   can copy file to file or directory
+#         can copy directory to directory
+#         can not copy directory to existing file
+sub path_copy ($self, $src, $dest)
+{    ## no critic (RequireInterpolationOfMetachars)
+
+  # check args - missing argument is fatal
+  if (not $src)  { confess 'No source provided'; }
+  if (not $dest) { confess 'No destination provided'; }
+
+  # convert to true path
+  my $source      = $self->path_true($src);
+  my $destination = $self->path_true($dest);
+
+  # check args - source must exist
+  if (not -e $source) {
+    carp "Source '$src' does not exist";
+    return $FALSE;
+  }
+
+  # check args - cannot copy directory onto file
+  if (-d $source and -e $destination) {
+    carp "Cannot copy directory '$src' onto file '$dest'";
+    return $FALSE;
+  }
+
+  # perform copy
+  # - function rmove tries very hard to perform copy,
+  #   creating target directories where necessary
+  return File::Copy::Recursive::rcopy($source, $destination);
+}
+
 # path_executable($exe)    {{{1
 #
 # does:   get path of executable
@@ -2192,35 +2574,60 @@ sub run_command ($self, $err, @cmd)
   return;
 }
 
-# shell_command($cmd, $fatal, $timeout)    {{{1
+# shell_command($cmd, $opts)    {{{1
 #
 # does:   run shell command and capture output
-# params: $cmd     - command to run [string or array reference, required]
-#         $fatal   - die on command failure [bool, optional, default=true]
-#         $timeout - command timeout [integer, optional, default=0]
+# params: $cmd  - command to run [string or array reference, required]
+#         $opts - optional configuration [hash reference, optional] with keys:
+#                   fatal: whether to die on command failure
+#                          [bool, default=true]
+#                  silent: whether to suppress output [bool, default=true]
+#                          if false displays command, shell feedback,
+#                          and error message on failure
+#                 timeout: command timeout [int, default=0 (none)]
 # return: Role::Utils::Dn::CommandResult object
-#   note: does not display output while command running, but captures output
+#   note: if 'silent'=false then displays output while command is running
 #    see: run_command()
-sub shell_command ($self, $cmd, $fatal = $TRUE, $timeout = 0)
+sub shell_command ($self, $cmd, $opts = {})
 {    ## no critic (RequireInterpolationOfMetachars)
 
-  # process arg
-  if (not(defined $cmd)) { confess $MSG_NO_COMMAND ; }
-  my $arg_type = ref $cmd;
-  if ($arg_type eq $REF_TYPE_ARRAY) {
-    my @cmd_args = @{$cmd};
-    if (not @cmd_args) { confess 'No command arguments provided'; }
-  }
-  elsif ($arg_type ne $EMPTY_STRING) {    # if not array ref must be string
-    confess 'Command is not a string or array reference';
-  }
-  if (not $self->int_pos_valid($timeout)) {
-    confess 'timeout is not a valid positive integer';
+  # process arguments
+  my $var_values = $self->_shell_command_process_args($cmd, $opts);
+  my ($cmd_string, $verbose, $fatal, $timeout, $div_top, $div_bottom) = (
+    $var_values->{'cmd_string'}, $var_values->{'verbose'},
+    $var_values->{'fatal'},      $var_values->{'timeout'},
+    $var_values->{'div_top'},    $var_values->{'div_bottom'},
+  );
+
+  # initial feedback
+  if ($verbose) {
+    say $SPACE                   or croak;
+    say "Running '$cmd_string':" or croak;
+    say $div_top                 or croak;
   }
 
   # run command
-  my ($succeed, $err, $full_ref, $stdout_ref, $stderr_ref) =
-      IPC::Cmd::run(command => $cmd, timeout => $timeout);
+  my ($succeed, $err, $full_ref, $stdout_ref, $stderr_ref) = IPC::Cmd::run(
+    command => $cmd,
+    verbose => $verbose,
+    timeout => $timeout,
+  );
+
+  # provide final feedback
+  # - errors supposedly displayed during execution,
+  #   but show again to be sure
+  if ($verbose) {
+    if ($err) { warn "$err\n"; }
+    say $div_bottom or croak;
+    if (not $succeed) { say "Command failed\n" or croak; }
+  }
+
+  # die if command failed and fatal flag is set
+  # - if verbose then have already shown error
+  if ($fatal and not $succeed) {
+    if   ($verbose) { confess "Shell command '$cmd_string' failed"; }
+    else            { confess "Shell command '$cmd_string' failed: $err"; }
+  }
 
   # process output
   # - err: has trailing newline
@@ -2250,14 +2657,6 @@ sub shell_command ($self, $cmd, $fatal = $TRUE, $timeout = 0)
     push @stderr, @lines;
   }
 
-  # die now if command failed and fatal flag is set
-  if ($fatal and not $succeed) {
-    my $cmd_str;
-    if ($arg_type eq $REF_TYPE_ARRAY) { $cmd_str = join $SPACE, @{$cmd}; }
-    else                              { $cmd_str = $cmd; }
-    confess "Shell command '$cmd_str' failed: $err";
-  }
-
   # return results as an object
   return Role::Utils::Dn::CommandResult->new(
     success      => $succeed,
@@ -2266,6 +2665,92 @@ sub shell_command ($self, $cmd, $fatal = $TRUE, $timeout = 0)
     standard_out => [@stdout],
     standard_err => [@stderr],
   );
+}
+
+# _shell_command_process_args($cmd, $opts)    {{{1
+#
+# does:   process arguments to shell_command() and return derived values
+# params: $cmd  - command to run [string or array reference, required]
+#         $opts - optional configuration [hash reference, optional] with keys:
+#                   fatal: whether to die on command failure
+#                          [bool, default=true]
+#                  silent: whether to suppress output [bool, default=true]
+#                          if false displays command, shell feedback,
+#                          and error message on failure
+#                 timeout: command timeout [int, default=0 (none)]
+# return: hashref with keys: cmd_string, verbose, fatal, timeout,
+#                            div_top, div_bottom
+#    see: shell_command()
+sub _shell_command_process_args ($self, $cmd, $opts)
+{    ## no critic (RequireInterpolationOfMetachars)
+
+  # process arguments
+  # - cmd
+  if (not(defined $cmd)) { confess $MSG_NO_COMMAND ; }
+  my $cmd_string;
+  my $arg_type = ref $cmd;
+  if ($arg_type eq $REF_TYPE_ARRAY) {
+    my @cmd_args = @{$cmd};
+    if (not @cmd_args) { confess 'No command arguments provided'; }
+    $cmd_string = join $SPACE, @cmd_args;
+  }
+  elsif ($arg_type eq $EMPTY_STRING) {    # if not array ref must be string
+    $cmd_string = $cmd;
+  }
+  else {
+    confess 'Command is not a string or array reference';
+  }
+
+  # - opts
+  my $ref_opts = ref $opts;
+  if ($ref_opts eq $EMPTY_STRING) {
+    croak 'Expected options hash reference, got a non-reference';
+  }
+  elsif ($ref_opts ne $REF_TYPE_HASH) {
+    croak "Expected options to be a HASH reference, got a $ref_opts refernce";
+  }
+  my %opts_hash      = %{$opts};
+  my %valid_opt_keys = map { $_ => $TRUE } qw(silent fatal timeout);
+  for my $key (keys %opts_hash) {
+    if (not $valid_opt_keys{$key}) { confess "Invalid options key '$key'"; }
+  }
+
+  # - verbose (silent)
+  my $verbose = $FALSE;
+  if (exists $opts_hash{$KEY_SILENT} and not $opts_hash{$KEY_SILENT}) {
+    $verbose = $TRUE;
+  }
+
+  # - fatal
+  my $fatal = $TRUE;
+  if (exists $opts_hash{$KEY_FATAL} and not $opts_hash{$KEY_FATAL}) {
+    $fatal = $FALSE;
+  }
+
+  # - timeout
+  my $timeout = 0;
+  if (exists $opts_hash{$KEY_TIMEOUT} and not $opts_hash{$KEY_TIMEOUT}) {
+    $timeout = $opts_hash{KEY_TIMEOUT};
+  }
+  if (not $self->int_pos_valid($timeout)) {
+    confess "timeout '$timeout' is not a valid positive integer";
+  }
+
+  # dividers
+  my $div_top    = $self->divider('top');
+  my $div_bottom = $self->divider('bottom');
+
+  # prepare return variable
+  my $retvals = {
+    cmd_string => $cmd_string,
+    verbose    => $verbose,
+    fatal      => $fatal,
+    timeout    => $timeout,
+    div_top    => $div_top,
+    div_bottom => $div_bottom,
+  };
+
+  return $retvals;
 }
 
 # stringify($value)    {{{1
@@ -2292,8 +2777,7 @@ sub stringify ($self, $value)
 # params: nil
 # prints: nil
 # return: Scalar integer
-sub term_height ($self = undef)
-{    ## no critic (RequireInterpolationOfMetachars)
+sub term_height ($self) {    ## no critic (RequireInterpolationOfMetachars)
   my ($height, $width);
   my $mwh = Curses->new();
   $mwh->getmaxyx($height, $width);
@@ -2307,13 +2791,89 @@ sub term_height ($self = undef)
 # params: nil
 # prints: nil
 # return: Scalar integer
-sub term_width ($self = undef)
-{    ## no critic (RequireInterpolationOfMetachars)
+sub term_width ($self) {    ## no critic (RequireInterpolationOfMetachars)
   my ($height, $width);
   my $mwh = Curses->new();
   $mwh->getmaxyx($height, $width);
   endwin();
   return $width;
+}
+
+# time_24h_valid($time)    {{{1
+#
+# does:   determine whether supplied time is valid 24 hour time
+# params: $time - time to evaluate, 'HH:MM' or 'HHMM' format [required]
+#                 leading zero can be dropped
+# prints: nil
+# return: boolean
+sub time_24h_valid ($self, $time)
+{    ## no critic (RequireInterpolationOfMetachars)
+  if (not $time) { return $FALSE; }
+
+  # deal with case of 4-digit time, e.g., '0520'
+  if ($time =~ /^ ( \d{2} ) ( \d{2} ) \z/xsm) { $time = "$1:$2"; }
+
+  # evaluate time value
+  my $value = eval { Time::Simple->new($time); 1 };
+  return $value;
+}
+
+# time_now()    {{{1
+#
+# does:   provide current time ('HH::MM::SS')
+# params: nil
+# prints: nil
+# return: scalar string
+sub time_now ($self) {    ## no critic (RequireInterpolationOfMetachars)
+  return Time::Simple->new()->format;
+}
+
+# time_zone_from_offset($offset)    {{{1
+#
+# does:   determine timezone for offset
+# params: $offset - timezone offset to check [required]
+# prints: nil
+# return: scalar string
+sub time_zone_from_offset ($self, $offset)
+{    ## no critic (RequireInterpolationOfMetachars)
+
+  # get timezones for all offsets
+  my @countries = DateTime::TimeZone->countries();
+  my %timezone;
+  foreach my $country (@countries) {
+    my @names = DateTime::TimeZone->names_in_country($country);
+    foreach my $name (@names) {
+      my $dt             = DateTime->now(time_zone => $name,);
+      my $offset_seconds = $dt->offset();
+      my $offset = DateTime::TimeZone->offset_as_string($offset_seconds);
+      push @{ $timezone{$offset} }, $name;
+    }
+  }
+
+  # find timezones for given offset
+  if (not $timezone{$offset}) {
+    croak "No timezones for offset '$offset'\n";
+  }
+  my @timezones = sort @{ $timezone{$offset} };
+
+  # prefer Australian timezone
+  my @oz_timezones = grep {/Australia/sm} @timezones;
+  if (@oz_timezones) {
+    return $oz_timezones[0];
+  }
+  else {
+    return $timezones[0];
+  }
+}
+
+# time_zone_local()    {{{1
+#
+# does:   get local timezone
+# params: nil
+# prints: nil
+# return: scalar string
+sub time_zone_local ($self) {   ## no critic (RequireInterpolationOfMetachars)
+  return DateTime::TimeZone->new(name => 'local')->name();
 }
 
 # tools_available(@tools)    {{{1
@@ -2386,7 +2946,7 @@ sub wrap_text ($self, $strings, %options)
 {    ## no critic (RequireInterpolationOfMetachars ProhibitExcessComplexity)
 
   const my $MIN_TEXT_WIDTH => 10;    ## no critic (ProhibitDuplicateLiteral)
-  const my $TAB_SIZE       => 4;
+  const my $TAB_SIZE       => 4;     ## no critic (ProhibitDuplicateLiteral)
 
   # handle args    {{{2
   # - $strings    {{{3
@@ -2594,9 +3154,17 @@ get duplicate list items
 
 =back
 
-=head3 Debian
+=head3 Debian/GNU
 
 =over
+
+=item autoconf_version( )
+
+get autoconf version
+
+=item changelog_from_git($dir)
+
+get ChangeLog content from a git repository
 
 =item changelog_version_regex( )
 
@@ -2766,7 +3334,15 @@ compare two files to see if they are identical
 
 =item file_is_deb($filepath)
 
-determine whether file is a debian package file.
+determine whether file is a debian package file
+
+=item file_is_perl($filepath)
+
+determine whether file is a perl executable file
+
+=item file_is_deb($filepath)
+
+determine whether file is a debian package file
 
 =item file_is_mimetype($filepath, $mimetype)
 
@@ -2796,6 +3372,10 @@ different directories
 =item file_name_parts($filepath, $exists = $FALSE)
 
 extract base name and suffix from a file path
+
+=item file_read($fp)
+
+read contents of a file
 
 =item file_readable(@filepaths)
 
@@ -2858,13 +3438,43 @@ checks that required executables are available on the system
 
 =back
 
-=head3 String
+=head3 Date/Time
 
 =over
 
 =item date_current_iso( )
 
 get current date in ISO 8601 format (yyyy-mm-dd)
+
+=item date_email ([$date], [$time], [$offset])
+
+produce a date formatted according to RFC 2822 (Internet Message Format)
+
+=item date_valid($date)
+
+determine whether date is valid and in ISO format
+
+=item time_24h_valid($time)
+
+determine whether supplied time is valid 24 hour time
+
+=item time_now()
+
+provide current time ('HH::MM::SS')
+
+=item time_zone_from_offset($offset)
+
+determine timezone for offset, preferring Australian zones
+
+=item time_zone_local()
+
+get local timezone
+
+=back
+
+=head3 String
+
+=over
 
 =item pad($values[, $width[, $char[, $side]]])
 
@@ -2892,9 +3502,17 @@ provides a string of dashes as wide as the current terminal
 
 format variable for display
 
+=item interact_ask($prompt,[ $default])
+
+user provides input
+
 =item interact_confirm($question)
 
 user answers y/n to a question
+
+=item interact_prompt($message)
+
+prompt user to press key
 
 =item pager($lines)
 
@@ -2947,6 +3565,48 @@ Error message on failure.
 =head3 Returns
 
 Array reference. Dies on failure.
+
+=head2 autoconf_version( )
+
+=head3 Purpose
+
+Get current version of C<autoconf>.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar version number. Dies on failure.
+
+=head2 changelog_from_git($dir)
+
+=head3 Purpose
+
+Get ChangeLog content from a git repository.
+
+=head3 Parameters
+
+=over
+
+=item $dir
+
+Root file of repository. It must contain a F<.git> directory. Scalar. Required.
+
+=back
+
+=head3 Prints
+
+Error message on failure.
+
+=head3 Returns
+
+List. Dies on failure.
 
 =head2 changelog_version_regex( )
 
@@ -3134,6 +3794,65 @@ Nil.
 =head3 Returns
 
 Scalar string.
+
+=head2 date_email ([$date], [$time], [$offset])
+
+=head3 Purpose
+
+Produce a date formatted according to RFC 2822 (Internet Message Format).
+=head3 Parameters
+
+=over
+
+=item $date
+
+ISO-format date. Optional. Default: today.
+
+=item $time
+
+24 hour time. Leading hour zero and seconds are optional. Optional.
+Default: now.
+
+=item $offset
+
+Timezone offset, e.g., +0930. Optional.
+Default: local timezone offset.
+
+=back
+
+=head3 Prints
+
+Message if fatal error.
+
+=head3 Returns
+
+Scalar string. Dies on failure.
+
+Example output: 'Mon, 16 Jul 1979 16:45:20 +1000'.
+
+head2 date_valid($date)
+
+=head3 Purpose
+
+Determine whether a date is valid and in ISO format.
+
+=head3 Parameters
+
+=over
+
+=item $date
+
+Date to be analysed. Scalar. Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar boolean.
 
 =head2 debhelper_compat( )
 
@@ -3344,6 +4063,12 @@ Nil.
 
 Scalar string directory path.
 
+=head3 Usage
+
+The function accepts an arbitrary number of parameters, for example:
+
+    my $dir_path = $self->dir_join($root, $dir, $subdir)
+
 =head2 dir_list([$directory])
 
 =head3 Purpose
@@ -3529,7 +4254,8 @@ Extract filename from filepath and add it to a dirpath.
 
 =item $filepath
 
-Path from which to extract file name. Scalar string. Required.
+Path from which to extract file name. Can be a file name only. Scalar string.
+Required.
 
 =item $dirpath
 
@@ -3675,6 +4401,32 @@ Nil.
 
 Scalar boolean. Dies if filepath missing or invalid.
 
+=head2 file_is_perl($filepath)
+
+=head3 Purpose
+
+Determines whether a file is a perl executable file.
+Note: does not detect perl module files.
+
+-head3 Parameters
+
+=over
+
+=item $filepath
+
+File to analyse. Scalar.
+Required (script dies if filepath is missing or invalid).
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar boolean.
+
 =head2 file_list([$directory[, $pattern]])
 
 =head3 Purpose
@@ -3780,7 +4532,8 @@ Extract filename from filepath.
 
 =item $filepath
 
-Path from which to extract file name. Scalar string. Required.
+Path from which to extract file name. Can be a file name only. Scalar string.
+Required.
 
 =item $exists
 
@@ -3866,6 +4619,30 @@ Error messages.
 List of strings: ($base, $extension). Note that the extension includes the
 period separating base name and suffix, so that concatenating base name and
 suffix results in the original file name.
+
+=head2 file_read($fp)
+
+=head3 Purpose
+
+Read contents of a file into a scalar variable.
+
+=head3 Parameters
+
+=over
+
+=item $fp
+
+Path to file to read from. String or L<Path::Tiny> object reference. Required.
+
+=back
+
+=head3 Prints
+
+Error messages.
+
+=head3 Returns
+
+Arrayref of content lines. Dies on failure.
 
 =head2 file_readable(@filepaths)
 
@@ -4486,6 +5263,31 @@ Nil.
 
 Scalar boolean.
 
+=head2 interact_ask($prompt[, $default])
+
+Get input from user.
+
+=head3 Parameters
+
+=over
+
+=item $prompt
+
+User prompt. Can be multi-line (use "\n"). Scalar. Required.
+
+=item $default
+
+=back
+
+=head3 Prints
+
+User interaction. After user answers, all but the first line of the prompt is
+removed from the screen. The input also remains on the screen.
+
+=head3 Returns
+
+Scalar string.
+
 =head2 interact_confirm($question)
 
 User answers y/n to a question.
@@ -4516,6 +5318,30 @@ Scalar boolean.
     if ( $self->interact_confirm($prompt) ) {
         # do stuff
     }
+
+=head2 interact_prompt([message])
+
+=head3 Purpose
+
+Display message and prompt user to press any key.
+
+=head3 Parameters
+
+=over
+
+=item message
+
+Prompt message. Scalar. Optional. Default: 'Press any key to continue...'.
+
+=back
+
+=head3 Prints
+
+Prompt message.
+
+=head3 Returns
+
+N/A. Dies on failure.
 
 =head2 internet_connection([$verbose])
 
@@ -5025,6 +5851,91 @@ Nil.
 
 Scalar integer.
 
+=head2 time_24h_valid($time)
+
+=head3 Purpose
+
+Determine whether the supplied time is a valid 24 hour time.
+
+=head3 Parameters
+
+=over
+
+=item $time
+
+The time to evaluate, in 'HH:MM' or 'HHMM' format, noting the leading zero can
+be dropped. Scalar. Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar boolean.
+
+=head2 time_now()
+
+=head3 Purpose
+
+Get current time ('HH::MM::SS').
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
+head2 time_zone_from_offset($offset)
+
+=head3 Purpose
+
+Determine timezone for a given offset, preferring Australian timezones.
+
+=head3 Parameters
+
+=over
+
+=item $offset
+
+Timezone offset to check. Scalar. Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
+=head2 time_zone_local()
+
+=head3 Purpose
+
+Get local timezone.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
 =head2 tools_available(@tools)
 
 =head3 Purpose
@@ -5379,12 +6290,13 @@ There are no configuration files used. There are no module/role settings.
 =head2 Perl modules
 
 autodie, Carp, Clipboard, Const::Fast, Curses, Data::Dumper::Simple,
-Date::Simple, English, Env, Feature::Compat::Try, File::Basename,
-File::Compare, File::Copy::Recursive, File::Path, File::Spec, File::Temp,
-File::Util, File::Which, IO::Pager, IPC::Cmd, IPC::Run, Image::Magick,
-List::SomeUtils, List::Util, Moo::Role, namespace::clean, POSIX, Path::Tiny,
-Scalar::Util, strictures, Symbol, Term::Clui, Term::ProgressBar::Simple,
-Text::Wrap, version.
+Date::Simple, DateTime, DateTime::TimeZone, DateTime::Format::Mail, English,
+Env, Feature::Compat::Try, File::Basename, File::Compare,
+File::Copy::Recursive, File::Path, File::Spec, File::Temp, File::Util,
+File::Which, IO::Pager, IPC::Cmd, IPC::Run, Image::Magick, List::SomeUtils,
+List::Util, Moo::Role, namespace::clean, POSIX, Path::Tiny, Scalar::Util,
+strictures, Symbol, Term::Clui, Term::ProgressBar::Simple, Text::Wrap,
+Time::Simple, version.
 
 =head2 Other
 
