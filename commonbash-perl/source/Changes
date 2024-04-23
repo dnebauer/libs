@@ -1,9 +1,12 @@
 Revision history for Dn-CommonBash
 
-{{$NEXT}}
+5.30  2024-04-23
+        - Fix perlcritic warnings
+        - Remove dependency on Function::Parameters
+        - Replace Dn::Common dependency with Role::Utils::Dn
 
-0.2  2024-01-30
+0.2   2024-01-30
         - Replace when() (deprecated)
 
-0.1  2021-11-08
+0.1   2021-11-08
         - Initial release

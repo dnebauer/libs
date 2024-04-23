@@ -1,144 +1,150 @@
 package Dn::CommonBash::Function;
 
-use Moo;    #                                                          {{{1
+# modules    {{{1
+use Moo;
 use strictures 2;
-use 5.014_002;
+use 5.038_001;
 use namespace::clean;
-use version; our $VERSION = qv('0.1');
+use version; our $VERSION = qv('5.30');
 
-use Test::NeedsDisplay;
+use Test::NeedsDisplay;    # needs to be the first listed module
 use Carp qw(confess);
-use Dn::Common;
+use Const::Fast;
 use Dn::CommonBash::Function::Option;
 use Dn::CommonBash::Function::Param;
-use English qw(-no_match_vars);
-use Function::Parameters;
+use English;
 use MooX::HandlesVia;
-use Readonly;
-use Types::Standard qw(ArrayRef InstanceOf Str);
+use Types::Standard;
 
-my $cp = Dn::Common->new();
-Readonly my $TRUE  => 1;
-Readonly my $FALSE => 0;    #                                          }}}1
+with qw(Role::Utils::Dn);
 
-# Attributes
+const my $TRUE             => 1;
+const my $FALSE            => 0;
+const my $APOS_COMMA_SPACE => q{', };
+const my $COMMA_SPACE      => q{, };
+const my $SPACE            => q{ };
+const my $SINGLE_QUOTE     => q{'};     # }}}1
 
-# purpose                                                              {{{1
+# attributes
+
+# purpose    {{{1
 has 'purpose' => (
-    is            => 'rw',
-    isa           => Types::Standard::Str,
-    documentation => q{Description of functions's purpose},
+  is            => 'rw',
+  isa           => Types::Standard::Str,
+  documentation => q{Description of functions's purpose},
 );
 
-# prints                                                               {{{1
+# prints    {{{1
 has 'prints' => (
-    is            => 'rw',
-    isa           => Types::Standard::Str,
-    documentation => q{Desription of functions's printed output},
+  is            => 'rw',
+  isa           => Types::Standard::Str,
+  documentation => q{Desription of functions's printed output},
 );
 
-# returns                                                              {{{1
+# returns    {{{1
 has 'returns' => (
-    is            => 'rw',
-    isa           => Types::Standard::Str,
-    documentation => q{Description of functions's return value},
+  is            => 'rw',
+  isa           => Types::Standard::Str,
+  documentation => q{Description of functions's return value},
 );
 
-# _notes, add_note                                                     {{{1
+# _notes, add_note    {{{1
 has '_notes_list' => (
-    is          => 'rw',
-    isa         => Types::Standard::ArrayRef [Types::Standard::Str],
-    default     => sub { [] },
-    handles_via => 'Array',
-    handles     => {
-        _notes     => 'elements',
-        add_note   => 'push',
-        _has_notes => 'count',
-    },
-    documentation => q{Miscellaneous notes},
+  is          => 'rw',
+  isa         => Types::Standard::ArrayRef [Types::Standard::Str],
+  default     => sub { [] },
+  handles_via => 'Array',
+  handles     => {
+    _notes     => 'elements',
+    add_note   => 'push',
+    _has_notes => 'count',
+  },
+  documentation => q{Miscellaneous notes},
 );
 
-# _usages, add_usage                                                   {{{1
+# _usages, add_usage    {{{1
 has '_usage_list' => (
-    is          => 'rw',
-    isa         => Types::Standard::ArrayRef [Types::Standard::Str],
-    default     => sub { [] },
-    handles_via => 'Array',
-    handles     => {
-        _usages     => 'elements',
-        add_usage   => 'push',
-        _has_usages => 'count',
-    },
-    documentation => q{Example code demonstrating use},
+  is          => 'rw',
+  isa         => Types::Standard::ArrayRef [Types::Standard::Str],
+  default     => sub { [] },
+  handles_via => 'Array',
+  handles     => {
+    _usages     => 'elements',
+    add_usage   => 'push',
+    _has_usages => 'count',
+  },
+  documentation => q{Example code demonstrating use},
 );
 
-# option($flag), _options_list, add_option                             {{{1
+# option($flag), _options_list, add_option    {{{1
 has '_options_list' => (
-    is  => 'rw',
-    isa => Types::Standard::ArrayRef [
-        Types::Standard::InstanceOf ['Dn::CommonBash::Function::Option'] ],
-    default     => sub { [] },
-    handles_via => 'Array',
-    handles     => {
-        _options        => 'elements',    # () -> @opt_refs
-        add_option      => 'push',        # ($opt_ref)
-        _has_options    => 'count',       # () -> bool
-        _filter_options => 'grep',
-    },
-    documentation => 'Options',
+  is  => 'rw',
+  isa => Types::Standard::ArrayRef [
+    Types::Standard::InstanceOf ['Dn::CommonBash::Function::Option'],
+  ],
+  default     => sub { [] },
+  handles_via => 'Array',
+  handles     => {
+    _options        => 'elements',    # () -> @opt_refs
+    add_option      => 'push',        # ($opt_ref)
+    _has_options    => 'count',       # () -> bool
+    _filter_options => 'grep',
+  },
+  documentation => 'Options',
 );
 
-method option ($flag) {
-    if ( not $flag ) { return {}; }
-    my @matches = $self->_filter_options( sub { $_->flag eq $flag } );
-    my $match_count = scalar @matches;
-    if ( $match_count == 1 ) {
-        return $matches[0];
-    }
-    else {
-        return;
-    }
+sub option ($self, $flag) {    ## no critic (RequireInterpolationOfMetachars)
+  if (not $flag) { return {}; }
+  my @matches     = $self->_filter_options(sub { $_->flag eq $flag });
+  my $match_count = @matches;
+  if ($match_count == 1) {
+    return $matches[0];
+  }
+  else {
+    return {};
+  }
 }
 
-# param($name), _params, add_param                                     {{{1
+# param($name), _params, add_param    {{{1
 has '_param_list' => (
-    is  => 'rw',
-    isa => Types::Standard::ArrayRef [
-        Types::Standard::InstanceOf ['Dn::CommonBash::Function::Param'] ],
-    default     => sub { [] },
-    handles_via => 'Array',
-    handles     => {
-        _params        => 'elements',
-        add_param      => 'push',
-        _has_params    => 'count',
-        _filter_params => 'grep',
-    },
-    documentation => 'Parameters',
+  is  => 'rw',
+  isa => Types::Standard::ArrayRef [
+    Types::Standard::InstanceOf ['Dn::CommonBash::Function::Param'],
+  ],
+  default     => sub { [] },
+  handles_via => 'Array',
+  handles     => {
+    _params        => 'elements',
+    add_param      => 'push',
+    _has_params    => 'count',
+    _filter_params => 'grep',
+  },
+  documentation => 'Parameters',
 );
 
-method param ($name) {
-    if ( not $name ) { return {}; }
-    my @matches = $self->_filter_params( sub { $_->name eq $name } );
-    my $match_count = scalar @matches;
-    if ( $match_count == 1 ) {
-        return $matches[0];
-    }
-    else {
-        return;
-    }
-}    #                                                                 }}}1
+sub param ($self, $name) {    ## no critic (RequireInterpolationOfMetachars)
+  if (not $name) { return {}; }
+  my @matches     = $self->_filter_params(sub { $_->name eq $name });
+  my $match_count = @matches;
+  if ($match_count == 1) {
+    return $matches[0];
+  }
+  else {
+    return {};
+  }
+}                             # }}}1
 
-# Methods
+# methods
 
-# display_function_screen($name)                                       {{{1
+# display_function_screen($name)    {{{1
 #
 # does:   provide formatted version of function for screen display
 # params: $name = function name [required]
 # prints: nil
 # return: list of display lines
 # note:   output is a list of strings -- one string per screen line
-# note:   output strings are prepared by Dn::Common->vim_printify
-#         and need to be printed to screen using Dn::Common->vim_list_print
+# note:   output strings are prepared by Role::Utils::Dn->vim_printify
+#         and need to be printed to screen using Role::Utils::Dn->vim_list_print
 # note:   the function object does not contain its own name -- that is
 #         captured by the hash key pointing to the function object -- it
 #         must be passed as an argument
@@ -154,177 +160,198 @@ method param ($name) {
 #           [...]
 #           << options >>
 #           << params >>
-method display_function_screen ($name) {
-    my @fn;
+sub display_function_screen ($self, $name)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+  my @fn;
 
-    # name
+  # name
+  push @fn, $self->vim_printify('title', '*** Function = ' . $name . ' ***');
+
+  # purpose
+  if ($self->purpose) {
+    push @fn, '    Use: ' . $self->purpose;
+  }
+  else {    # no 'purpose' attribute
     push @fn,
-        $cp->vim_printify( 'title', '*** Function = ' . $name . ' ***' );
+        $self->vim_printify('error', q{  Error: No 'purpose' attribute});
+  }
 
-    # purpose
-    if ( $self->purpose ) {
-        push @fn, '    Use: ' . $self->purpose;
-    }
-    else {                               # no 'purpose' attribute
-        push @fn,
-            $cp->vim_printify( 'error', q{  Error: No 'purpose' attribute} );
-    }
+  # prints
+  if ($self->prints) {
+    push @fn, ' Prints: ' . $self->prints;
+  }
+  else {    # no 'prints' attribute
+    push @fn, $self->vim_printify(
+      'error',    ## no critic (ProhibitDuplicateLiteral)
+      q{  Error: No 'prints' attribute},
+    );
+  }
 
-    # prints
-    if ( $self->prints ) {
-        push @fn, ' Prints: ' . $self->prints;
-    }
-    else {                               # no 'prints' attribute
-        push @fn,
-            $cp->vim_printify( 'error', q{  Error: No 'prints' attribute} );
-    }
+  # returns
+  if ($self->returns) {
+    push @fn, 'Returns: ' . $self->returns;
+  }
+  else {    # no 'returns' attribute
+    push @fn, $self->vim_printify('warn', q{  Error: No 'returns' attribute});
+  }
 
-    # returns
-    if ( $self->returns ) {
-        push @fn, 'Returns: ' . $self->returns;
+  # notes
+  if ($self->_has_notes) {
+    foreach my $note ($self->_notes) {
+      push @fn, '   Note: ' . $note;
     }
-    else {                               # no 'returns' attribute
-        push @fn,
-            $cp->vim_printify( 'warn', q{  Error: No 'returns' attribute} );
-    }
+  }
 
-    # notes
-    if ( $self->_has_notes ) {
-        foreach my $note ( $self->_notes ) {
-            push @fn, '   Note: ' . $note;
-        }
+  # usage
+  if ($self->_has_usages) {
+    my $prefix = '  Usage: ';
+    my $header = $TRUE;
+    foreach my $usage ($self->_usages) {
+      push @fn, $prefix . $self->string_tabify($usage);
+      if ($header) {
+        $prefix = q{         };
+        $header = $FALSE;
+      }
     }
+  }
 
-    # usage
-    if ( $self->_has_usages ) {
-        my $prefix = '  Usage: ';
-        my $header = $TRUE;
-        foreach my $usage ( $self->_usages ) {
-            push @fn, $prefix . $cp->tabify($usage);
-            if ($header) {
-                $prefix = q{         };
-                $header = $FALSE;
-            }
-        }
+  # options
+  if ($self->_has_options) {
+    foreach my $option ($self->_options) {
+      push @fn, $SPACE;
+      push @fn, $option->display_option_screen;
     }
+  }
 
-    # options
-    if ( $self->_has_options ) {
-        foreach my $option ( $self->_options ) {
-            push @fn, q{ };
-            push @fn, $option->display_option_screen;
-        }
+  # parameters
+  my $order = 1;
+  if ($self->_has_params) {
+    foreach my $param ($self->_params) {
+      push @fn, $SPACE;
+      push @fn, $param->display_param_screen($order++);
     }
+  }
 
-    # parameters
-    my $order = 1;
-    if ( $self->_has_params ) {
-        foreach my $param ( $self->_params ) {
-            push @fn, q{ };
-            push @fn, $param->display_param_screen( $order++ );
-        }
-    }
-
-    return @fn;
+  return @fn;
 }
 
-# new_option($flag)                                                    {{{1
+# new_option($flag)    {{{1
 #
 # does:   create new Dn::CommonBash::Function::Option object
 # params: $flag - option flag [required]
 # prints: nil
 # return: Dn::CommonBash::Function::Option object
-method new_option ($flag) {
-    if ( not $flag ) { confess q{No option flag provided}; }
-    return Dn::CommonBash::Function::Option->new( flag => $flag );
+sub new_option ($self, $flag)
+{    ## no critic (RequireInterpolationOfMetachars, ProhibitDuplicateLiteral)
+  if (not $flag) { confess q{No option flag provided}; }
+  return Dn::CommonBash::Function::Option->new(flag => $flag);
 }
 
-# new_param($flag)                                                     {{{1
+# new_param($flag)    {{{1
 #
 # does:   create new Dn::CommonBash::Function::Param object
 # params: $name - param name [required]
 # prints: nil
 # return: Dn::CommonBash::Function::Param object
-method new_param ($name) {
-    if ( not $name ) { confess q{No parameter name provided}; }
-    return Dn::CommonBash::Function::Param->new( name => $name );
+sub new_param ($self, $name)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+  if (not $name) { confess q{No parameter name provided}; }
+  return Dn::CommonBash::Function::Param->new(name => $name);
 }
 
-# write_function_loader()                                              {{{1
+# write_function_loader()    {{{1
 #
 # does:   generate vim 'let' command for loader
 # params: nil
 # prints: nil
 # return: scalar string
 # note:   designed to be called by Dn::CommonBash::Function->write_loader
-method write_function_loader () {
-    my $fn = '{ ';
+sub write_function_loader ($self)
+{    ## no critic (RequireInterpolationOfMetachars)
+  my $fn = '{ ';
 
-    # purpose
-    if ( $self->purpose ) {
-        $fn .= q{'purpose': '} . $cp->entitise( $self->purpose ) . q{', };
-    }
+  # purpose
+  if ($self->purpose) {
+    $fn
+        .= q{'purpose': '}
+        . $self->string_entitise($self->purpose)
+        . $APOS_COMMA_SPACE;
+  }
 
-    # prints
-    if ( $self->prints ) {
-        $fn .= q{'prints': '} . $cp->entitise( $self->prints ) . q{', };
-    }
+  # prints
+  if ($self->prints) {
+    $fn
+        .= q{'prints': '}
+        . $self->string_entitise($self->prints)
+        . $APOS_COMMA_SPACE;
+  }
 
-    # returns
-    if ( $self->returns ) {
-        $fn .= q{'returns': '} . $cp->entitise( $self->returns ) . q{', };
-    }
+  # returns
+  if ($self->returns) {
+    $fn
+        .= q{'returns': '}
+        . $self->string_entitise($self->returns)
+        . $APOS_COMMA_SPACE;
+  }
 
-    # notes
-    if ( $self->_has_notes ) {
-        $fn .= q{'notes': [ };
-        foreach my $note ( $self->_notes ) {
-            $fn .= q{'} . $cp->entitise($note) . q{', };
-        }
-        $fn .= '], ';
+  # notes
+  if ($self->_has_notes) {
+    $fn .= q{'notes': [ };
+    foreach my $note ($self->_notes) {
+      $fn
+          .= $SINGLE_QUOTE
+          . $self->string_entitise($note)
+          . $APOS_COMMA_SPACE;
     }
+    $fn .= '], ';
+  }
 
-    # usage
-    if ( $self->_has_usages ) {
-        $fn .= q{'usage': [ };
-        foreach my $note ( $self->_notes ) {
-            $fn .= q{'} . $cp->entitise($note) . q{', };
-        }
-        $fn .= '], ';
+  # usage
+  if ($self->_has_usages) {
+    $fn .= q{'usage': [ };
+    foreach my $note ($self->_notes) {
+      $fn
+          .= $SINGLE_QUOTE
+          . $self->string_entitise($note)
+          . $APOS_COMMA_SPACE;
     }
+    $fn .= '], ';    ## no critic (ProhibitDuplicateLiteral)
+  }
 
-    # options
-    if ( $self->_has_options ) {
-        $fn .= q{'options': [ };
-        foreach my $option ( $self->_options ) {
-            $fn .= $option->write_option_loader() . q{, };
-        }
-        $fn .= '], ';
+  # options
+  if ($self->_has_options) {
+    $fn .= q{'options': [ };
+    foreach my $option ($self->_options) {
+      $fn .= $option->write_option_loader() . $COMMA_SPACE;
     }
+    $fn .= '], ';    ## no critic (ProhibitDuplicateLiteral)
+  }
 
-    # parameters
-    if ( $self->_has_params ) {
-        $fn .= q{'params': [ };
-        foreach my $param ( $self->_params ) {
-            $fn .= $param->write_param_loader() . q{, };
-        }
-        $fn .= '], ';
+  # parameters
+  if ($self->_has_params) {
+    $fn .= q{'params': [ };
+    foreach my $param ($self->_params) {
+      $fn .= $param->write_param_loader() . $COMMA_SPACE;
     }
-    $fn .= '}';
-    return $fn;
-}    #                                                                 }}}1
+    $fn .= '], ';    ## no critic (ProhibitDuplicateLiteral)
+  }
+  $fn .= '}';
+  return $fn;
+}    # }}}1
 
 1;
 
-# POD                                                                  {{{1
+# POD    {{{1
 
 __END__
-
-=encoding utf-8
 
 =head1 NAME
 
 Dn::CommonBash::Function - a bash function
+
+=head1 VERSION
+
+This documentation is for Dn::CommonBash::Function version 5.30.
 
 =head1 SYNOPSIS
 
@@ -444,9 +471,15 @@ Integer. Number of parameters in function.
 
 =head3 Purpose
 
-Provide formatted version of function for screen display. Output is a list of strings -- one string per screen line. Output strings are prepared by S<Dn::Common->vim_printify> and need to be printed to screen using S<Dn::Common->vim_list_print>.
+Provide formatted version of function for screen display.
+Output is a list of strings -- one string per screen line.
+Output strings are prepared by the C<vim_printify> method of
+L<Role::Utils::Dn> and need to be printed to screen using the
+C<vim_list_print> method of L<Role::Utils::Dn>.
 
-Because the function object does not contain its own name -- that is captured by the hash key pointing to the function object -- it must be passed as an argument.
+Because the function object does not contain its own name --
+that is captured by the hash key pointing to the function object --
+it must be passed as an argument.
 
 Format:
 
@@ -600,7 +633,8 @@ Get or set parameter 'prints' attribute.
 
 Parameter 'prints' value. Scalar string.
 
-Optional. If provided the attribute is set to this value. If not provided the current attribute value is returned.
+Optional. If provided the attribute is set to this value.
+If not provided the current attribute value is returned.
 
 =back
 
@@ -628,7 +662,8 @@ Get or set parameter 'purpose' attribute.
 
 Parameter 'purpose' value. Scalar string.
 
-Optional. If provided the attribute is set to this value. If not provided the current attribute value is returned.
+Optional. If provided the attribute is set to this value.
+If not provided the current attribute value is returned.
 
 =back
 
@@ -656,7 +691,8 @@ Get or set parameter 'returns' attribute.
 
 Parameter 'returns' value. Scalar string.
 
-Optional. If provided the attribute is set to this value. If not provided the current attribute value is returned.
+Optional. If provided the attribute is set to this value.
+If not provided the current attribute value is returned.
 
 =back
 
@@ -674,7 +710,8 @@ Current attribute value if no parameter provided.
 
 =head3 Purpose
 
-Generate vim 'let' command for loader. Designed to be called by S<Dn::CommonBash::Function->write_loader>.
+Generate vim C<let> command for loader.
+Designed to be called by the C<write_loader> method.
 
 =head3 Parameters
 
@@ -688,41 +725,32 @@ Nil.
 
 Scalar string.
 
+=head1 DIAGNOSTICS
+
+=head2 No option flag provided
+=head2 No parameter name provided
+
+Occurs when the user fails to provide necessary input.
+
+=head1 CONFIGURATION AND ENVIRONMENT
+
+This module does not rely on any configuration setting
+or environmental variables.
+
+=head1 INCOMPATIBILITIES
+
+There are no known incompatibilities.
+
+=head1 BUGS AND LIMITATIONS
+
+There are no known bugs or limitations.
+
 =head1 DEPENDENCIES
 
-=over
-
-=item Carp
-
-=item Dn::Common
-
-=item Dn::CommonBash::Function::Options
-
-=item Dn::CommonBash::Function::Param
-
-=item English
-
-=item Function::Parameters
-
-=item Moo
-
-=item MooX::HandlesVia
-
-=item MooX::Options
-
-=item namespace::clean
-
-=item Readonly
-
-=item strictures
-
-=item Test::NeedsDisplay
-
-=item Types::Standard
-
-=item version
-
-=back
+Carp, Const::Fast, Dn::CommonBash::Function::Options,
+Dn::CommonBash::Function::Param, English, Moo, MooX::HandlesVia, MooX::Options,
+namespace::clean, Role::Utils::Dn, strictures, Test::NeedsDisplay,
+Types::Standard, version.
 
 =head1 AUTHOR
 

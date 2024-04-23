@@ -29,7 +29,9 @@ use File::Spec;
 use File::Temp;
 use File::Util;
 use File::Which;
+use HTML::Entities;
 use Image::Magick;
+use IO::Interactive;
 use IO::Pager;
 use IPC::Cmd;
 use IPC::Run;    # required by IPC::Cmd
@@ -41,6 +43,7 @@ use POSIX ();    # for WIFEXITED, WEXITSTATUS, WIFSIGNALED, WTERMSIG
 use Role::Utils::Dn::CommandResult;
 use Scalar::Util;
 use Symbol;
+use Term::ANSIColor;
 use Term::Clui;
 use Term::ProgressBar::Simple;
 use Text::Pluralize;
@@ -82,6 +85,7 @@ const my $MSG_NOT_IMG_OBJ        => 'Not an image object';
 const my $MSG_SCALAR_NOT_HASHREF => 'Expected hash reference, got scalar';
 const my $NEGATE      => -1;           ## no critic (ProhibitDuplicateLiteral)
 const my $NEWLINE     => "\n";
+const my $NUMBER_TEN  => 10;
 const my $OPT_INSTALL => '--install';
 const my $PARAM_COMMA_SPACE => q{, };
 const my $PARAM_DPKG        => 'dpkg';
@@ -92,6 +96,7 @@ const my $REF_TYPE_HASH  => 'HASH';
 const my $RGB_ARG_COUNT  => 3;
 const my $RGB_ARG_MAX    => 255;
 const my $SPACE          => q{ };
+const my $TAB_SIZE       => 4;
 const my $VAL_CENTER     => 'Center';
 const my $VAL_LEFT       => 'left';    # }}}1
 
@@ -170,7 +175,7 @@ sub changelog_from_git ($self, $dir)
 
   # process output log entries
   my (@log, @entry);
-  my $indent = $SPACE x 4;    ## no critic (ProhibitMagicNumbers)
+  my $indent = $SPACE x $TAB_SIZE;
   my ($author, $email, $date);
   foreach my $line ($result->stdout) {
     next if $line =~ /^commit /xsm;
@@ -441,6 +446,60 @@ sub copy_to_clipboard ($self, $val)
 # return: scalar string
 sub cwd ($self) {    ## no critic (RequireInterpolationOfMetachars)
   return Path::Tiny::path($DOT)->realpath;
+}
+
+# data_retrieve($file)    {{{1
+#
+# does:   retrieves function data from storage file
+# params: $file - file in which data is stored [required]
+# prints: nil (except feedback from Storage module)
+# return: as per Storable manpage:
+#         • variable reference on success
+#         • undef if an I/O system error occurs
+#         • "other serious errors are propagated via 'die'"
+# usage:  my $storage_file = '/path/to/filename';
+#         my $ref = $self->data_retrieve($storage_file);
+#         my %data = %{$ref};
+sub data_retrieve ($self, $file)
+{    ## no critic (RequireInterpolationOfMetachars)
+  if (not -r $file) { confess "Cannot read data file '$file'"; }
+  return Storable::retrieve $file;
+}
+
+# data_store($data, $file)    {{{1
+#
+# does:   store data structure in file
+# params: $data  - reference to data structure to be stored [ref, required]
+#         $file - file path in which to store data [scalar. required]
+# prints: nil (except feedback from Storable module)
+# return: as per Storable manpage:
+#         • boolean true on success
+#         • undef for internal errors like I/O errors
+#         • "serious errors are propagated as a 'die' exception"
+# usage:  my $storage_dir = '/path/to/filename';
+#         $self->data_store( \%data, $storage_file );
+sub data_store ($self, $data, $file)
+{    ## no critic (RequireInterpolationOfMetachars)
+
+  # check params
+  # - data must be a reference
+  if (ref $data eq q{}) {
+    confess 'Data structure is not a reference';
+  }
+
+  # - path must exist
+  my $path = $self->dir_name($file);
+  if ($path && !-d $path) {
+    confess "Invalid data file path in '$file'";
+  }
+
+  # will overwrite, but warn user
+  if (-e $file) {
+    $self->interact_warn("Overwriting data file '$file' with new data");
+  }
+
+  # save data
+  return Storable::store $data, $file;
 }
 
 # date_current_iso()    {{{1
@@ -869,6 +928,27 @@ sub dir_make ($self, @paths) {  ## no critic (RequireInterpolationOfMetachars)
   return $success;
 }
 
+# dir_name($filepath, $exists = $FALSE)    {{{1
+#
+# does:   extract dirpath from filepath
+# params: $filepath - path from which to extract directory path
+#                     [required, str, can be directory path only]
+#         $exists   - die if filepath does not exist
+#                     [optional, bool, default=false]
+# prints: error messages
+# return: scalar string
+sub dir_name ($self, $filepath, $exists = $FALSE)
+{    ## no critic(RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+
+  # check args
+  confess $MSG_NO_FILEPATH if not $filepath;
+  if ($exists and not $self->file_readable($filepath)) {
+    confess "Filepath '$filepath' does not exist";
+  }
+
+  return (File::Spec->splitpath($filepath))[1];
+}
+
 # dir_parent($dir)    {{{1
 #
 # does:   return parent directory
@@ -908,7 +988,7 @@ sub divider ($self, $type = 'top')
   }
 
   # key values
-  const my $TERM_MIN_WIDTH => 10;
+  const my $TERM_MIN_WIDTH => $NUMBER_TEN;
   const my $TERM_GUTTER    => 5;
 
   # get divider length
@@ -963,7 +1043,7 @@ sub dump_var ($self, @vars) {   ## no critic (RequireInterpolationOfMetachars)
 # prints: error messages
 # return: scalar string
 sub file_base ($self, $filepath, $exists = $FALSE)
-{    ## no critic (RequireInterpolationOfMetachars)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
 
   # check args
   confess $MSG_NO_FILEPATH if not $filepath;
@@ -1199,6 +1279,25 @@ sub file_list ($self, $dir = undef, $pattern = undef)
   return @sorted_files;
 }
 
+# file_mime_type($filepath)    {{{1
+#
+# does:   determine mime type of file
+# params: $filepath - file to analyse [required]
+#                     dies if missing or invalid
+# prints: nil
+# return: scalar boolean
+# note:   this method previously used File::Type::mime_type but that
+#         module incorrectly identifies some mp3 files as
+#         'application/octet-stream'
+# note:   uses File::MimeInfo: alternatives include File::MMagic and
+#         File::MMagic:Magic
+sub file_mime_type ($self, $filepath)
+{    ## no critic (RequireInterpolationOfMetachars)
+  if (not $filepath)    { confess $MSG_NO_FILEPATH; }
+  if (not -r $filepath) { confess "Invalid filepath '$filepath'"; }
+  return File::MimeInfo->new()->mimetype($filepath);
+}
+
 # file_move($source_file, $target)    {{{1
 #
 # does:   move a file
@@ -1224,25 +1323,6 @@ sub file_move ($self, $source_file, $target)
   File::Copy::Recursive::fmove($source_file, $target) or confess $ERRNO;
 
   return;
-}
-
-# file_mime_type($filepath)    {{{1
-#
-# does:   determine mime type of file
-# params: $filepath - file to analyse [required]
-#                     dies if missing or invalid
-# prints: nil
-# return: scalar boolean
-# note:   this method previously used File::Type::mime_type but that
-#         module incorrectly identifies some mp3 files as
-#         'application/octet-stream'
-# note:   uses File::MimeInfo: alternatives include File::MMagic and
-#         File::MMagic:Magic
-sub file_mime_type ($self, $filepath)
-{    ## no critic (RequireInterpolationOfMetachars)
-  if (not $filepath)    { confess $MSG_NO_FILEPATH; }
-  if (not -r $filepath) { confess "Invalid filepath '$filepath'"; }
-  return File::MimeInfo->new()->mimetype($filepath);
 }
 
 # file_name($filepath, $exists = $FALSE)    {{{1
@@ -2113,6 +2193,33 @@ sub interact_ask ($self, $prompt, $default = q{})
   return Term::Clui::ask($prompt, $default);
 }
 
+# interact_choose($prompt, @options)    {{{1
+#
+# does:   user selects option from a menu
+# params: $prompt  - menu prompt [required]
+#         @options - menu options [required]
+# prints: menu and user interaction
+# usage:  my @options = ( 'Pick me', 'No, me!' );
+#         my $value = undef;
+#         while ($TRUE) {
+#             $value = $self->interact_choose(
+#                 "Select value:", @options,
+#             );
+#             last if $value;
+#             say "Invalid choice. Sorry, please try again.";
+#          }
+# return: scalar (undef if user cancels selection)
+sub interact_choose ($self, $prompt, @options)
+{    ## no critic (RequireInterpolationOfMetachars)
+
+  # process args
+  if (not @options) { croak 'No menu options provided'; }
+
+  # get user selection
+  my $choice = Term::Clui::choose($prompt, @options);
+  return $choice;
+}
+
 # interact_confirm($question)    {{{1
 #
 # does:   user answers y/n to a question
@@ -2135,6 +2242,23 @@ sub interact_confirm ($self, $question)
   return Term::Clui::confirm($question);
 }
 
+# interact_print(msg)    {{{1
+#
+# does:   print message to stdout if script is interactice,
+#         i.e., connected to a console, otherwise message is not printed
+# params: msg - text to print [scalar, required]
+# prints: message (if connected to console)
+# return: nil
+sub interact_print ($self, $msg)
+{    ## no critic (RequireInterpolationOfMetachars)
+
+  # IO::Interactive takes care of failed syscall
+  ## no critic (RequireCheckedSyscalls)
+  print {IO::Interactive::interactive} $msg;
+  ## use critic
+  return;
+}
+
 # interact_prompt([message])    {{{1
 #
 # does:   display message and prompt user to press any key
@@ -2152,6 +2276,40 @@ sub interact_prompt ($self, $message = 'Press any key to continue...')
   }
   Term::ReadKey::ReadMode('restore');
   print $NEWLINE or croak;
+  return;
+}
+
+# interact_say(msg)    {{{1
+#
+# does:   print message to stderr (with newline) if script is interactice,
+#         i.e., connected to a console, otherwise message is not printed
+# params: msg - text to print [scalar, required]
+# prints: message with newline (if connected to console)
+# return: nil
+sub interact_say ($self, $msg)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+
+  # IO::Interactive takes care of failed syscall
+  ## no critic (RequireCheckedSyscalls)
+  say {IO::Interactive::interactive} $msg;
+  ## use critic
+  return;
+}
+
+# interact_warn(msg)    {{{1
+#
+# does:   print message (with newline) to stderr if script is interactice,
+#         i.e., connected to a console, otherwise message is not printed
+# params: msg - text to print [scalar, required]
+# prints: message with newline to stderr (if connected to console)
+# return: nil
+sub interact_warn ($self, $msg)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+
+  # IO::Interactive takes care of failed syscall
+  ## no critic (RequireCheckedSyscalls)
+  say { IO::Interactive::interactive(*STDERR) } $msg;
+  ## use critic
   return;
 }
 
@@ -2199,6 +2357,54 @@ sub internet_connection ($self, $verbose = $FALSE)
     if ($verbose) { say 'No internet connection detected' or croak; }
     return $FALSE;
   }
+}
+
+# listify(@items)    {{{1
+#
+# does:   tries to convert scalar, array and hash references to scalars
+# params: @items - items to convert to lists [required]
+# prints: warnings for other reference types
+# return: list
+sub listify ($self, @items) {   ## no critic (RequireInterpolationOfMetachars)
+  my (@scalars, $scalar, @array, %hash);
+  for my $item (@items) {
+    my $ref = ref $item;
+    if ($ref) {
+      for ($ref) {
+        if (/SCALAR/xsm) {
+          $scalar = ${$item};
+          push @scalars, $self->listify($scalar);
+        }
+        elsif (/ARRAY/xsm) {
+          @array = @{$item};
+          foreach my $element (@array) {
+            push @scalars, $self->listify($element);
+          }
+        }
+        elsif (/HASH/xsm) {
+          %hash = %{$item};
+          foreach my $key (keys %hash) {
+            push @scalars, $self->listify($key);
+            push @scalars, $self->listify($hash{$key});
+          }
+        }
+        else {
+          my $stringified_item = Dumper($item);
+          my $divider          = $self->divider;
+          $self->interact_warn("Cannot listify a '$ref'\n");
+          $self->interact_warn('Item dump:');
+          $self->interact_warn($divider);
+          $self->interact_warn($stringified_item);
+          $self->interact_warn($divider);
+        }
+      }
+    }
+    else {
+      push @scalars, $item;
+    }
+  }
+  if (not @scalars) { return qw(); }
+  return @scalars;
 }
 
 # list_duplicates(@values)    {{{1
@@ -2574,6 +2780,16 @@ sub run_command ($self, $err, @cmd)
   return;
 }
 
+# script_name()    {{{1
+#
+# does:   get name of executing script
+# params: nil
+# prints: nil
+# return: scalar file name
+sub script_name ($self) {    ## no critic (RequireInterpolationOfMetachars)
+  return File::Util->new()->strip_path($PROGRAM_NAME);
+}
+
 # shell_command($cmd, $opts)    {{{1
 #
 # does:   run shell command and capture output
@@ -2756,6 +2972,8 @@ sub _shell_command_process_args ($self, $cmd, $opts)
 # stringify($value)    {{{1
 #
 # does:   convert all values to a string (may contain newlines)
+#         non-scalar values are converted to scalars by
+#         Data::Dumper::Simple's Dumper function
 # params: $value - value to stringify [any, required]
 # prints: nil
 # return: scalar string
@@ -2769,6 +2987,36 @@ sub stringify ($self, $value)
   # stringify anything else    {{{2
   return Dumper($value);
 
+}
+
+# string_entitise($string)    {{{1
+#
+# does:   convert reserved characters to HTML entities
+# params: $string - string to analyse [required]
+# prints: nil
+# return: scalar string
+sub string_entitise ($self, $string = q{})
+{    ## no critic (RequireInterpolationOfMetachars)
+  return HTML::Entities::encode_entities($string);
+}
+
+# string_tabify($string, [$tab_size])    {{{1
+#
+# does:   covert tab markers ('\t') to spaces
+# params: $string   - string to convert [scalar, required]
+#         $tab_size - size of tab in characters [integer, optional, default=4]
+# prints: nil
+# return: scalar string
+sub string_tabify ($self, $string = q{}, $tab_size = 4)
+{    ## no critic (RequireInterpolationOfMetachars)
+
+  # set tab
+  if ($tab_size !~ /^[1-9]\d*\z/xsm) { $tab_size = $TAB_SIZE; }
+  my $tab = $SPACE x $tab_size;
+
+  # convert tabs
+  $string =~ s/\\t/$tab/gxsm;
+  return $string;
 }
 
 # term_height()    {{{1
@@ -2904,6 +3152,152 @@ sub tools_available ($self, @tools)
   return $TRUE;
 }
 
+# value_boolise($value)    {{{1
+#
+# does:   convert value to boolean
+# detail: convert 'yes', 'true' and 'on' to 1
+#         convert 'no, 'false, and 'off' to 0
+#         other values returned unchanged
+# params: $value - value to analyse [required]
+# prints: nil
+# return: boolean
+sub value_boolise ($self, $value)
+{ ## no critic (RequireInterpolationOfMetachars RequireFinalReturn ProhibitDuplicateLiteral)
+  if (not defined $value) { return $value; }    # handle special case
+  for ($value) {
+    if (/^yes$|^true$|^on$/ixsm)  { return 1; }    # true -> 1
+    if (/^no$|^false$|^off$/ixsm) { return 0; }    # false -> 0
+    return $value;
+  }
+}
+
+# vim_list_print(@messages)    {{{1
+#
+# does:   prints a list of strings to the terminal screen using
+#         vim's default colour scheme
+# detail: see method 'vim_print' for details of the colour schemes
+#         each message can be printed in a different style
+#         - element strings need to be prepared using 'vim_printify'
+# params: @messages - messages to display [required]
+#                     can contain escaped double quotes.
+# prints: messages in requested styles
+# return: nil
+sub vim_list_print ($self, @messages)
+{    ## no critic (RequireInterpolationOfMetachars)
+  const my $ERROR_INDEX  => 9;
+  const my $TITLE_INDEX  => $ERROR_INDEX;
+  const my $WARN_INDEX   => 8;
+  const my $PROMPT_INDEX => $NUMBER_TEN;
+  @messages = $self->listify(@messages);
+  my ($index, $flag);
+  foreach my $message (@messages) {
+    for ($message) {
+      ## no critic (ProhibitCascadingIfElse)
+      if    (/^::title::/ixsm)  { $index = $TITLE_INDEX;  $flag = 't' }
+      elsif (/^::error::/ixsm)  { $index = $ERROR_INDEX;  $flag = 'e' }
+      elsif (/^::warn::/ixsm)   { $index = $WARN_INDEX;   $flag = 'w' }
+      elsif (/^::prompt::/ixsm) { $index = $PROMPT_INDEX; $flag = 'p' }
+      else                      { $index = 0;             $flag = 'n' }
+      ## use critic
+    }
+    $message = substr $message, $index;
+    $self->vim_print($flag, $message);
+  }
+  return;
+}
+
+# vim_print($type, @messages)    {{{1
+#
+# does:   print text to terminal screen using vim's default colour scheme
+# params: $type     - type ['title'|'error'|'warning'|'prompt'|'normal']
+#                     case-insensitive, can supply partial value
+#                     [required]
+#         @messages - content to print [required, multi-part]
+#                     can contain escaped double quotes
+# prints: messages
+# return: nil
+# detail: five styles have been implemented:
+#                  Vim
+#                  Highlight
+#         Style    Group       Foreground    Background
+#         -------  ----------  ------------  ----------
+#         title    Title       bold magenta  normal
+#         error    ErrorMsg    bold white    red
+#         warning  WarningMsg  red           normal
+#         prompt   MoreMsg     bold green    normal
+#         normal   Normal      normal        normal
+# usage:  $cp->vim_print( 't', "This is a title" );
+# note:   will gracefully handle arrays and array references in message list
+sub vim_print ($self, $type, @messages)
+{    ## no critic (RequireInterpolationOfMetachars)
+
+  # variables
+  # - messages
+  @messages = $self->listify(@messages);
+
+  # - type
+  if (not $type) { $type = 'normal'; }
+
+  # - attributes (to pass to function 'colored')
+  ## no critic (ProhibitDuplicateLiteral)
+  my $attributes =
+        $type eq 't' ? [ 'bold', 'magenta' ]
+      : $type eq 'p' ? [ 'bold', 'bright_green' ]
+      : $type eq 'w' ? ['bright_red']
+      : $type eq 'e' ? [ 'bold', 'white', 'on_red' ]
+      :                ['reset'];
+  ## use critic
+
+  # print messages
+  for my $message (@messages) {
+    say Term::ANSIColor::colored($attributes, $message) or croak;
+  }
+  return;
+}
+
+# vim_printify($type, $message)    {{{1
+#
+# does:   modifies a single string to be passed to 'vim_list_print'
+# params: $type    - as per method 'vim_print' [required]
+#         $message - content to be modified [required]
+#                    can contain escaped double quotes
+# prints: nil
+# return: modified string
+# usage:  @output = $cp->vim_printify( 't', 'My Title' );
+# detail: the string is given a prefix that signals to 'vim_list_print'
+#         what format to use (prefix is stripped before printing)
+sub vim_printify ($self, $type, $message)
+{    ## no critic (RequireInterpolationOfMetachars)
+
+  # variables
+  # - message
+  if (not $message) { return q{}; }
+
+  # - type
+  if (not $type) {
+    $type = 'normal';    ## no critic (ProhibitDuplicateLiteral)
+  }
+
+  # - token to prepend to message
+  #my $token;
+  #for ($type) {
+  #    if ($_ =~ /^t/ixsm) { $token = '::title::' }
+  #    elsif ($_ =~ /^p/ixsm) { $token = '::prompt::' }
+  #    elsif ($_ =~ /^w/ixsm) { $token = '::warn::' }
+  #    elsif ($_ =~ /^e/ixsm) { $token = '::error::' }
+  #    else         { $token = q{} }
+  #}
+  my $token =
+        $type =~ /^t/ixsm ? '::title::'
+      : $type =~ /^p/ixsm ? '::prompt::'
+      : $type =~ /^w/ixsm ? '::warn::'
+      : $type =~ /^e/ixsm ? '::error::'
+      :                     q{};
+
+  # return altered string
+  return "$token$message";
+}
+
 # wrap_text($string, %options)    {{{1
 #
 # does:   displays screen text with word wrapping
@@ -2946,7 +3340,6 @@ sub wrap_text ($self, $strings, %options)
 {    ## no critic (RequireInterpolationOfMetachars ProhibitExcessComplexity)
 
   const my $MIN_TEXT_WIDTH => 10;    ## no critic (ProhibitDuplicateLiteral)
-  const my $TAB_SIZE       => 4;     ## no critic (ProhibitDuplicateLiteral)
 
   # handle args    {{{2
   # - $strings    {{{3
@@ -3304,6 +3697,10 @@ list subdirectories in directory
 
 create directory paths
 
+=item dir_name($filepath, $exists = $FALSE)
+
+extract dirpath from filepath
+
 =item dir_parent($dir)
 
 return parent directory
@@ -3385,6 +3782,10 @@ readable
 =item file_write($content, $fp, $perm = undef)
 
 write file content to disk
+
+=item script_name()
+
+get name of executing script
 
 =item path_canon($path)
 
@@ -3480,13 +3881,35 @@ get local timezone
 
 left- or right-pad a value or list of values with a character
 
+=item pluralise($string, $numeric)
+
+adjust string based on a provided numerical value
+
 =item stringify($val)
 
 convert a value of any type to a string (may contain newlines)
 
-=item pluralise($string, $numeric)
+=item string_entitise($string)
 
-adjust string based on a provided numerical value
+convert reserved characters to HTML entities
+
+=item value_boolise($value)
+
+convert value to boolean
+
+=back
+
+=head3 Data storage
+
+=over
+
+=item data_retrieve($file)
+
+retrieves function data from storage file
+
+=item data_store($data, $file)
+
+store data structure in file
 
 =back
 
@@ -3506,9 +3929,17 @@ format variable for display
 
 user provides input
 
+=item interact_choose($prompt, @options)
+
+user selects option from a menu
+
 =item interact_confirm($question)
 
 user answers y/n to a question
+
+=item interact_print($msg)
+
+print message to stdout if script is interactice,
 
 =item interact_prompt($message)
 
@@ -3777,6 +4208,89 @@ Nil.
 
 Scalar string.
 
+=head2 data_retrieve($file)
+
+=head3 Purpose
+
+Retrieve function data from a storage file.
+
+=head3 Parameters
+
+=over
+
+=item $file
+
+Path to file in which data is stored. Scalar. Required.
+
+=back
+
+=head3 Prints
+
+Nil (except feedback from Storage module).
+
+=head3 Returns
+
+As per L<Storable/DESCRIPTION>:
+
+=over
+
+=item Variable reference on success
+
+=item Undef if an I/O system error occurs
+
+=item "Other serious errors are propagated via 'die'"
+
+=back
+
+=head3 Usage
+
+    my $storage_file = '/path/to/filename';
+    my $ref = $self->data_retrieve($storage_file);
+    my %data = %{$ref};
+
+=head2 data_store($data, $file)
+
+=head3 Purpose
+
+Store a data structure in a file.
+
+=head3 Parameters
+
+=over
+
+=item $data
+
+Data structure to be stored. Must be a reference. Required.
+
+=item $file
+
+File path in which to store data. Scalar. Required.
+
+=back
+
+=head3 Prints
+
+Nil (except feedback from Storable module).
+
+=head3 Returns
+
+As per L<Storable/DESCRIPTION>:
+
+=over
+
+=item Boolean true on success
+
+=item Undef for internal errors like I/O errors
+
+=item "Serious errors are propagated as a 'die' exception"
+
+=back
+
+=head3 Usage
+
+    $storage_dir = '/path/to/filename';
+    $self->data_store( \%data, $storage_file );
+
 =head2 date_current_iso( )
 
 =head3 Purpose
@@ -3854,6 +4368,30 @@ Nil.
 
 Scalar boolean.
 
+=head2 date_valid($date)
+
+=head3 Purpose
+
+Determine whether a date is valid and in ISO format.
+
+=head3 Parameters
+
+=over
+
+=item $date
+
+Candidate date. Scalar. Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Boolean scalar.
+
 =head2 debhelper_compat( )
 
 =head3 Purpose
@@ -3872,35 +4410,6 @@ Nil.
 =head3 Returns
 
 Scalar string integer (undef if problem encountered).
-
-=head2 debian_package_version($pkg)
-
-=head3 Purpose
-
-Get the version of a debian package.
-
-WARNING: Requires that the package be installed on the current system.
-
-=head3 Parameters
-
-=over
-
-=item $pkg
-
-Name of debian package. Scalar string. Required.
-
-=back
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Scalar string.
-
-Undef if C<dpkg> command fails. Dies if unable to parse the C<dpkg> output and
-extract the package version.
 
 =head2 debian_install_deb($deb)
 
@@ -3947,6 +4456,35 @@ Feedback on install attempts.
 =head3 Returns
 
 Scalar boolean. Whether package was successfully installed.
+
+=head2 debian_package_version($pkg)
+
+=head3 Purpose
+
+Get the version of a debian package.
+
+WARNING: Requires that the package be installed on the current system.
+
+=head3 Parameters
+
+=over
+
+=item $pkg
+
+Name of debian package. Scalar string. Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
+Undef if C<dpkg> command fails. Dies if unable to parse the C<dpkg> output and
+extract the package version.
 
 =head2 debian_standards_version( )
 
@@ -4122,6 +4660,35 @@ Scalar boolean indicating whether path creation was successful.
 
 The method dies if a fatal filesystem error occurs. See the documentation for
 L<File::Path/"DIAGNOSTICS"> for more details.
+
+=head2 dir_name($filepath, $exists = $FALSE)
+
+=head3 Purpose
+
+Extract directory path from filepath.
+
+=head3 Parameters
+
+=over
+
+=item $filepath
+
+Path from which to extract directory path. Scalar. Required.
+Can be a directory path only.
+
+=item $exists
+
+Die if filepath does not exist. Boolean. Optional. Default: false.
+
+=back
+
+=head3 Prints
+
+Error messages.
+
+=head3 Returns
+
+Scalar string.
 
 =head2 dir_parent($dir)
 
@@ -5288,6 +5855,46 @@ removed from the screen. The input also remains on the screen.
 
 Scalar string.
 
+=head2 interact_choose($prompt, @options)
+
+=head3 Purpose
+
+User selects an option from a menu.
+
+=head3 Parameters
+
+=over
+
+=item $prompt
+
+Menu prompt. Scalar string.  Required.
+
+=item @options
+
+Menu options. List. Required.
+
+=back
+
+=head3 Prints
+
+Menu and user interaction.
+
+=head3 Usage
+
+    my @options = ( 'Pick me', 'No, me!' );
+    my $value = undef;
+    while ($TRUE) {
+        $value = $self->interact_choose(
+            "Select value:", @options,
+        );
+        last if $value;
+        say "Invalid choice. Sorry, please try again." or croak;
+    }
+
+=head3 Returns
+
+Scalar. Undef if user cancels selection.
+
 =head2 interact_confirm($question)
 
 User answers y/n to a question.
@@ -5319,6 +5926,31 @@ Scalar boolean.
         # do stuff
     }
 
+=head2 interact_print($msg)
+
+=head3 Purpose
+
+Print message to stdout if script is interactice, i.e., connected to a console,
+otherwise message is not printed
+
+=head3 Parameters
+
+=over
+
+=item $msg
+
+Text to print to stdout. Scalar. Required.
+
+=back
+
+=head3 Prints
+
+Message to stdout if connected to a console.
+
+=head3 Returns
+
+Nil.
+
 =head2 interact_prompt([message])
 
 =head3 Purpose
@@ -5342,6 +5974,56 @@ Prompt message.
 =head3 Returns
 
 N/A. Dies on failure.
+
+=head2 interact_say($msg)
+
+=head3 Purpose
+
+Print message (with newline) to stdout if script is interactice,
+i.e., connected to a console, otherwise message is not printed
+
+=head3 Parameters
+
+=over
+
+=item $msg
+
+Text to print (with newline) to stdout. Scalar. Required.
+
+=back
+
+=head3 Prints
+
+Message (with newline) to stdout if connected to a console.
+
+=head3 Returns
+
+Nil.
+
+=head2 interact_warn($msg)
+
+=head3 Purpose
+
+Print message (with newline) to stderr if script is interactice,
+i.e., connected to a console, otherwise message is not printed
+
+=head3 Parameters
+
+=over
+
+=item $msg
+
+Text to print to stderr (with newline). Scalar. Required.
+
+=back
+
+=head3 Prints
+
+Message to stderr (with newline) if connected to a console.
+
+=head3 Returns
+
+Nil.
 
 =head2 internet_connection([$verbose])
 
@@ -5379,6 +6061,30 @@ Feedback if requested.
 =head3 Returns
 
 Scalar boolean.
+
+=head2 listify(@items)
+
+=head3 Purpose
+
+Tries to convert scalar, array and hash references to scalar values.
+
+=head3 Parameters
+
+=over
+
+=item @item
+
+Items to convert to lists. Required.
+
+=back
+
+=head3 Prints
+
+Warnings for reference types other than SCALAR, ARRAY and HASH.
+
+=head3 Returns
+
+List.
 
 =head2 list_duplicates(@values)
 
@@ -5524,6 +6230,41 @@ Error message if glob error referred to above should occur.
 =head3 Returns
 
 Scalar string.
+
+=head2 path_copy($src, $dest)
+
+=head3 Purpose
+
+Copy a source file or directory to a target file or directory.
+
+=head3 Parameters
+
+=over
+
+=item $src
+
+Source file or directory. The file or directory must exist on disk.
+Scalar. Required.
+
+=item $dest
+
+=back
+
+=head3 Prints
+
+Nil, except for error message.
+
+=head3 Returns
+
+Boolean success of copy operation.
+
+=head3 Note
+
+Can copy file to file or directory.
+
+Can copy directory to directory.
+
+Can not copy directory to existing file.
 
 =head2 path_executable($exe)
 
@@ -5748,6 +6489,24 @@ This is example usage for executing a series of shell commands:
 Displays command output in real time but does not capture it. Compare with
 C<shell_command> method.
 
+=head2 script_name()
+
+=head3 Purpose
+
+Get name of executing script.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar file name.
+
 =head2 shell_command($cmd, $fatal = $TRUE, $timeout = 0)
 
 =head3 Purpose
@@ -5801,6 +6560,9 @@ method.
 
 Convert value to string. The resulting string may contain newlines.
 
+Non-scalar values are converted to scalar values by the C<Dumper()> function
+from the L<Data::Dumper::Simple> module.
+
 =head3 Parameters
 
 =over
@@ -5808,6 +6570,58 @@ Convert value to string. The resulting string may contain newlines.
 =item $val
 
 Value to convert. Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
+=head2 string_entitise($string)
+
+=head3 Purpose
+
+Convert reserved characters in a string to HTML entities.
+
+=head3 Parameters
+
+=over
+
+=item $string
+
+String to analyse. Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
+=head2 string_tabify($string, [$tab_size])
+
+=head3 Purpose
+
+Covert tab markers ('\t') to spaces in a string.
+
+=head3 Parameters
+
+=over
+
+=item $string
+
+String to convert. Scalar. Required.
+
+=item $tab_size
+
+Size of tab in characters. Integer. Optional. Default: 4.
 
 =back
 
@@ -5918,6 +6732,30 @@ Nil.
 
 Scalar string.
 
+=head2 time_zone_from_offset($offset)
+
+=head3 Purpose
+
+Determine timezone for a given offset.
+
+=head3 Parameters
+
+=over
+
+=item $offset
+
+Timezone offset to check. Scalar string. Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
 =head2 time_zone_local()
 
 =head3 Purpose
@@ -5967,6 +6805,172 @@ Scalar boolean.
 =head3 Usage
 
     if ( not $cp->tools_available( 'tar', 'gzip' ) ) { return; }
+
+=head2 value_boolise($value)
+
+=head3 Purpose
+
+Convert certain values to boolean:
+
+=over
+
+=item convert 'yes', 'true' and 'on' to 1
+
+=item convert 'no, 'false, and 'off' to 0
+
+=item other values returned unchanged
+
+=back
+
+=head3 Parameters
+
+=over
+
+=item $value
+
+Value to analyse. Scalar. Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Boolean scalar.
+
+=head2 vim_list_print(@messages)
+
+=head3 Purpose
+
+Prints a list of strings to the terminal screen using vim's default colour
+scheme.
+
+See method C<vim_print> for details of the colour schemes.
+Each message can be printed in a different style.
+Element strings need to be prepared using using the method C<vim_printify>.
+
+There are currently five styles implemented:
+
+             Vim
+             Highlight
+    Style    Group       Foreground    Background
+    -------  ----------  ------------  ----------
+    title    Title       bold magenta  normal
+    error    ErrorMsg    bold white    red
+    warning  WarningMsg  red           normal
+    prompt   MoreMsg     bold green    normal
+    normal   Normal      normal        normal
+
+=head3 Parameters
+
+=over
+
+=item @messages
+
+Messages to display. They can contain escaped double quotes.
+Scalar strings. Required.
+
+=back
+
+=head3 Prints
+
+Messages in requested styles.
+
+=head3 returns
+
+Nil.
+
+=head2 vim_print($type, @messages)
+
+=head3 Purpose
+
+Print text to terminal using vim's default colour scheme.
+
+=head3 Parameters
+
+=over
+
+=item $type
+
+Message type. Can be:
+
+=over
+
+=item title
+
+=item error
+
+=item warning
+
+=item prompt
+
+=item normal
+
+=back
+
+The provided value can be any case, and can be partial.
+Scalar string. Required.
+
+=item @messages
+
+Content to print. Can contain escaped double quotes.
+
+Arrays and array references in the message list are handled gracefully.
+
+Multi-part. Required.
+
+=back
+
+=head3 Prints
+
+Messages.
+
+=head3 returns
+
+Nil.
+
+=head3 Usage
+
+    $cp->vim_print( 't', "This is a title" );
+
+=head2 vim_printify($type, $message)
+
+=head3 Purpose
+
+Modifies a single string to be passed to the method C<vim_list_print>.
+
+=head3 Parameters
+
+=over
+
+=item $type
+
+As per method C<vim_print>. Required.
+
+=item $message
+
+Content to be modified. Can contain escaped double quotes. Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Modified string.
+
+=head3 Usage
+
+    @output = $cp->vim_printify( 't', 'My Title' );
+
+=head3 Note
+
+The string is given a prefix that signals to the method C<vim_list_print> what
+format to use. (The prefix is stripped before printing.)
 
 =head2 wrap_text($strings, [%options])
 
@@ -6086,14 +7090,12 @@ Occurs while attempting to extract the major part of the version number of the
 F<debhelper> debian package to use as the debian compatibility level.
 
 =head2 Unable to extract version information for package PKG
-
 =head2 Unable to extract PKG version from OUTPUT
 
 Occur when attempting to determine a debian packages current version by parsing
 the package's status information as returned by C<dpkg -s>.
 
 =head2 Unable to get 'debian-policy' status with dpkg
-
 =head2 Unable to extract 3-part version from 'VERSION'
 
 These errors occur while attempting to determine the current debian standards
@@ -6105,35 +7107,20 @@ package to the first three parts.
 Occurs when a non-integer is provided to the C<int_pad_width> method.
 
 =head2 Empty color
-
 =head2 No top/bottom border width provided
-
 =head2 No side border width provided
-
 =head2 No bottom-right pixel y-coord provided
-
 =head2 No bottom-right pixel x-coord provided
-
 =head2 No top_left pixel y-coordinate provided
-
 =head2 No top_left pixel x-coordinate provided
-
 =head2 No fill color provided
-
 =head2 No width provided
-
 =head2 No height provided
-
 =head2 No y-coordinate provided
-
 =head2 No x-coordinate provided
-
 =head2 No label text provided
-
 =head2 No file mask provided
-
 =head2 No image provided
-
 =head2 No filepath provided
 
 These errors occur when a required parameter to an image-related method is not
@@ -6144,41 +7131,23 @@ provided.
 Occurs when the wrong number of parameters is provided to a function.
 
 =head2 Non-integer border width 'WIDTH'
-
 =head2 Non-integer border width 'WIDTH'
-
 =head2 Not an image object
-
 =head2 Invalid filepath 'PATH'
-
 =head2 Invalid attributes var type 'TYPE'
-
 =head2 Invalid coordinate 'COORD'
-
 =head2 Not an image object
-
 =head2 Invalid space value 'SPACE'
-
 =head2 Invalid edge 'EDGE'
-
 =head2 Invalid size value 'SIZE'
-
 =head2 Non-integer y-coordinate 'Y'
-
 =head2 Non-integer x-coordinate 'X'
-
 =head2 X-coordinate $x > image's largest x-coord COORD
-
 =head2 Y-coordinate $y > image's largest y-coord COORD
-
 =head2 Incomplete color provided (COLOR)
-
 =head2 Non-integer color value (COLOR)
-
 =head2 Non-integer width 'WIDTH'
-
 =head2 Non-integer height 'HEIGHT'
-
 =head2 Color value out of range (COLOR)
 
 These errors occur when an invalid parameter value is provided to an
@@ -6189,35 +7158,20 @@ image-related method.
 These errors occur if an L<Image::Magick> method fails.
 
 =head2 No source directory provided
-
 =head2 No target provided
-
 =head2 No source file provided
-
 =head2 No filepaths
-
 =head2 No target directory provided
-
 =head2 No filepath provided
-
 =head2 No dirpath provided
-
 =head2 Filepath 1 not provided
-
 =head2 Filepath 2 not provided
-
 Occurs when a path is required by a function but is not provided.
-
 =head2 Source directory 'PATH' does not exist
-
 =head2 Source file 'PATH' does not exist
-
 =head2 Filepath 'PATH' does not exist
-
 =head2 Directory path 'PATH' does not exist
-
 =head2 Invalid directory 'PATH'
-
 =head2 Comparison file 'PATH' does not exist
 
 Occurs when an existing path is required by a function but the provided path:
@@ -6250,36 +7204,50 @@ When a disk operation, such as a file move or copy, fails, the underlying
 system error is captured and reported to the user.
 
 =head2 Not an array reference
-
 =head2 Input is not a string or array reference
-
 =head2 Invalid option 'OPTION'
 
 These errors occur when an invalid parameter value is provided.
 
 =head2 Values are 'TYPE' instead of 'ARRAY'";
-
 =head2 Invalid width 'WIDTH'
-
 =head2 Want single pad char, got 'STRING'
-
 =head2 Expect side is 'left' or 'right', got 'ARG'
 
 These errors occur when an invalid parameter value is provided.
 
 =head2 No lines provided
-
 =head2 No strings provided
 
 These errors occur when a required function parameter is not provided.
 
 =head2 Not an array reference
-
 =head2 Input is not a string or array reference
-
 =head2 Invalid option 'OPTION'
 
 These errors occur when an invalid parameter value is provided.
+
+=head2 Cannot read data file 'FILE'
+
+This error occurs when unable to read from a data store.
+
+=head2 Data structure is not a reference
+=head2 Invalid data file path in 'FILE'
+
+These errors occur when attempting to write a data store.
+
+=head2 Overwriting data file 'FILE' with new data
+
+This warning occurs when overwriting an existing data store file.
+
+=head2 No menu options provided
+
+Occurs when no menu options are provided to choose from.
+
+=head2 Cannot listify a 'REF_TYPE'
+
+Occurs when attempting to convert to scalar a value that is neither
+a scalarref, arrayref, nor hashref.
 
 =head1 CONFIGURATION AND ENVIRONMENT
 
@@ -6293,10 +7261,10 @@ autodie, Carp, Clipboard, Const::Fast, Curses, Data::Dumper::Simple,
 Date::Simple, DateTime, DateTime::TimeZone, DateTime::Format::Mail, English,
 Env, Feature::Compat::Try, File::Basename, File::Compare,
 File::Copy::Recursive, File::Path, File::Spec, File::Temp, File::Util,
-File::Which, IO::Pager, IPC::Cmd, IPC::Run, Image::Magick, List::SomeUtils,
-List::Util, Moo::Role, namespace::clean, POSIX, Path::Tiny, Scalar::Util,
-strictures, Symbol, Term::Clui, Term::ProgressBar::Simple, Text::Wrap,
-Time::Simple, version.
+File::Which, HTML::Entities, IO::Interactive, IO::Pager, IPC::Cmd, IPC::Run,
+Image::Magick, List::SomeUtils, List::Util, Moo::Role, namespace::clean, POSIX,
+Path::Tiny, Scalar::Util, strictures, Symbol, Term::ANSIColor, Term::Clui,
+Term::ProgressBar::Simple, Text::Wrap, Time::Simple, version.
 
 =head2 Other
 

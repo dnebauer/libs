@@ -1,111 +1,114 @@
 package Dn::CommonBash::Function::Option;
 
-use Moo;    #                                                          {{{1
+# modules    {{{1
+use Moo;
 use strictures 2;
-use 5.014_002;
+use 5.038_001;
 use namespace::clean;
-use version; our $VERSION = qv('0.1');
+use version; our $VERSION = qv('5.30');
 
-use Test::NeedsDisplay;
-use Dn::Common;
-use Dn::CommonBash::Types qw(Boolean Char);
-use English qw(-no_match_vars);
-use Function::Parameters;
+use Test::NeedsDisplay;    # must be first listed module
+use Const::Fast;
+use Dn::CommonBash::Types;
+use English;
 use MooX::HandlesVia;
-use Readonly;
-use Types::Standard qw(ArrayRef Bool Str);
+use Types::Standard;
 
-my $cp = Dn::Common->new();
-Readonly my $TRUE  => 1;
-Readonly my $FALSE => 0;    #                                          }}}1
+with qw(Role::Utils::Dn);
 
-# Attributes
+const my $TRUE             => 1;
+const my $FALSE            => 0;
+const my $APOS_COMMA_SPACE => q{', };
+const my $COMMA_SPACE      => q{, };
+const my $SINGLE_QUOTE     => q{'};     # }}}1
 
-# flag                                                                 {{{1
+# attributes
+
+# flag    {{{1
 has 'flag' => (
-    is            => 'rw',
-    isa           => Dn::CommonBash::Types::Char,
-    documentation => 'Option flag',
+  is            => 'rw',
+  isa           => Dn::CommonBash::Types::Char,
+  documentation => 'Option flag',
 );
 
-# purpose                                                              {{{1
+# purpose    {{{1
 has 'purpose' => (
-    is            => 'rw',
-    isa           => Types::Standard::Str,
-    documentation => q{Description of option's purpose},
+  is            => 'rw',
+  isa           => Types::Standard::Str,
+  documentation => q{Description of option's purpose},
 );
 
-# required                                                             {{{1
+# required    {{{1
 has 'required' => (
-    is            => 'rw',
-    isa           => Dn::CommonBash::Types::Boolean,
-    documentation => 'Whether option is required or optional',
+  is            => 'rw',
+  isa           => Dn::CommonBash::Types::Boolean,
+  documentation => 'Whether option is required or optional',
 );
 
-# multiple                                                             {{{1
+# multiple    {{{1
 has 'multiple' => (
-    is            => 'rw',
-    isa           => Dn::CommonBash::Types::Boolean,
-    documentation => 'Whether option can occur multiple times or not',
+  is            => 'rw',
+  isa           => Dn::CommonBash::Types::Boolean,
+  documentation => 'Whether option can occur multiple times or not',
 );
 
-# type                                                                 {{{1
+# type    {{{1
 has 'type' => (
-    is  => 'rw',
-    isa => Dn::CommonBash::Types::OptionType,
-    documentation => 'Type of values that option can hold',
+  is            => 'rw',
+  isa           => Dn::CommonBash::Types::OptionType,
+  documentation => 'Type of values that option can hold',
 );
 
-# values, add_value, _values_list                                      {{{1
+# values, add_value, _values_list    {{{1
 has '_values_list' => (
-    is      => 'rw',
-    isa     => Types::Standard::ArrayRef[Types::Standard::Str],
-    handles_via  => 'Array',
-    default => sub { [] },
-    handles => {
-        values      => 'elements',
-        add_value   => 'push',
-        _has_values => 'count',
-    },
-    documentation => 'Allowable values this option can be set to',
+  is          => 'rw',
+  isa         => Types::Standard::ArrayRef [Types::Standard::Str],
+  handles_via => 'Array',
+  default     => sub { [] },
+  handles     => {
+    values      => 'elements',
+    add_value   => 'push',
+    _has_values => 'count',
+  },
+  documentation => 'Allowable values this option can be set to',
 
-    # has no meaning if 'type' is set to 'none'
+  # has no meaning if 'type' is set to 'none'
 );
 
-# default                                                              {{{1
+# default    {{{1
 has 'default' => (
-    is            => 'rw',
-    isa           => Types::Standard::Str,
-    documentation => 'Default value for this option',
+  is            => 'rw',
+  isa           => Types::Standard::Str,
+  documentation => 'Default value for this option',
 
-    # has no meaning if 'type' is set to 'none'
+  # has no meaning if 'type' is set to 'none'
 );
 
-# notes, add_note, _notes_list                                         {{{1
+# notes, add_note, _notes_list    {{{1
 has '_notes_list' => (
-    is      => 'rw',
-    isa     => Types::Standard::ArrayRef[Types::Standard::Str],
-    handles_via  => 'Array',
-    default => sub { [] },
-    handles => {
-        notes      => 'elements',
-        add_note   => 'push',
-        _has_notes => 'count',
-    },
-    documentation => 'Miscellaneous notes',
-);    #                                                                }}}1
+  is          => 'rw',
+  isa         => Types::Standard::ArrayRef [Types::Standard::Str],
+  handles_via => 'Array',
+  default     => sub { [] },
+  handles     => {
+    notes      => 'elements',
+    add_note   => 'push',
+    _has_notes => 'count',
+  },
+  documentation => 'Miscellaneous notes',
+);    # }}}1
 
-# Methods
+# methods
 
-# display_option_screen()                                              {{{1
+# display_option_screen()    {{{1
 #
 # does:   provide formatted version of option for screen display
 # params: nil
 # prints: nil
 # return: list
 # note:   output is a list of strings -- one string per screen line
-# note:   output strings are prepared by the Dn::Common->vim_printify
-#         and need to be printed to screen by Dn::Common->vim_list_print
+# note:   output strings are prepared by Role::Utils::Dn->vim_printify
+#         and need to be printed to screen by Role::Utils::Dn->vim_list_print
 # note:   designed to be called by Dn::CommonBash->display_function_screen
 # note:   example output:
 #             OPTION: -v [optional, multiple]
@@ -118,159 +121,189 @@ has '_notes_list' => (
 #               Note: See doctor if symptoms persist
 #             Values: 'race', 'the', 'night'
 #            Default: 'race'
-method display_option_screen () {
-    my $line;                     # each line of display
-    my @option;                   # display output
-    my @errors;                   # errors
-                                  # flag
-    $line = ' OPTION: -' . $self->flag;
+sub display_option_screen ($self)
+{    ## no critic (RequireInterpolationOfMetachars)
+  my $line;      # each line of display
+  my @option;    # display output
+  my @errors;    # errors
+                 # flag
+  $line = ' OPTION: -' . $self->flag;
 
-    # type
-    if ( $self->type && $self->type !~ /none/xsmi ) {    # has value
-        $line .= q{\<} . $self->type . q{>"};
-    }
-    else {                                               # has no value
-        push @errors, q{  Error: No 'type' attribute};
-    }
+  # type
+  if ($self->type && $self->type !~ /none/xsmi) {    # has value
+    $line .= q{\<} . $self->type . q{>"};
+  }
+  else {                                             # has no value
+    push @errors, q{  Error: No 'type' attribute};
+  }
 
-    # required: is integer so unquoted
-    $line .= ' [';
-    my $is_required;
-    if ( $self->required ) {
-        $is_required = $cp->boolise( $self->required );
-        $line .= ($is_required) ? 'required' : 'optional';
-    }
-    else {    # no 'required' attribute
-        push @errors, q{  Error: No 'required' attribute};
-    }
+  # required: is integer so unquoted
+  $line .= ' [';
+  my $is_required;
+  if ($self->required) {
+    $is_required = $self->value_boolise($self->required);
+    $line .= ($is_required)
+        ? 'required'    ## no critic (ProhibitDuplicateLiteral)
+        : 'optional';
+  }
+  else {                # no 'required' attribute
+    push @errors, q{  Error: No 'required' attribute};
+  }
 
-    # multiple: is integer so unquoted
-    if ( $self->multiple ) {
-        my $is_multiple = $cp->boolise( $self->multiple );
-        $line .= ($is_multiple) ? ', multiple' : q{};
-        $line .= ']';
-    }
-    else {    # no 'multiple' attribute
-        push @errors, q{  Error: No 'multiple' attribute};
-    }
+  # multiple: is integer so unquoted
+  if ($self->multiple) {
+    my $is_multiple = $self->value_boolise($self->multiple);
+    $line .= ($is_multiple) ? ', multiple' : q{};
+    $line .= ']';
+  }
+  else {                # no 'multiple' attribute
+    push @errors, q{  Error: No 'multiple' attribute};
+  }
 
-    # have now completed first line
-    push @option, $line;
-    foreach my $error (@errors) {
-        push @option, $cp->vim_printify( 'error', $_ );
-    }
+  # have now completed first line
+  push @option, $line;
+  foreach my $error (@errors) {
+    push @option, $self->vim_printify('error', $_);
+  }
 
-    # purpose
-    if ( $self->purpose ) {
-        push @option, '    Use: ' . $self->purpose;
-    }
-    else {    # no 'purpose' attribute
-        push @option,
-            $cp->vim_printify( 'error', q{  Error: No 'purpose' attribute} );
-    }
+  # purpose
+  if ($self->purpose) {
+    push @option, '    Use: ' . $self->purpose;
+  }
+  else {    # no 'purpose' attribute
+    push @option, $self->vim_printify(
+      'error',    ## no critic (ProhibitDuplicateLiteral)
+      q{  Error: No 'purpose' attribute},
+    );
+  }
 
-    # notes
-    if ( $self->_has_notes ) {
-        foreach my $note ( $self->notes ) {
-            push @option, '   Note: ' . $note;
-        }
+  # notes
+  if ($self->_has_notes) {
+    foreach my $note ($self->notes) {
+      push @option, '   Note: ' . $note;
     }
+  }
 
-    # values
-    if ( $self->_has_values ) {
-        my $vals = ' Values: ';
-        my @quoted_values = map { q['] . $_ . q['] } $self->values;
-        $vals .= join ', ', @quoted_values;
-        push @option, $vals;
+  # values
+  if ($self->_has_values) {
+    my $vals = ' Values: ';
+    my @quoted_values =
+        map { $SINGLE_QUOTE . $_ . $SINGLE_QUOTE } $self->values;
+    $vals .= join $COMMA_SPACE, @quoted_values;
+    push @option, $vals;
+  }
+
+  # default
+  if ($self->default) {
+    push @option, q{Default: '} . $self->default . $SINGLE_QUOTE;
+
+    # detect logical inconsistency of option with default value
+    # that is nonetheless required
+    if ($is_required) {
+      @errors = (
+        'Warning: Possible misconfiguration: Has',
+        '         default value but also is required',
+      );
+      for my $error (@errors) {
+        push @option, $self->vim_printify('warn', $error);
+      }
     }
+  }
 
-    # default
-    if ( $self->default ) {
-        push @option, q{Default: '} . $self->default . q{'};
-
-        # detect logical inconsistency of option with default value
-        # that is nonetheless required
-        if ($is_required) {
-            @errors = (
-                'Warning: Possible misconfiguration: Has',
-                '         default value but also is required',
-            );
-            for my $error (@errors) {
-                push @option, $cp->vim_printify( 'warn', $error );
-            }
-        }
-    }
-
-    # return option details
-    return @option;
+  # return option details
+  return @option;
 }
 
-# write_option_loader()                                                {{{1
+# write_option_loader()    {{{1
 #
 # does:   generate portion of vim 'let' command for loader
 # params: nil
 # prints: nil
 # return: scalar string
-method write_option_loader () {
-    my $option = '{ ';
+sub write_option_loader ($self)
+{    ## no critic (RequireInterpolationOfMetachars)
+  my $option = '{ ';
 
-    # flag
-    if ( $self->flag ) {
-        $option .= q{'flag': '} . $cp->entitise( $self->flag() ) . q{', };
+  # flag
+  if ($self->flag) {
+    $option
+        .= q{'flag': '}
+        . $self->string_entitise($self->flag())
+        . $APOS_COMMA_SPACE;
+  }
+
+  # purpose
+  if ($self->purpose) {
+    $option
+        .= q{'purpose': '}
+        . $self->string_entitise($self->purpose())
+        . $APOS_COMMA_SPACE;
+  }
+
+  # required: is integer so unquoted
+  if ($self->required) {
+    $option
+        .= q{'required': }
+        . $self->value_boolise($self->required)
+        . $COMMA_SPACE;
+  }
+
+  # multiple: is integer so unquoted
+  if ($self->multiple) {
+    $option
+        .= q{'multiple': }
+        . $self->value_boolise($self->multiple)
+        . $COMMA_SPACE;
+  }
+
+  # type
+  if ($self->type) {
+    $option
+        .= q{'type': '}
+        . $self->string_entitise($self->type())
+        . $APOS_COMMA_SPACE;
+  }
+
+  # values
+  if ($self->_has_values) {
+    $option .= q{'values': [ };
+    foreach my $value ($self->values) {
+      $option
+          .= $SINGLE_QUOTE
+          . $self->string_entitise($value)
+          . $APOS_COMMA_SPACE;
     }
+    $option .= '], ';
+  }
 
-    # purpose
-    if ( $self->purpose ) {
-        $option
-            .= q{'purpose': '} . $cp->entitise( $self->purpose() ) . q{', };
+  # default
+  if ($self->default) {
+    $option
+        .= q{'default': '}
+        . $self->string_entitise($self->default)
+        . $APOS_COMMA_SPACE;
+  }
+
+  # notes
+  if ($self->_has_notes) {
+    $option .= q{'notes': [ };
+    foreach my $note ($self->notes) {
+      $option
+          .= $SINGLE_QUOTE
+          . $self->string_entitise($note)
+          . $APOS_COMMA_SPACE;
     }
+    $option .= '], ';    ## no critic (ProhibitDuplicateLiteral)
+  }
+  $option .= '}';
 
-    # required: is integer so unquoted
-    if ( $self->required ) {
-        $option .= q{'required': } . $cp->boolise( $self->required ) . q{, };
-    }
-
-    # multiple: is integer so unquoted
-    if ( $self->multiple ) {
-        $option .= q{'multiple': } . $cp->boolise( $self->multiple ) . q{, };
-    }
-
-    # type
-    if ( $self->type ) {
-        $option .= q{'type': '} . $cp->entitise( $self->type() ) . q{', };
-    }
-
-    # values
-    if ( $self->_has_values ) {
-        $option .= q{'values': [ };
-        foreach my $value ( $self->values ) {
-            $option .= q{'} . $cp->entitise($value) . q{', };
-        }
-        $option .= '], ';
-    }
-
-    # default
-    if ( $self->default ) {
-        $option .= q{'default': '} . $cp->entitise( $self->default ) . q{', };
-    }
-
-    # notes
-    if ( $self->_has_notes ) {
-        $option .= q{'notes': [ };
-        foreach my $note ( $self->notes ) {
-            $option .= q{'} . $cp->entitise($note) . q{', };
-        }
-        $option .= '], ';
-    }
-    $option .= '}';
-
-    # return option loader
-    return $option;
-}    #                                                                 }}}1
+  # return option loader
+  return $option;
+}    # }}}1
 
 1;
 
-# POD                                                                  {{{1
+# POD    {{{1
 
 __END__
 
@@ -278,7 +311,11 @@ __END__
 
 =head1 NAME
 
-Dn::CommonBash::Function::Option - dncommon-basf library function option
+Dn::CommonBash::Function::Option - dncommon-bash library function option
+
+=head1 VERSION
+
+This documentation is for Dn::CommonBash::Function::Option version 5.30.
 
 =head1 SYNOPSIS
 
@@ -356,7 +393,8 @@ Get or set option 'default' attribute.
 
 Option 'default' value. Scalar string.
 
-Optional. If provided the attribute is set to this value. If not provided the current attribute value is returned.
+Optional. If provided the attribute is set to this value.
+If not provided the current attribute value is returned.
 
 =back
 
@@ -374,9 +412,14 @@ Current attribute value if no parameter provided.
 
 =head3 Purpose
 
-Provide formatted version of option for screen display.  Output is a list of strings -- one string per screen line. Output strings are prepared by the Dn::Common method 'vim_printify' and need to be printed to screen using Dn::Common method 'vim_list_print'.
+Provide formatted version of option for screen display.
+Output is a list of strings -- one string per screen line.
+Output strings are prepared by the C<vim_printify> method from
+L<Role::Utils::Dn> and need to be printed to screen using the
+C<vim_list_print> method from L<Role::Utils::Dn>.
 
-This method is designed to be called by 'display_function_screen' method of the Dn::CommonBash::Function class.
+This method is designed to be called by the C<display_function_screen> method
+from L<Dn::CommonBash::Function>.
 
 Format:
 
@@ -417,7 +460,8 @@ Get or set option 'flag' attribute.
 
 Option 'flag' value. Scalar string.
 
-Optional. If provided the attribute is set to this value. If not provided the current attribute value is returned.
+Optional. If provided the attribute is set to this value.
+If not provided the current attribute value is returned.
 
 =back
 
@@ -445,7 +489,8 @@ Get or set option 'multiple' attribute.
 
 Option 'multiple' value. Boolean value ('yes', 'true', 1, 'no', 'false', or 0).
 
-Optional. If provided the attribute is set to this value. If not provided the current attribute value is returned.
+Optional. If provided the attribute is set to this value.
+If not provided the current attribute value is returned.
 
 =back
 
@@ -491,7 +536,8 @@ Get or set option 'purpose' attribute.
 
 Option 'purpose' value. Scalar string.
 
-Optional. If provided the attribute is set to this value. If not provided the current attribute value is returned.
+Optional. If provided the attribute is set to this value.
+If not provided the current attribute value is returned.
 
 =back
 
@@ -519,7 +565,8 @@ Get or set option 'required' attribute.
 
 Option 'required' value. Boolean value ('yes', 'true', 1, 'no', 'false', or 0).
 
-Optional. If provided the attribute is set to this value. If not provided the current attribute value is returned.
+Optional. If provided the attribute is set to this value.
+If not provided the current attribute value is returned.
 
 =back
 
@@ -545,9 +592,11 @@ Get or set option 'type' attribute.
 
 =item $purpose
 
-Option 'type' value. Must be one of: 'string', 'integer', 'number', 'boolean', 'path', 'date', 'time', or 'none'.
+Option 'type' value. Must be one of: 'string', 'integer', 'number',
+'boolean', 'path', 'date', 'time', or 'none'.
 
-Optional. If provided the attribute is set to this value. If not provided the current attribute value is returned.
+Optional. If provided the attribute is set to this value.
+If not provided the current attribute value is returned.
 
 =back
 
@@ -585,7 +634,8 @@ List of option values.
 
 Generate portion of vim 'let' command for loader.
 
-Designed to be called by Dn::CommonBash::Function->write_function_loader.
+Designed to be called by the C<write_function_loader> from
+L<Dn::CommonBash::Function>.
 
 =head3 Parameters
 
@@ -599,37 +649,28 @@ Nil.
 
 Scalar string.
 
+=head1 DIAGNOSTICS
+
+This module emits no custom error messages.
+
+=head1 CONFIGURATION AND ENVIRONMENT
+
+This module has no configuration options or files, and has no
+environmental variables.
+
+=head1 INCOMPATIBILITIES
+
+There are no know incompatibilities.
+
+=head1 BUGS AND LIMITATIONS
+
+There are no known bugs or limitations.
+
 =head1 DEPENDENCIES
 
-=over
-
-=item Dn::Common
-
-=item Dn::CommonBash::Types
-
-=item English
-
-=item Function::Parameters
-
-=item Moo
-
-=item MooX::HandlesVia
-
-=item Readonly
-
-=item Test::NeedsDisplay
-
-=item Types::Standard
-
-=item namespace::clean
-
-=item strictures
-
-=item version
-
-=back
-
-Provides utility methods.
+Const::Fast, Dn::CommonBash::Types, English, Moo, MooX::HandlesVia,
+Role::Utils::Dn, Test::NeedsDisplay, Types::Standard, namespace::clean,
+strictures, version.
 
 =head1 AUTHOR
 

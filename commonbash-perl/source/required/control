@@ -13,7 +13,19 @@ Homepage: https://metacpan.org/release/Dn-CommonBash
 Package: libdn-commonbash-perl
 Architecture: all
 Depends: ${misc:Depends}, ${perl:Depends},
- libdn-common-perl
+ perl-base (>= 5.38.2-3),
+ perl-modules,
+ libconst-fast-perl (>= 0.014-2),
+ liblist-someutils-perl (>= 0.59-1),
+ libmoo-perl (>= 2.005005-1),
+ libmoox-handlesvia-perl (>= 0.001009-2),
+ libmoox-options-perl (>= 4.103-4),
+ libnamespace-clean-perl (>= 0.27-2),
+ librole-utils-dn-perl (>= 0.4-1),
+ libstrictures-perl (>= 2.000006-1),
+ libtest-needsdisplay-perl (>= 1.07-4),
+ libtype-tiny-perl (>= 2.004000-1),
+ libversion-perl (>= 1:0.9930-1+b1)
 Description: helper module for libdncommon-bash
  Dn::CommonBash is a helper to the library of shell functions called
  libdncommon-bash. The submodules and associated methods assist in building

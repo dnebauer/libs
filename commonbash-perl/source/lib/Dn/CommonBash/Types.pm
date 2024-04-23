@@ -1,66 +1,62 @@
 package Dn::CommonBash::Types;
 
-use 5.014_002;    #                                                    {{{1
+# modules {{{1
+use 5.038_001;
 use strict;
 use warnings;
-use version; our $VERSION = qv('0.1');    #                            }}}1
+use version; our $VERSION = qv('5.30');    # }}}1
 
-use Type::Utils qw(declare as where message);
+# predeclare types as per Type::Tiny::Manual::Libraries manpage
+# (which is called up by the Type::Library manpage)
+## no critic (ProhibitUnusedImport)
 use Type::Library -base, -declare => qw(Boolean Char OptionType ParamType);
-use Types::Standard qw(Str);
+## use import
+use Type::Utils     qw(declare as where message);
+use Types::Standard qw(Str);                        # }}}1
 
-# Boolean                                                              {{{1
-declare 'Boolean',
-    as Str,
-    where {
-        my $value = lc $_;
-        my %is_valid_boolean
-            = map { ( $_ => 1 ) } qw/yes true on 1 no false off 0/;
-        return $is_valid_boolean{$value};
-    },
-    message {qq[Invalid Boolean value '$_']};
+# types
 
-# Char                                                                 {{{1
-declare 'Char',
-    as Str,
-    where { /^[[:alpha:]]/xsm },
+# Boolean    {{{1
+declare 'Boolean', as Str, where {
+  my $value            = lc;
+  my %is_valid_boolean = map { ($_ => 1) } qw(yes true on 1 no false off 0);
+  return $is_valid_boolean{$value};
+}, message {qq[Invalid Boolean value '$_']};
+
+# Char    {{{1
+declare 'Char', as Str,
+    where {/^[[:alpha:]]/xsm},
     message {qq[Not a single alpabetic character ('$_')]};
 
-# OptionType                                                           {{{1
-declare 'OptionType',
-    as Str,
-    where {
-        my $value = lc;
-        my %is_valid_types
-            = map { ( $_ => 1 ) }
-            qw/string integer number boolean path date time none/;
-        return $is_valid_types{$value};
-    },
-    message {qq[Invalid option type '$_']};
+# OptionType    {{{1
+declare 'OptionType', as Str, where {
+  my $value = lc;
+  my %is_valid_types =
+      map { ($_ => 1) } qw/string integer number boolean path date time none/;
+  return $is_valid_types{$value};
+}, message {qq[Invalid option type '$_']};
 
-# ParamType                                                            {{{1
-declare 'ParamType',
-    as Str,
-    where {
-        my $value = lc;
-        my %is_valid_types
-            = map { ( $_ => 1 ) }
-            qw/string integer number boolean path date time/;
-        return $is_valid_types{$value};
-    },
-    message {qq[Invalid parameter type '$_']};    #                    }}}1
+# ParamType    {{{1
+declare 'ParamType', as Str, where {
+  my $value = lc;
+  my %is_valid_types =
+      map { ($_ => 1) } qw/string integer number boolean path date time/;
+  return $is_valid_types{$value};
+}, message {qq[Invalid parameter type '$_']};    # }}}1
 
 1;
 
-# POD                                                                  {{{1
+# POD    {{{1
 
 __END__
-
-=encoding utf-8
 
 =head1 NAME
 
 Dn::CommonBash::Types - data constraints for package CommonBash
+
+=head1 VERSION
+
+This documentation refers to Dn::CommonBash::Types version 5.30.
 
 =head1 SYNOPSIS
 
@@ -68,18 +64,21 @@ Dn::CommonBash::Types - data constraints for package CommonBash
     use Dn::CommonBash::Types qw(Char);
 
     has 'attribute',
-        isa => Dn::CommonBash::Types,    # must NOT quote, i.e., 'Types::Dn::File'
+        isa => Dn::CommonBash::Types,    # must NOT quote
         is  => 'rw';
 
 =head1 DESCRIPTION
 
-A library of custom type constraints. In the following explanations of each type the error message may include the variable '$_', which represents the value provided to the attribute.
+A library of custom type constraints. In the following explanations of each
+type the error message may include the variable '$_', which represents the
+value provided to the attribute.
 
 =over
 
 =item I<Dn::CommonBash::Types::Boolean>
 
-A boolean value. Must be one of: 'yes', 'true', 'on', 1, 'no', 'false' or 'off'.
+A boolean value.
+Must be one of: 'yes', 'true', 'on', 1, 'no', 'false' or 'off'.
 
 Error message: "Invalid Boolean value '$_'".
 
@@ -91,29 +90,42 @@ Error messages: "Not a single alpabetic character ('$_')".
 
 =item I<Dn::CommonBash::Types::OptionType>
 
-Option type. Must be one of: 'boolean', 'date', 'integer', 'none', 'number', 'path', 'string' or 'time'.
+Option type. Must be one of: 'boolean', 'date', 'integer', 'none', 'number',
+'path', 'string' or 'time'.
 
 Error message: "Invalid option type '$_'".
 
 =item I<Dn::CommonBash::Types::ParamType>
 
-Parameter type. Must be one of: 'boolean', 'date', 'integer', 'number', 'path', 'string' or 'time'.
+Parameter type. Must be one of: 'boolean', 'date', 'integer', 'number',
+'path', 'string' or 'time'.
 
 Error message: "Invalid parameter type '$_'".
 
 =back
 
-=head1 DEPENDENCES
+=head1 SUBROUTINES/METHODS
 
-=over
+This module does not provide any subroutines.
 
-=item Type::Library
+=head1 DIAGNOSTICS
 
-=item Type::Utils
+The error messages associated with type constraint violations are given in
+L</DESCRIPTION>.
 
-=item Types::Standard
+No custom errors are generated by this module.
 
-=back
+=head1 CONFIGURATION AND ENVIRONMENT
+
+There is no configuration of this module.
+
+=head1 INCOMPATIBILITIES
+
+There are no known incompatibilities.
+
+=head1 DEPENDENCIES
+
+Type::Library, Type::Utils, Types::Standard, version.
 
 =head1 BUGS AND LIMITATIONS
 

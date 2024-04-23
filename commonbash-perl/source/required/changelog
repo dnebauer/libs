@@ -1,3 +1,11 @@
+libdn-commonbash-perl (5.30-1) unstable; urgency=low
+
+  * Remove dependency on Function::Parameters
+  * Replace dependency on Dn::Common with Role::Utils::Dn
+  * Fix perlcritic warnings
+
+ -- David Nebauer <davidnebauer@hotkey.net.au>  Tue, 23 Apr 2024 23:09:07 +0930
+
 libdn-commonbash-perl (0.2-1) unstable; urgency=low
 
   * Replace when() (deprecated)

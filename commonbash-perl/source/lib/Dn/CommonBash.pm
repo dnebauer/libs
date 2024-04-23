@@ -1,55 +1,65 @@
 package Dn::CommonBash;
 
-use Moo;    #                                                          {{{1
+# modules    {{{1
+use Moo;
 use strictures 2;
-use 5.014_002;
+use 5.038_001;
 use namespace::clean;
-use version; our $VERSION = qv('0.1');
-use Test::NeedsDisplay;
+use version; our $VERSION = qv('5.30');
+use Test::NeedsDisplay;    # must be first listed module
 
 use autodie qw(open close);
-use Carp qw(confess);
+use Carp    qw(croak confess);
+use Const::Fast;
+use Cwd;
 use Dn::CommonBash::Function;
-use English qw(-no_match_vars);
-use Function::Parameters;
+use English;
+use List::SomeUtils;
 use MooX::HandlesVia;
-use Readonly;
-use Types::Standard qw(HashRef InstanceOf);
-use Cwd qw(abs_path);
-use Dn::Common;
-use Dn::CommonBash::Function;
-use List::MoreUtils qw(any);
-use experimental 'switch';
+use Types::Standard;
 
-my $cp = Dn::Common->new();
-Readonly my $TRUE          => 1;
-Readonly my $FALSE         => 0;
-Readonly my $_vim_variable => q{dnLibCommonBash};    #                 }}}1
+with qw(Role::Utils::Dn);
 
-# Attributes
+const my $TRUE         => 1;
+const my $FALSE        => 0;
+const my $FOR_READING  => q{<};
+const my $FOR_WRITING  => q{>};
+const my $NUMBER_TWO   => 2;
+const my $NUMBER_THREE => 3;
+const my $NUMBER_FOUR  => 4;
+const my $NUMBER_FIVE  => 5;
+const my $NUMBER_SIX   => 6;
+const my $SPACE        => q{ };
+const my $VIM_VARIABLE => q{dnLibCommonBash};
 
-# _function_data                                                       {{{1
+# }}}1
+
+# attributes
+
+# _function_data    {{{1
 has '_function_data' => (
-    is      => 'rw',
-    isa     => Types::Standard::HashRef[Types::Standard::InstanceOf['Dn::CommonBash::Function']],
-    default => sub { {} },
-    handles_via  => 'Hash',
-    handles => {
-        _set_functions   => 'set',         # ($k, $v, $k, ...)
-        _function        => 'get',         # ($funcname) -> $funcref
-        _has_function    => 'get',         # ($funcname) -> $funcref
-        _has_functions   => 'count',       # () -> bool
-        _function_names  => 'keys',        # () -> @funcnames
-        _function_count  => 'count',       # () -> $count
-        _get_functions   => 'elements',    # () -> ($k, $v, $k, ...)
-        _clear_functions => 'clear',       # ()
-    },
-    documentation => 'Function (objects)',
-);    #                                                                }}}1
+  is  => 'rw',
+  isa => Types::Standard::HashRef [
+    Types::Standard::InstanceOf ['Dn::CommonBash::Function'],
+  ],
+  default     => sub { {} },
+  handles_via => 'Hash',
+  handles     => {
+    _set_functions   => 'set',         # ($k, $v, $k, ...)
+    _function        => 'get',         # ($funcname) -> $funcref
+    _has_function    => 'get',         # ($funcname) -> $funcref
+    _has_functions   => 'count',       # () -> bool
+    _function_names  => 'keys',        # () -> @funcnames
+    _function_count  => 'count',       # () -> $count
+    _get_functions   => 'elements',    # () -> ($k, $v, $k, ...)
+    _clear_functions => 'clear',       # ()
+  },
+  documentation => 'Function (objects)',
+);                                     # }}}1
 
-# Methods
+# methods
 
-# _handle_pkglib_dir($filepath, [$master])                             {{{1
+# _handle_pkglib_dir($filepath, [$master])    {{{1
 #
 # does:   modify filepath if it contains autotools variables @pkglib_dir@ or
 #         @pkglibexec_dir@
@@ -63,21 +73,22 @@ has '_function_data' => (
 #         '@pkglib_dir@' or '@pkglibexec_dir@' -- if it does the filepath is
 #         processed specially: the placeholder is replaced by the path from the
 #         library master file and the extension '.in' is added
-method _handle_pkglib_dir ($filepath, $master) {
-    if ( $filepath =~ /\@pkglib_dir\@/xsm ) {
-        my $master_path = $cp->get_path($master);
-        $filepath =~ s/\@pkglib_dir\@/$master_path/xsm;
-        $filepath .= q{.in};
-    }
-    elsif ( $filepath =~ /\@pkglibexec_dir\@/xsm ) {
-        my $master_path = $cp->get_path($master);
-        $filepath =~ s/\@pkglibexec_dir\@/$master_path/xsm;
-        $filepath .= q{.in};
-    }
-    return $filepath;
+sub _handle_pkglib_dir ($self, $filepath, $master)
+{    ## no critic (RequireInterpolationOfMetachars)
+  if ($filepath =~ /\@pkglib_dir\@/xsm) {
+    my $master_path = $self->dir_name($master);
+    $filepath =~ s/\@pkglib_dir\@/$master_path/xsm;
+    $filepath .= q{.in};
+  }
+  elsif ($filepath =~ /\@pkglibexec_dir\@/xsm) {
+    my $master_path = $self->dir_name($master);
+    $filepath =~ s/\@pkglibexec_dir\@/$master_path/xsm;
+    $filepath .= q{.in};    ## no critic (ProhibitDuplicateLiteral)
+  }
+  return $filepath;
 }
 
-# _library_files($master)                                              {{{1
+# _library_files($master)    {{{1
 #
 # does:   get list of files in libdncommon-bash
 # params: $master - root file in libdncommon-bash [filepath, required]
@@ -87,146 +98,170 @@ method _handle_pkglib_dir ($filepath, $master) {
 #         to master list, then parse file for more sourced files
 #         (assumes format like: 'source /path/to/libfile  # comment');
 #         if sourced files found, add to @found_files to process in turn
-method _library_files ($master) {
-    if ( not $master ) { confess q{No master library file provided}; }
-    if ( not -r $master ) {
-        confess qq[Invalid master library file '$master' provided];
+sub _library_files ($self, $master)
+{    ## no critic (RequireInterpolationOfMetachars)
+  if (not $master) { confess q{No master library file provided}; }
+  if (not -r $master) {
+    confess qq[Invalid master library file '$master' provided];
+  }
+  my @found_files = $master;
+  my @libfiles;
+
+  while (@found_files) {
+
+    # delete file to be processed from front of @found_files array
+    my $libfile = shift @found_files;
+    if (@libfiles) {    # any fails if @libfiles empty
+      if (not(List::SomeUtils::any {/^$libfile\z/xsm} @libfiles)) {
+        push @libfiles, $libfile;
+      }
     }
-    my @found_files = $master;
-    my @libfiles;
-
-    while (@found_files) {
-
-        # delete file to be processed from front of @found_files array
-        my $libfile = shift @found_files;
-        if (@libfiles) {          # any fails if @libfiles empty
-            if ( not( List::MoreUtils::any {/^$libfile\z/xsm} @libfiles ) ) {
-                push @libfiles, $libfile;
-            }
-        }
-        else {
-            push @libfiles, $libfile;
-        }
-        open my $fh, '<', $libfile;
-        my @lines = <$fh>;
-        close $fh;
-        foreach my $line (@lines) {
-            chomp $line;
-
-            # look for sourced files
-            my $filename = $line =~ s/^\s*[.]\s+(\S+).*$/$1/rxsm;
-            if ( $filename ne $line ) {
-
-                # add newly discovered filename to end of @found_files array
-                $filename = $self->_handle_pkglib_dir( $filename, $master );
-                push @found_files, $filename;
-            }
-        }
+    else {
+      push @libfiles, $libfile;
     }
-    my $msg = q{Found } . scalar @libfiles . q{ library files};
-    say $msg;
-    return @libfiles;
+    my $fh;
+    open $fh, $FOR_READING, $libfile
+        or croak "Unable to open $libfile for reading: $OS_ERROR";
+    my @lines = <$fh>;
+    close $fh;
+    foreach my $line (@lines) {
+      chomp $line;
+
+      # look for sourced files
+      my $filename = $line =~ s/^\s*[.]\s+(\S+).*$/$1/rxsm;
+      if ($filename ne $line) {
+
+        # add newly discovered filename to end of @found_files array
+        $filename = $self->_handle_pkglib_dir($filename, $master);
+        push @found_files, $filename;
+      }
+    }
+  }
+  my $msg = q{Found } . scalar @libfiles . q{ library files};
+  say $msg or croak;
+  return @libfiles;
 }
 
-# _load_from_library($master)                                          {{{1
+# _load_from_library($master)    {{{1
 #
 # does:   load function data from library
 # params: $master - root file in libdncommon-bash (filepath, required]
 # prints: feedback
 # return: nil
-method _load_from_library ($master) {
-    if ( not $master ) { confess q{Library master file not set}; }
-    my %fns;
-    my @lines;
-    my @libfiles = $self->_library_files($master);
-    if ( not @libfiles ) { confess q{No library files discovered}; }
+sub _load_from_library ($self, $master)
+{ ## no critic (RequireInterpolationOfMetachars ProhibitExcessComplexity ProhibitDuplicateLiteral)
+  if (not $master) { confess q{Library master file not set}; }
+  my %fns;
+  my @lines;
+  my @libfiles = $self->_library_files($master);
+  if (not @libfiles) { confess q{No library files discovered}; }
 
-    # read in content of all library files
-    for my $libfile (@libfiles) {
-        open my $fh, '<', $libfile;
-        push @lines, <$fh>;
-        close $fh;
+  # read in content of all library files
+  for my $libfile (@libfiles) {
+    my $fh;
+    open $fh, $FOR_READING, $libfile
+        or croak "Unable to open $libfile for reading: $OS_ERROR";
+    push @lines, <$fh>;
+    close $fh;
+  }
+
+  # process library content
+  const my $IDX_OPT_ATTR_FUNC   => $NUMBER_TWO;
+  const my $IDX_OPT_ATTR_KEY    => $NUMBER_THREE;
+  const my $IDX_OPT_ATTR_FLAG   => $NUMBER_FOUR;
+  const my $IDX_OPT_ATTR_ATTR   => $NUMBER_FIVE;
+  const my $IDX_OPT_ATTR_VAL    => $NUMBER_SIX;
+  const my $IDX_PARAM_ATTR_NAME => $NUMBER_FOUR;
+  const my $IDX_PARAM_ATTR_ATTR => $NUMBER_FIVE;
+  const my $IDX_PARAM_ATTR_VAL  => $NUMBER_SIX;
+  const my $IDX_FN_ATTR_ATTR    => $NUMBER_THREE;
+  const my $IDX_FN_ATTR_VAL     => $NUMBER_FOUR;
+
+  for my $line (@lines) {
+    chomp $line;
+
+    # next line fails mysteriously if flags 'xsm' used
+    # as per 'Perl Best Practice'
+    next if $line !~ /^# fn_tag/xsm;         # not a function definition line
+    my @elements = split /\s+/xsm, $line;    # get elements of line
+    my $fn       = $elements[$IDX_OPT_ATTR_FUNC];
+    if (not $fns{$fn}) {                     # ensure function defined
+      $fns{$fn} = Dn::CommonBash::Function->new();
     }
+    my $func        = $fns{$fn};
+    my $key_element = $elements[$IDX_OPT_ATTR_KEY];
+    for ($key_element) {
 
-    # process library content
-    for my $line (@lines) {
-        chomp $line;
-
-        # next line fails mysteriously if flags 'xsm' used
-        # as per 'Perl Best Practice'
-        next if $line !~ /^# fn_tag/;    # not a function definition line
-        my @elements = split /\s+/xsm, $line;    # get elements of line
-        my $fn = $elements[2];
-        if ( not $fns{$fn} ) {                   # ensure function defined
-            $fns{$fn} = Dn::CommonBash::Function->new();
+      # option attribute definition line
+      if (/^option\z/xsm) {
+        my $flag = $elements[$IDX_OPT_ATTR_FLAG];
+        my $attr = $elements[$IDX_OPT_ATTR_ATTR];
+        my $val  = join $SPACE, @elements[ $IDX_OPT_ATTR_VAL .. $#elements ];
+        if (not $func->option($flag)) {
+          $func->add_option(
+            Dn::CommonBash::Function->new()->new_option($flag));
         }
-        my $func        = $fns{$fn};
-        my $key_element = $elements[3];
-        for ($key_element) {
-
-            # option attribute definition line
-            if ($_ =~ /^option\z/xsm) {
-                my $flag = $elements[4];
-                my $attr = $elements[5];
-                my $val  = join q{ }, @elements[ 6 .. $#elements ];
-                if ( not $func->option($flag) ) {
-                    $func->add_option(
-                        Dn::CommonBash::Function->new()->new_option($flag) );
-                }
-                my $option = $func->option($flag);
-                for ($attr) {
-                    if    ($_ =~ /^purpose\z/xsmi)  { $option->purpose($val); } ## no critic (ProhibitCascadingIfElse)
-                    elsif ($_ =~ /^required\z/xsmi) { $option->required($val); }
-                    elsif ($_ =~ /^multiple\z/xsmi) { $option->multiple($val); }
-                    elsif ($_ =~ /^type\z/xsmi)     { $option->type($val); }
-                    elsif ($_ =~ /^value\z/xsmi)    { $option->add_value($val); }
-                    elsif ($_ =~ /^default\z/xsmi)  { $option->default($val); }
-                    elsif ($_ =~ /^note\z/xsmi)     { $option->add_note($val); }
-                }
-            }
-
-            # param attribute definition line
-            elsif ($_ =~ /^param\z/xsm) {
-                my $name = $elements[4];
-                my $attr = $elements[5];
-                my $val  = join q{ }, @elements[ 6 .. $#elements ];
-                if ( not $func->param($name) ) {
-                    $func->add_param(
-                        Dn::CommonBash::Function->new()->new_param($name) );
-                }
-                my $param = $func->param($name);
-                for ($attr) {
-                    if    ($_ =~ /^purpose\z/xsmi)   { $param->purpose($val); } ## no critic (ProhibitCascadingIfElse)
-                    elsif ($_ =~ /^required\z/xsmi)  { $param->required($val); }
-                    elsif ($_ =~ /^multipart\z/xsmi) { $param->multipart($val); }
-                    elsif ($_ =~ /^type\z/xsmi)      { $param->type($val); }
-                    elsif ($_ =~ /^value\z/xsmi)     { $param->add_value($val); }
-                    elsif ($_ =~ /^default\z/xsmi)   { $param->default($val); }
-                    elsif ($_ =~ /^note\z/xsmi)      { $param->add_note($val); }
-                }
-            }
-
-            # function attribute definition line
-            else {
-                my $attr = $elements[3];
-                my $val = join q{ }, @elements[ 4 .. $#elements ];
-                for ($attr) {
-                    if    ($_ =~ /^purpose\z/xsmi) { $func->purpose($val); } ## no critic (ProhibitCascadingIfElse)
-                    elsif ($_ =~ /^prints\z/xsmi)  { $func->prints($val); }
-                    elsif ($_ =~ /^returns\z/xsmi) { $func->returns($val); }
-                    elsif ($_ =~ /^note\z/xsmi)    { $func->add_note($val); }
-                    elsif ($_ =~ /^usage\z/xsmi)   { $func->add_usage($val); }
-                }
-            }
+        my $option = $func->option($flag);
+        for ($attr) {
+          ## no critic (ProhibitCascadingIfElse)
+          if    (/^purpose\z/xsmi)  { $option->purpose($val); }
+          elsif (/^required\z/xsmi) { $option->required($val); }
+          elsif (/^multiple\z/xsmi) { $option->multiple($val); }
+          elsif (/^type\z/xsmi)     { $option->type($val); }
+          elsif (/^value\z/xsmi)    { $option->add_value($val); }
+          elsif (/^default\z/xsmi)  { $option->default($val); }
+          elsif (/^note\z/xsmi)     { $option->add_note($val); }
+          ## use critic
         }
+      }
+
+      # param attribute definition line
+      elsif (/^param\z/xsm) {
+        my $name = $elements[$IDX_PARAM_ATTR_NAME];
+        my $attr = $elements[$IDX_PARAM_ATTR_ATTR];
+        my $val = join $SPACE, @elements[ $IDX_PARAM_ATTR_VAL .. $#elements ];
+        if (not $func->param($name)) {
+          $func->add_param(Dn::CommonBash::Function->new()->new_param($name));
+        }
+        my $param = $func->param($name);
+        for ($attr) {
+          ## no critic (ProhibitCascadingIfElse)
+          if    (/^purpose\z/xsmi)   { $param->purpose($val); }
+          elsif (/^required\z/xsmi)  { $param->required($val); }
+          elsif (/^multipart\z/xsmi) { $param->multipart($val); }
+          elsif (/^type\z/xsmi)      { $param->type($val); }
+          elsif (/^value\z/xsmi)     { $param->add_value($val); }
+          elsif (/^default\z/xsmi)   { $param->default($val); }
+          elsif (/^note\z/xsmi)      { $param->add_note($val); }
+          ## use critic
+        }
+      }
+
+      # function attribute definition line
+      else {
+        my $attr = $elements[$IDX_FN_ATTR_ATTR];
+        my $val  = join $SPACE, @elements[ $IDX_FN_ATTR_VAL .. $#elements ];
+        for ($attr) {
+          ## no critic (ProhibitCascadingIfElse)
+          if    (/^purpose\z/xsmi) { $func->purpose($val); }
+          elsif (/^prints\z/xsmi)  { $func->prints($val); }
+          elsif (/^returns\z/xsmi) { $func->returns($val); }
+          elsif (/^note\z/xsmi)    { $func->add_note($val); }
+          elsif (/^usage\z/xsmi)   { $func->add_usage($val); }
+          ## use critic
+        }
+      }
     }
+  }
 
-    # load function data
-    $self->_clear_functions;
-    $self->_set_functions(%fns);
+  # load function data
+  $self->_clear_functions;
+  $self->_set_functions(%fns);
+
+  return;
 }
 
-# _load_from_store($store)                                             {{{1
+# _load_from_store($store)    {{{1
 #
 # does:   load function data from persistent data store
 # params: $store - storage filepath [required]
@@ -234,26 +269,29 @@ method _load_from_library ($master) {
 # return: nil
 # note:   data store is assumed to have been created
 #         with the 'write_store' method
-method _load_from_store ($store) {
+sub _load_from_store ($self, $store)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # check storage file
-    if ( not $store ) { confess q{No storage filepath provided}; }
-    if ( not -r $store ) {
-        confess qq[Invalid storage filepath '$store' provided];
-    }
+  # check storage file
+  if (not $store) { confess q{No storage filepath provided}; }
+  if (not -r $store) {
+    confess qq[Invalid storage filepath '$store' provided];
+  }
 
-    # retrieve function data and load it
-    my $funcs_ref = $cp->retrieve_store($store);
-    my %functions = %{$funcs_ref};
-    $self->_clear_functions;
-    $self->_set_functions(%functions);
+  # retrieve function data and load it
+  my $funcs_ref = $self->data_retrieve($store);
+  my %functions = %{$funcs_ref};
+  $self->_clear_functions;
+  $self->_set_functions(%functions);
 
-    # provide feedback
-    my $msg = q{Retrieved data on } . $self->_function_count . q{ functions};
-    say $msg;
+  # provide feedback
+  my $msg = q{Retrieved data on } . $self->_function_count . q{ functions};
+  say $msg or croak;
+
+  return;
 }
 
-# display_function_details($name, [$store])                            {{{1
+# display_function_details($name, [$store])    {{{1
 #
 # does:   display information about the named function
 #         formatted for console display
@@ -262,40 +300,41 @@ method _load_from_store ($store) {
 #                  required if functions have not been loaded
 # prints: nil
 # return: list of display lines
-method display_function_details ($name, $store) {
+sub display_function_details ($self, $name, $store)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # must have function name
-    if ( not $name ) {
-        confess q{No name provided};
+  # must have function name
+  if (not $name) {
+    confess q{No name provided};
+  }
+
+  # ensure function data is loaded
+  if (not $self->_has_functions) {
+    if (not($self->_load_from_store($store))) {
+      confess qq{Unable to load from store '$store'};
     }
+  }
 
-    # ensure function data is loaded
-    if ( not $self->_has_functions ) {
-        if ( not( $self->_load_from_store($store) ) ) {
-            confess qq{Unable to load from store '$store'};
-        }
-    }
+  # must have details on that function
+  if (not($self->_has_function($name))) {
+    confess qq{Cannot find details of function '$name'};
+  }
 
-    # must have details on that function
-    if ( not( $self->_has_function($name) ) ) {
-        confess qq{Cannot find details of function '$name'};
-    }
-
-    # display details
-    if ( my $function = $self->_function($name) ) {
-        if ( my @display = $function->display_function_screen($name) ) {
-            return @display;
-        }
-        else {
-            confess qq{Unable to get display details for function '$name'};
-        }
+  # display details
+  if (my $function = $self->_function($name)) {
+    if (my @display = $function->display_function_screen($name)) {
+      return @display;
     }
     else {
-        confess qq{Unable to retrieve details for function '$name'};
+      confess qq{Unable to get display details for function '$name'};
     }
+  }
+  else {
+    confess qq{Unable to retrieve details for function '$name'};
+  }
 }
 
-# select_function($filter, [$store])                                   {{{1
+# select_function($filter, [$store])    {{{1
 #
 # does:   choose a function
 # params: $filter - part of function name [required]
@@ -303,42 +342,44 @@ method display_function_details ($name, $store) {
 #                   required if functions have not been loaded
 # prints: nil
 # return: scalar string
-method select_function ($filter, $store) {
-    if ( not $self->_has_functions ) {
-        $self->_load_from_store($store);
-    }
-    my @funcs = $self->_function_names();
+sub select_function ($self, $filter, $store)
+{    ## no critic (RequireInterpolationOfMetachars)
+  if (not $self->_has_functions) {
+    $self->_load_from_store($store);
+  }
+  my @funcs = $self->_function_names();
 
-    # first try for exact match (assume returns either 1 or 0)
-    my @exact_match;
-    if ($filter) {
-        @exact_match = grep {/^$filter\z/xsmi} @funcs;
-    }
-    if ( scalar @exact_match == 1 ) {
-        return $exact_match[0];
-    }
+  # first try for exact match (assume returns either 1 or 0)
+  my @exact_match;
+  if ($filter) {
+    @exact_match = grep {/^$filter\z/xsmi} @funcs;
+  }
+  if (scalar @exact_match == 1) {
+    return $exact_match[0];
+  }
 
-    # if no exact match, look for partial matches
-    if ($filter) {
-        @funcs = grep {/$filter/xsmi} @funcs;
-    }
+  # if no exact match, look for partial matches
+  if ($filter) {
+    @funcs = grep {/$filter/xsmi} @funcs;
+  }
 
-    for ( scalar @funcs ) {
-        if    ( $_ == 0 ) {
-            say q{No matching function found};
-            return;
-        }
-        elsif ( $_ == 1 ) {
-            say q{Only one matching function found};
-            return "@funcs";
-        }
-        else {    # > 1
-            return $cp->input_choose( q{Select function:}, @funcs );
-        }
+  for (scalar @funcs) {
+    if ($_ == 0) {
+      say q{No matching function found} or croak;
+      return q{};
     }
+    elsif ($_ == 1) {
+      say q{Only one matching function found} or croak;
+      return "@funcs";
+    }
+    else {    # > 1
+      return $self->interact_choose(q{Select function:}, @funcs);
+    }
+  }
+  return q{};
 }
 
-# write_dictionary($dict, [$master])                                   {{{1
+# write_dictionary($dict, [$master])    {{{1
 #
 # does:   write sorted list of function names to dictionary file
 # params: $dict - dictionary filepath [required]
@@ -346,42 +387,46 @@ method select_function ($filter, $store) {
 #                   [required if function data not loaded]
 # prints: nil
 # return: nil
-method write_dictionary ($dict, $master) {
+sub write_dictionary ($self, $dict, $master)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # need output filename and data to write to it
-    if ( not $dict ) {
-        confess q{No dictionary filepath provided};
+  # need output filename and data to write to it
+  if (not $dict) {
+    confess q{No dictionary filepath provided};
+  }
+  if (not $self->_has_functions) {
+    if (not($self->_load_from_library($master))) {
+      confess qq{Unable to extract function data from '$master'};
     }
-    if ( not $self->_has_functions ) {
-        if ( not( $self->_load_from_library($master) ) ) {
-            confess qq{Unable to extract function data from '$master'};
-        }
-    }
+  }
 
-    # ensure dictionary path exists
-    my $dict_dir = $cp->get_path($dict);
-    if ($dict_dir) {
-        if ( not( $cp->make_dir($dict_dir) ) ) {
-            confess qq{Unable to make directory '$dict_dir'};
-        }
+  # ensure dictionary path exists
+  my $dict_dir = $self->dir_name($dict);
+  if ($dict_dir) {
+    if (not($self->dir_make($dict_dir))) {
+      confess qq{Unable to make directory '$dict_dir'};
     }
+  }
 
-    # write dictionary file
-    open my $fh, '>', $dict;
-    my @function_names = sort $self->_function_names;
-    foreach my $function_name (@function_names) {
-        print {$fh} "$function_name\n" or confess qq{Couldn't write '$dict'};
-    }
-    close $fh;
+  # write dictionary file
+  my @function_names = sort $self->_function_names;
+  my $fh;
+  open $fh, $FOR_WRITING, $dict
+      or croak "Unable to open $dict for writing: $OS_ERROR";
+  foreach my $function_name (@function_names) {
+    print {$fh} "$function_name\n" or confess qq{Couldn't write '$dict'};
+  }
+  close $fh;
 
-    # provide feedback
-    say q{wrote }
-        . $self->_function_count
-        . q{ function names to dictionary file};
-    return;
+  # provide feedback
+  say q{wrote }
+      . $self->_function_count
+      . q{ function names to dictionary file}
+      or croak;
+  return;
 }
 
-# write_loader($loader, [$master])                                     {{{1
+# write_loader($loader, [$master])    {{{1
 #
 # does:   generate vim loader file
 # params: $loader - loader filepath [required]
@@ -390,71 +435,77 @@ method write_dictionary ($dict, $master) {
 # prints: nil
 # return: nil
 # note:   designed to be called by Dn::CommonBash::Function->write_loader
-method write_loader ($loader, $master) {
+sub write_loader ($self, $loader, $master)
+{    ## no critic (RequireInterpolationOfMetachars)
 
-    # need output filename and data to write to it
-    if ( not $loader ) {
-        confess q{No loader filepath provided};
+  # need output filename and data to write to it
+  if (not $loader) {
+    confess q{No loader filepath provided};
+  }
+  if (not $self->_has_functions) {
+    if (not($self->_load_from_library($master))) {
+      ## no critic (ProhibitDuplicateLiteral)
+      confess qq{Unable to extract function data from '$master'};
+      ## use critic
     }
-    if ( not $self->_has_functions ) {
-        if ( not( $self->_load_from_library($master) ) ) {
-            confess qq{Unable to extract function data from '$master'};
-        }
+  }
+
+  # ensure loader path exists
+  my $loader_dir = $self->dir_name($loader);
+  if ($loader_dir) {
+    if (not($self->dir_make($loader_dir))) {
+      confess qq{Unable to make directory '$loader_dir'};
     }
+  }
 
-    # ensure loader path exists
-    my $loader_dir = $cp->get_path($loader);
-    if ($loader_dir) {
-        if ( not( $cp->make_dir($loader_dir) ) ) {
-            confess qq{Unable to make directory '$loader_dir'};
-        }
-    }
+  # generate output
+  my @data;
+  push @data, q{" Vim loader file};
+  push @data, $SPACE;
+  push @data, q{" Loads function data from libdncommon-bash};
+  push @data, q{" into an associative array.};
+  push @data, q{};
+  push @data,
+        q{" [Generated by }
+      . $self->script_name() . q{ on }
+      . $self->date_current_iso() . q{]};
+  push @data, q{};
+  push @data, q{" -------------------------------------------};
+  push @data, q{};
+  push @data, q[let ] . $VIM_VARIABLE . q[ = {}];
+  push @data, q{};
 
-    # generate output
-    my @data;
-    push @data, q{" Vim loader file};
-    push @data, q{ };
-    push @data, q{" Loads function data from libdncommon-bash};
-    push @data, q{" into an associative array.};
-    push @data, q{};
-    push @data,
-          q{" [Generated by }
-        . $cp->scriptname() . q{ on }
-        . $cp->today() . q{]};
-    push @data, q{};
-    push @data, q{" -------------------------------------------};
-    push @data, q{};
-    push @data, q[let ] . $_vim_variable . q[ = {}];
-    push @data, q{};
+  # main output here
+  foreach my $func_name ($self->_function_names) {
+    my $function = $self->_function($func_name);
+    push @data, q{let }    ## no critic (ProhibitDuplicateLiteral)
+        . $VIM_VARIABLE . q{['}
+        . $func_name
+        . q{'] = }
+        . $function->write_function_loader();
+  }
 
-    # main output here
-    foreach my $func_name ( $self->_function_names ) {
-        my $function = $self->_function($func_name);
-        push @data,
-              q{let }
-            . $_vim_variable . q{['}
-            . $func_name
-            . q{'] = }
-            . $function->write_function_loader();
-    }
+  # write output
+  my $fh;
+  open $fh, $FOR_WRITING, $loader
+      or croak "Unable to open $loader for writing: $OS_ERROR";
+  foreach my $line (@data) {
+    print {$fh} qq{$line\n}
+        or confess qq{Unable to write file '$loader'};
+  }
+  close $fh;
 
-    # write output
-    open my $fh, '>', $loader;
-    foreach my $line (@data) {
-        print {$fh} qq{$line\n}
-            or confess qq{Unable to write file '$loader'};
-    }
-    close $fh;
+  # provide feedback
+  my $msg =
+        q{wrote data on }
+      . $self->_function_count()
+      . q{ functions to loader file};
+  say $msg or croak;
 
-    # provide feedback
-    my $msg
-        = q{wrote data on }
-        . $self->_function_count()
-        . q{ functions to loader file};
-    say $msg;
+  return;
 }
 
-# write_store($store, [$master])                                       {{{1
+# write_store($store, [$master])    {{{1
 #
 # does:   generate persistent data store
 # params: $store  - storage file path [required]
@@ -463,46 +514,48 @@ method write_loader ($loader, $master) {
 #                   [required if function data not loaded]
 # prints: feedback
 # return: nil
-method write_store ($store, $master) {
-        # need output filename and data to write to it
-    if ( not $store ) {
-        confess q{No data store filepath provided};
+sub write_store ($self, $store, $master)
+{    ## no critic (RequireInterpolationOfMetachars)
+
+  # need output filename and data to write to it
+  if (not $store) {
+    confess q{No data store filepath provided};
+  }
+  if (not $self->_has_functions) {
+    if (not($self->_load_from_library($master))) {
+      ## no critic (ProhibitDuplicateLiteral)
+      confess qq{Unable to extract function data from '$master'};
+      ## use critic
     }
-    if ( not $self->_has_functions ) {
-        if ( not( $self->_load_from_library($master) ) ) {
-            confess qq{Unable to extract function data from '$master'};
-        }
+  }
+
+  # get functions to store
+  my $functions = { $self->_get_functions };
+
+  # ensure storage path exists
+  my $storage_dir = $self->dir_name($store);
+  if ($storage_dir) {
+    if (not($self->dir_make($storage_dir))) {
+      confess qq{Unable to make directory '$storage_dir'};
     }
+  }
 
-    # get functions to store
-    my $functions = { $self->_get_functions };
+  # save functions to store
+  $self->data_store($functions, $store);
 
-    # ensure storage path exists
-    my $storage_dir = $cp->get_path($store);
-    if ($storage_dir) {
-        if ( not( $cp->make_dir($storage_dir) ) ) {
-            confess qq{Unable to make directory '$storage_dir'};
-        }
-    }
+  # provide feedback
+  my $msg = q{wrote data on }    ## no critic (ProhibitDuplicateLiteral)
+      . $self->_function_count() . q{ functions to storage file};
+  say $msg or croak;
 
-    # save functions to store
-    $cp->save_store( $functions, $store );
-
-    # provide feedback
-    my $msg
-        = q{wrote data on }
-        . $self->_function_count()
-        . q{ functions to storage file};
-    say $msg;
-}    #                                                                 }}}1
+  return;
+}    # }}}1
 
 1;
 
-# POD                                                                  {{{1
+# POD    {{{1
 
 __END__
-
-=encoding utf-8
 
 =head1 NAME
 
@@ -511,6 +564,10 @@ Dn::CommonBash - helper module for libdncommon-bash
 =head1 SYNOPSIS
 
   use Dn::CommonBash;
+
+=head1 VERSION
+
+This documentation is for Dn::CommonBash version 5.30.
 
 =head1 DESCRIPTION
 
@@ -725,45 +782,68 @@ Feedback.
 
 Nil.
 
+=head1 DIAGNOSTICS
+
+=head2 Unable to open FILE for reading: ERROR
+=head2 Unable to open FILE for writing: ERROR
+
+Occur when a system error prevents file reading or writing.
+
+=head2 Invalid master library file 'FILE' provided
+=head2 Library master file not set
+=head2 No library files discovered
+=head2 No master library file provided
+=head2 Unable to load from store 'FILE'
+
+Occurs when the master library file path is not provided or cannot be read.
+
+=head2 Invalid storage filepath 'FILE' provided
+=head2 No storage filepath provided
+=head2 Unable to extract function data from 'FILE'
+
+Occurs when the master library file path is not provided or cannot be read.
+
+=head2 Cannot find details of function 'NAME'
+=head2 No name provided
+=head2 Unable to get display details for function 'NAME'
+=head2 Unable to retrieve details for function 'NAME'
+
+These errors occur when data on a specific function is unable to be retrieved
+from the storage file.
+
+=head2 Couldn't write 'FILE'
+=head2 No dictionary filepath provided
+=head2 Unable to make directory 'FILE'
+=head2 Unable to open $dict for writing: ERROR"
+
+These errors occur when the dictionary file is unable to be written.
+
+=head2 No loader filepath provided
+=head2 Unable to make directory 'FILE'
+=head2 Unable to open $loader for writing: ERROR
+=head2 Unable to write file 'FILE'
+
+Errors that can occur when writing the vim loader file.
+
+=head2 No data store filepath provided
+=head2 Unable to make directory 'FILE'
+
+These errors can occur when writing the data storage file.
+
+=head1 CONFIGURATION AND ENVIRONMENT
+
+This module has no configuration settings, nor does it rely on
+environmental variables.
+
+=head1 INCOMPATIBILITIES
+
+There are no known incompatibiilties.
+
 =head1 DEPENDENCIES
 
-=over
-
-=item autodie
-
-=item Carp
-
-=item Cwd
-
-=item Dn::Common
-
-=item Dn::CommonBash::Function
-
-=item English
-
-=item experimental
-
-=item Function::Parameters
-
-=item List::MoreUtils
-
-=item Moo
-
-=item MooX::HandlesVia
-
-=item namespace::clean
-
-=item Readonly
-
-=item strictures
-
-=item Test::NeedsDisplay
-
-=item Types::Standard
-
-=item version
-
-=back
+autodie, Carp, Const::Fast, Cwd, Dn::CommonBash::Function, English,
+List::SomeUtils, Moo, MooX::HandlesVia, namespace::clean, Role::Utils::Dn,
+strictures, Test::NeedsDisplay, Types::Standard, version.
 
 =head1 BUGS AND LIMITATIONS
 

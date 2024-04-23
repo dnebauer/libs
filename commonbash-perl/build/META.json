@@ -37,8 +37,24 @@
       },
       "runtime" : {
          "requires" : {
-            "Dn::Common" : "0",
-            "perl" : "5.008005"
+            "Carp" : "1.50",
+            "Const::Fast" : "0.014",
+            "Cwd" : "3.75",
+            "English" : "v5.36.0",
+            "List::SomeUtils" : "0.59",
+            "Moo" : "2.005005",
+            "MooX::HandlesVia" : "0.001009",
+            "MooX::Options" : "4.103",
+            "Role::Utils::Dn" : "0.4",
+            "Test::NeedsDisplay" : "1.07",
+            "Type::Library" : "2.004000",
+            "Type::Utils" : "2.004000",
+            "Types::Standard" : "2.004000",
+            "autodie" : "2.37",
+            "namespace::clean" : "0.27",
+            "perl" : "5.008005",
+            "strictures" : "2.000006",
+            "version" : "0.9930"
          }
       },
       "test" : {
@@ -48,7 +64,7 @@
       }
    },
    "release_status" : "stable",
-   "version" : "v0.1",
+   "version" : "v5.30",
    "x_contributors" : [
       "David Nebauer <david@nebauer.org>"
    ],
