@@ -54,6 +54,7 @@ use experimental qw(switch);
 const my $TRUE                   => 1;
 const my $FALSE                  => 0;
 const my $CLASS_REGEXP           => 'Regexp';
+const my $CMD_ECHO               => 'echo';
 const my $DOT                    => q{.};
 const my $DOUBLE_QUOTE           => q{"};
 const my $EMPTY_STRING           => q{};
@@ -80,25 +81,27 @@ const my $MSG_NO_IMAGE           => 'No image provided';
 const my $MSG_NO_SOURCE          => 'No source file provided';
 const my $MSG_NO_TARGET          => 'No target provided';
 const my $MSG_NO_TERM_OUTPUT     => 'Unable to output to terminal';
+const my $MSG_NO_TEXT            => 'No text provided';
 const my $MSG_NOT_ARRAYREF       => 'Not an array reference';
 const my $MSG_NOT_IMG_OBJ        => 'Not an image object';
 const my $MSG_SCALAR_NOT_HASHREF => 'Expected hash reference, got scalar';
-const my $NEGATE      => -1;           ## no critic (ProhibitDuplicateLiteral)
-const my $NEWLINE     => "\n";
-const my $NUMBER_TEN  => 10;
-const my $OPT_INSTALL => '--install';
+const my $NEGATE       => -1;          ## no critic (ProhibitDuplicateLiteral)
+const my $NEWLINE      => "\n";
+const my $NUMBER_THREE => 3;
+const my $NUMBER_TEN   => 10;
+const my $OPT_INSTALL  => '--install';
 const my $PARAM_COMMA_SPACE => q{, };
 const my $PARAM_DPKG        => 'dpkg';
 const my $PARAM_HEIGHT   => 'height';  ## no critic (ProhibitDuplicateLiteral)
 const my $PARAM_WIDTH    => 'width';   ## no critic (ProhibitDuplicateLiteral)
 const my $REF_TYPE_ARRAY => 'ARRAY';
 const my $REF_TYPE_HASH  => 'HASH';
-const my $RGB_ARG_COUNT  => 3;
+const my $RGB_ARG_COUNT  => $NUMBER_THREE;
 const my $RGB_ARG_MAX    => 255;
 const my $SPACE          => q{ };
 const my $TAB_SIZE       => 4;
 const my $VAL_CENTER     => 'Center';
-const my $VAL_LEFT       => 'left';    # }}}1
+const my $VAL_LEFT       => 'left';          # }}}1
 
 # methods
 
@@ -2242,6 +2245,35 @@ sub interact_confirm ($self, $question)
   return Term::Clui::confirm($question);
 }
 
+# interact_echo_e($string)    {{{1
+#
+# does:   use shell command 'echo -e' to display text
+# params: $text - text to print [required]
+# prints: string with shell escape sequences escaped
+# return: nil
+sub interact_echo_e ($self, $text)
+{    ## no critic (RequireInterpolationOfMetachars)
+  if (not $text) { confess $MSG_NO_TEXT; }
+  my @cmd = ($CMD_ECHO, q{-e}, $text);
+  system @cmd;
+  return;
+}
+
+# interact_echo_en($string)    {{{1
+#
+# does:   use shell command 'echo -en' to display text
+# params: $text - text to print [required]
+# prints: string with shell escape sequences escaped
+#         and no trailing newline
+# return: nil
+sub interact_echo_en ($self, $text)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+  if (not $text) { confess $MSG_NO_TEXT; }
+  my @cmd = ($CMD_ECHO, q{-en}, $text);
+  system @cmd;
+  return;
+}
+
 # interact_print(msg)    {{{1
 #
 # does:   print message to stdout if script is interactice,
@@ -2432,6 +2464,36 @@ sub list_duplicates ($self, @values)
   push @duplicates, grep { $count{$_} > 1 } keys %count;
 
   return @duplicates;
+}
+
+# list_number(@items)    {{{1
+#
+# does:   prefix each list item with element index (base = 1)
+#         prefix is left padded so each is the same length
+# params: @items - list to be modified [required]
+# prints: nil
+# return: list
+# note:   map operation extracted to method as per Perl Best Practice
+sub list_number ($self, @items)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+  if (not @items) { return (); }
+  my $prefix_length = length scalar @items;
+  my $index         = 1;
+  my @numbered_list =
+      map { $self->_add_numeric_prefix($_, $prefix_length) } @items;
+  return @numbered_list;
+}
+
+sub _add_numeric_prefix ($self, $item, $prefix_length)
+{    ## no critic (RequireInterpolationOfMetachars)
+  state $index = 1;
+  my $index_width   = length $index;
+  my $padding_width = $prefix_length - $index_width;
+  my $padding       = $SPACE x $padding_width;
+  my $prefix        = "$padding$index. ";
+  $index++;
+  $item = "$prefix$item";
+  return $item;
 }
 
 # pad($values[, $width[, $char[, $side]]] )    {{{1
@@ -3000,6 +3062,68 @@ sub string_entitise ($self, $string = q{})
   return HTML::Entities::encode_entities($string);
 }
 
+# string_shorten($string, [$limit], [$cont])    {{{1
+#
+# does:   truncate text if too long
+# params: $string - string to shorten [required]
+#         $length - length at which to truncate, must be > 10
+#                   [optional, default=72]
+#         $cont   - continuation sequence at end of truncated string
+#                   must be no longer than three characters
+#                   [optional, default='...']
+# prints: nil
+# return: scalar string
+sub string_shorten ($self, $string, $limit, $cont)
+{    ## no critic (RequireInterpolationOfMetachars)
+
+  # variables
+  const my $CONTINUATION_TOKEN_DEFAULT    => '...';
+  const my $CONTINUATION_TOKEN_MAX_LENGTH => $NUMBER_THREE;
+  const my $TRUNCATION_LENGTH_DEFAULT     => 72;
+  const my $TRUNCATION_LENGTH_MIN         => $NUMBER_TEN;
+
+  # - cont
+  if (not $cont) {
+    $cont = $CONTINUATION_TOKEN_DEFAULT;
+  }
+  if (length $cont > $CONTINUATION_TOKEN_MAX_LENGTH) {
+    my $msg =
+        sprintf q{Continuation sequence '%s' too long; using default '%s'},
+        $cont, $CONTINUATION_TOKEN_DEFAULT;
+    $self->interact_warn($msg);
+    $cont = $CONTINUATION_TOKEN_DEFAULT;
+  }
+
+  # - limit
+  if (not $limit) {
+    $limit = $TRUNCATION_LENGTH_DEFAULT;
+  }
+  if (not $self->valid_positive_integer($limit)) {
+    my $msg = sprintf q{Non-integer limit '%s'; using default '%s'},
+        $limit, $TRUNCATION_LENGTH_DEFAULT;
+    $self->interact_warn($msg);
+    $limit = $TRUNCATION_LENGTH_DEFAULT;
+  }
+  if ($limit <= $TRUNCATION_LENGTH_MIN) {
+    my $msg = sprintf q{Limit '%d' too short; using default '%d'}, $limit,
+        $TRUNCATION_LENGTH_DEFAULT;
+    $limit = $TRUNCATION_LENGTH_DEFAULT;
+  }
+  $limit = $limit - length $cont;
+
+  # - string
+  if (not $string) {
+    confess q{No parameter 'string' provided at};
+  }
+
+  # truncate if necessary
+  if (length($string) > $limit) {
+    $string = substr($string, 0, $limit - 1) . $cont;
+  }
+
+  return $string;
+}
+
 # string_tabify($string, [$tab_size])    {{{1
 #
 # does:   covert tab markers ('\t') to spaces
@@ -3017,6 +3141,22 @@ sub string_tabify ($self, $string = q{}, $tab_size = 4)
   # convert tabs
   $string =~ s/\\t/$tab/gxsm;
   return $string;
+}
+
+# string_underline($string)    {{{1
+#
+# does:   wrap string in bash underline formatting codes
+# params: $string - string to underline
+# prints: nil
+# return: string with enclosing shell commands
+sub string_underline ($self, $string)
+{    ## no critic (RequireInterpolationOfMetachars)
+  if (length $string == 0) { return $string; }
+  ## no critic (RequireInterpolationOfMetachars)
+  my $underline_on  = q{\033[4m};
+  my $underline_off = q{\033[24m};
+  ## use critic
+  return $underline_on . $string . $underline_off;
 }
 
 # term_height()    {{{1
@@ -3541,6 +3681,10 @@ in their original thematic groupings.
 
 add items to an arrayref
 
+=item list_number(@items)
+
+prefix each list item with element index (base = 1)
+
 =item list_duplicates(@values)
 
 get duplicate list items
@@ -3893,6 +4037,14 @@ convert a value of any type to a string (may contain newlines)
 
 convert reserved characters to HTML entities
 
+=item string_shorten($string, [$limit], [$cont])
+
+truncate text if too long
+
+=item string_tabify($string, [$tab_size])
+
+covert tab markers ('\t') to spaces in a string
+
 =item value_boolise($value)
 
 convert value to boolean
@@ -3936,6 +4088,14 @@ user selects option from a menu
 =item interact_confirm($question)
 
 user answers y/n to a question
+
+=item interact_echo_e($string)
+
+use shell command 'echo -e' to display text
+
+=item interact_echo_en($string)
+
+use shell command 'echo -en' to display text
 
 =item interact_print($msg)
 
@@ -5926,6 +6086,56 @@ Scalar boolean.
         # do stuff
     }
 
+=head2 interact_echo_e($string)
+
+=head3 Purpose
+
+Use the shell command 'echo -e' to display text.
+This is useful for strings containing shell formatting codes.
+
+=head3 Parameters
+
+=over
+
+=item $text
+
+Text to print. Scalar. Required.
+
+=back
+
+=head3 Prints
+
+String with interpreted shell escape sequences.
+
+=head3 Returns
+
+Nil.
+
+=head2 interact_echo_en($string)
+
+=head3 Purpose
+
+Use the shell command 'echo -en' to display text.
+This is useful for strings containing shell formatting codes.
+
+=head3 Parameters
+
+=over
+
+=item $text
+
+Text to print. Scalar. Required.
+
+=back
+
+=head3 Prints
+
+String with interpreted shell escape sequences. A newline is I<not> appended.
+
+=head3 Returns
+
+Nil.
+
 =head2 interact_print($msg)
 
 =head3 Purpose
@@ -6085,6 +6295,32 @@ Warnings for reference types other than SCALAR, ARRAY and HASH.
 =head3 Returns
 
 List.
+
+=head2 list_number(@items)
+
+=head3 Purpose
+
+Prefix each item in a list with the item's list index. List numbering starts
+from 1. The prefix numbers are left padded as necessary to ensure each is the
+same length.
+
+=head3 Parameters
+
+=over
+
+=item @items
+
+List to be modified. Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Modified list.
 
 =head2 list_duplicates(@values)
 
@@ -6605,6 +6841,39 @@ Nil.
 
 Scalar string.
 
+=head2 string_shorten($string, [$limit], [$cont])
+
+=head3 Purpose
+
+Truncate text if it is too long.
+
+=head3 Parameters
+
+=over
+
+=item $string
+
+String to operate on. Scalar. Required.
+
+=item $length
+
+Length at which to truncate. Must be > 10. Integer. Optional. Default: 72.
+
+=item $cont
+
+Continuation sequence added to the end of a truncated string.
+Must be no longer than three characters. Scalar. Optional. Default: '...'.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
 =head2 string_tabify($string, [$tab_size])
 
 =head3 Purpose
@@ -6632,6 +6901,30 @@ Nil.
 =head3 Returns
 
 Scalar string.
+
+=head2 string_underline($string)
+
+=head3 Purpose
+
+Wrap a string in bash underline formatting codes.
+
+=head3 Parameters
+
+=over
+
+=item $string
+
+String to format.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+String with enclosing formatting commands.
 
 =head2 term_height( )
 
