@@ -15,9 +15,10 @@ use version; our $VERSION = qv('0.1');    # }}}1
   use namespace::clean -except => [ '_options_data', '_options_config' ];
   use Const::Fast;
   use Carp;
-  use Dn::Common;
-  my $cp = Dn::Common->new();
   use Dn::CommonBash;
+
+  with qw(Role::Utils::Dn);
+
   my $library = Dn::CommonBash->new();
 
   const my $TRUE  => 1;
@@ -56,7 +57,7 @@ use version; our $VERSION = qv('0.1');    # }}}1
     if ($funcname) {
       my @display = $library->display_function_details($funcname, $STORE);
       select STDOUT;    ## no critic (ProhibitOneArgSelect)
-      $cp->vim_list_print(@display);
+      $self->vim_list_print(@display);
     }
     return $TRUE;
   }    # }}}1
@@ -105,7 +106,7 @@ Once a function is selected, information about it is then displayed.
 =head1 DEPENDENCIES
 
 Carp, Const::Fast, Dn::Common, Dn::CommonBash, Moo, MooX::Options,
-namespace::clean, strictures, version.
+namespace::clean, Role::Utils::Dn, strictures, version.
 
 =head1 BUGS AND LIMITATIONS
 
