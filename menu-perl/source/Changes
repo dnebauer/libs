@@ -1,6 +1,10 @@
 Revision history for Dn-Menu
 
 {{$NEXT}}
+0.3  2024-04-26
+        - Modernise
+        - Replace Dn::Common dependency with Role::Utils::Dn
+
 0.2  2024-01-30
         - Replace when() (deprecated)
 

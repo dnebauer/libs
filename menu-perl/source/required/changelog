@@ -1,3 +1,9 @@
+libdn-menu-perl (0.3-1) UNRELEASED; urgency=low
+
+  * Replace when() (deprecated)
+
+ -- David Nebauer <david@nebauer.org>  Fri, 26 Apr 2024 00:04:47 +0930
+
 libdn-menu-perl (0.2-2) UNRELEASED; urgency=low
 
   * Replace when() (deprecated)

@@ -1,36 +1,40 @@
 package Dn::Menu::Types;
 
-use 5.014_002;    #                                                    {{{1
+# modules    {{{1
+use 5.006;
+use 5.038_001;
 use strict;
 use warnings;
-use version; our $VERSION = qv('0.1');    #                            }}}1
+use version; our $VERSION = qv('0.3');    # }}}1
 
-use Type::Utils qw(declare as where message);
+# declare types at compile time as per Type::Tiny::Manual::Libraries manpage
+## no critic (ProhibitUnusedImport)
 use Type::Library -base, -declare => qw(MenuType);
+## use critic
 use Types::Standard qw(Str);
+use Type::Utils     qw(declare as where message);
 
-# MenuType                                                             {{{1
-declare 'MenuType',
-    as Str,
-    where {
-        my $value = lc;
-        if ( not $value ) { return; }
-        my %valid_type = map { ( $_ => 1 ) } qw /hotkey term gui/;
-        return $valid_type{$value};
-    },
-    message {qq[Invalid menu type '$_']};
+# MenuType    {{{1
+declare 'MenuType', as Str, where {
+  my $value = lc;
+  if (not $value) { return; }
+  my %valid_type = map { ($_ => 1) } qw /hotkey term gui/;
+  return $valid_type{$value};
+}, message {qq[Invalid menu type '$_']};
 
 1;
 
-# POD                                                                  {{{1
+# POD    {{{1
 
 __END__
-
-=encoding utf-8
 
 =head1 NAME
 
 Dn::Menu::Types - data constraints for package Dn::Menu
+
+=head1 VERSION
+
+This documentation applies to Dn::Menu::Types version 0.3.
 
 =head1 SYNOPSIS
 
@@ -43,7 +47,9 @@ Dn::Menu::Types - data constraints for package Dn::Menu
 
 =head1 DESCRIPTION
 
-A library of custom type constraints. In the following explanations of each type the error message may include the variable '$_', which represents the value provided to the attribute.
+A library of custom type constraints. In the following explanations of each
+type the error message may include the variable '$_', which represents the
+value provided to the attribute.
 
 =over
 
@@ -55,17 +61,25 @@ Error message: "Invalid menu type '$_'".
 
 =back
 
-=head1 DEPENDENCES
+=head1 SUBROUTINES/METHODS
 
-=over
+Nil.
 
-=item Type::Library
+=head1 DIAGNOSTICS
 
-=item Type::Utils
+This module emits no custom error or warning messages.
 
-=item Types::Standard
+=head1 CONFIGURATION AND ENVIRONMENT
 
-=back
+This module has no configuration options or environmental variables.
+
+=head1 DEPENDENCIES
+
+Type::Library, Type::Utils, Types::Standard.
+
+=head1 INCOMPATIBILITIES
+
+There are no known incompatibilities.
 
 =head1 BUGS AND LIMITATIONS
 
