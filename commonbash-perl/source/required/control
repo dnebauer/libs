@@ -14,7 +14,6 @@ Package: libdn-commonbash-perl
 Architecture: all
 Depends: ${misc:Depends}, ${perl:Depends},
  perl-base (>= 5.38.2-3),
- perl-modules,
  libconst-fast-perl (>= 0.014-2),
  liblist-someutils-perl (>= 0.59-1),
  libmoo-perl (>= 2.005005-1),

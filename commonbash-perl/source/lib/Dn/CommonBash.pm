@@ -147,7 +147,7 @@ sub _library_files ($self, $master)
 # does:   load function data from library
 # params: $master - root file in libdncommon-bash (filepath, required]
 # prints: feedback
-# return: nil
+# return: boolean
 sub _load_from_library ($self, $master)
 { ## no critic (RequireInterpolationOfMetachars ProhibitExcessComplexity ProhibitDuplicateLiteral)
   if (not $master) { confess q{Library master file not set}; }
@@ -180,9 +180,13 @@ sub _load_from_library ($self, $master)
   for my $line (@lines) {
     chomp $line;
 
+    say $line or croak;
+
     # next line fails mysteriously if flags 'xsm' used
     # as per 'Perl Best Practice'
-    next if $line !~ /^# fn_tag/xsm;         # not a function definition line
+    ## no critic (RequireDotMatchAnything RequireExtendedFormatting RequireLineBoundaryMatching)
+    next if $line !~ /\A# fn_tag/;    # not a function definition line
+    ## use critic
     my @elements = split /\s+/xsm, $line;    # get elements of line
     my $fn       = $elements[$IDX_OPT_ATTR_FUNC];
     if (not $fns{$fn}) {                     # ensure function defined
@@ -258,7 +262,7 @@ sub _load_from_library ($self, $master)
   $self->_clear_functions;
   $self->_set_functions(%fns);
 
-  return;
+  return $TRUE;
 }
 
 # _load_from_store($store)    {{{1
@@ -266,7 +270,7 @@ sub _load_from_library ($self, $master)
 # does:   load function data from persistent data store
 # params: $store - storage filepath [required]
 # prints: feedback
-# return: nil
+# return: boolean
 # note:   data store is assumed to have been created
 #         with the 'write_store' method
 sub _load_from_store ($self, $store)
@@ -288,7 +292,7 @@ sub _load_from_store ($self, $store)
   my $msg = q{Retrieved data on } . $self->_function_count . q{ functions};
   say $msg or croak;
 
-  return;
+  return $TRUE;
 }
 
 # display_function_details($name, [$store])    {{{1

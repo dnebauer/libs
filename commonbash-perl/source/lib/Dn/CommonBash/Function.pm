@@ -94,14 +94,14 @@ has '_options_list' => (
 );
 
 sub option ($self, $flag) {    ## no critic (RequireInterpolationOfMetachars)
-  if (not $flag) { return {}; }
+  if (not $flag) { return; }    ## no critic (EmptyReturn)
   my @matches     = $self->_filter_options(sub { $_->flag eq $flag });
   my $match_count = @matches;
   if ($match_count == 1) {
     return $matches[0];
   }
   else {
-    return {};
+    return;    ## no critic (EmptyReturn)
   }
 }
 
@@ -123,16 +123,16 @@ has '_param_list' => (
 );
 
 sub param ($self, $name) {    ## no critic (RequireInterpolationOfMetachars)
-  if (not $name) { return {}; }
+  if (not $name) { return; }    ## no critic (EmptyReturn)
   my @matches     = $self->_filter_params(sub { $_->name eq $name });
   my $match_count = @matches;
   if ($match_count == 1) {
     return $matches[0];
   }
   else {
-    return {};
+    return;    ## no critic (EmptyReturn)
   }
-}                             # }}}1
+}    # }}}1
 
 # methods
 
