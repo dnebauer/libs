@@ -1,118 +1,122 @@
-#!/usr/bin/perl 
+#!/usr/bin/perl
 
-use Moo;    #                                                          {{{1
+# modules    {{{1
+use Moo;
 use strictures 2;
-use 5.014_002;
-use version; our $VERSION = qv('0.1');
-use namespace::clean;    #                                             }}}1
+use 5.006;
+use 5.038_001;
+use version; our $VERSION = qv('0.2');
+use namespace::clean;    # }}}1
 
 {
 
-    package Dn::Internal;
+  package Dn::Internal;
 
-    use Moo;             # {{{1
-    use strictures 2;
-    use namespace::clean -except => [ '_options_data', '_options_config' ];
-    use Dn::MboxenSplit;
-    use English qw(-no_match_vars);
-    use Function::Parameters;
-    use MooX::HandlesVia;
-    use MooX::Options;
-    use Readonly;
-    binmode STDOUT, ':encoding(UTF-8)';
+  # use modules    {{{1
+  use Moo;
+  use strictures 2;
+  use namespace::clean -except => [ '_options_data', '_options_config' ];
+  use Const::Fast;
+  use Dn::MboxenSplit;
+  use English;
+  use MooX::Options;
+  binmode STDOUT, ':encoding(UTF-8)';
 
-    Readonly my $TRUE  => 1;
-    Readonly my $FALSE => 0;
-    Readonly my $COMMA => q{,};    #                                   }}}1
+  const my $TRUE  => 1;
+  const my $FALSE => 0;
+  const my $COMMA => q{,};    # }}}1
 
-    # options
+  # options
 
-    # mbox_uris  (-m)                                                  {{{1
-    option 'mbox_uris' => (
-        is            => 'ro',
-        format        => 's@',
-        autosplit     => $COMMA,
-        default       => sub { [] },
-        required      => $TRUE,
-        short         => 'm',
-        documentation => 'Mbox file URIs (comma-separated)',
+  # mbox_uris  (-m)    {{{1
+  option 'mbox_uris' => (
+    is            => 'ro',
+    format        => 's@',
+    autosplit     => $COMMA,
+    default       => sub { [] },
+    required      => $TRUE,
+    short         => 'm',
+    documentation => 'Mbox file URIs (comma-separated)',
+  );
+
+  # output_dir (-o)    {{{1
+  option 'output_dir' => (
+    is            => 'ro',
+    format        => 's',
+    required      => $TRUE,
+    short         => 'o',
+    documentation => 'Directory in which to output mbox files',
+  );
+
+  # replace    (-r)    {{{1
+  option 'replace' => (
+    is            => 'ro',
+    short         => 'r',
+    documentation => 'Replace/overwrite existing files',
+  );    # }}}1
+
+  # methods
+
+  # main()    {{{1
+  #
+  # does:   main method
+  # params: nil
+  # prints: feedback
+  # return: n/a, dies on failure
+  sub main ($self) {    ## no critic (RequireInterpolationOfMetachars)
+
+    # do preliminary checks
+    $self->_preliminary_checks;
+
+    # split mboxen into separate files
+    $self->_split_mboxen;
+
+    return;
+  }
+
+  # _preliminary_checks()    {{{1
+  #
+  # does:   perform preliminary checks
+  #
+  # params: nil
+  # prints: error message on failure
+  # return: n/a, dies on failure
+  sub _preliminary_checks ($self)
+  {    ## no critic (RequireInterpolationOfMetachars)
+
+    # output directory must exist
+    my $output_dir = $self->output_dir;
+    if (not -d $output_dir) { die "Invalid directory '$output_dir'\n"; }
+
+    return;
+  }
+
+  # _split_mboxen()    {{{1
+  #
+  # does:   split mboxen into separate files
+  #
+  # params: nil
+  # prints: error message on failure
+  # return: scalar boolean, exit value of Dn::MboxenSplit
+  sub _split_mboxen ($self) {   ## no critic (RequireInterpolationOfMetachars)
+
+    # get required parameters
+    my @uris = @{ $self->mbox_uris };
+    if (not @uris) { die "No uris provided\n"; }
+    my $output_dir = $self->output_dir;
+    my $overwrite  = $self->replace;
+
+    # use module to split mboxen
+    my $ms = Dn::MboxenSplit->new(
+      mbox_uris  => [@uris],
+      output_dir => $output_dir,
+      over_write => $overwrite,
     );
+    my $succeed = $TRUE;
+    $ms->split or $succeed = $FALSE;
 
-    # output_dir (-o)                                                  {{{1
-    option 'output_dir' => (
-        is            => 'ro',
-        format        => 's',
-        required      => $TRUE,
-        short         => 'o',
-        documentation => 'Directory in which to output mbox files',
-    );
-
-    # replace    (-r)                                                  {{{1
-    option 'replace' => (
-        is            => 'ro',
-        short         => 'r',
-        documentation => 'Replace/overwrite existing files',
-    );    #                                                            }}}1
-
-    # methods
-
-    # main()                                                           {{{1
-    #
-    # does:   main method
-    # params: nil
-    # prints: feedback
-    # return: n/a, dies on failure
-    method main () {
-
-        # do preliminary checks
-        $self->_preliminary_checks;
-
-        # split mboxen into separate files
-        $self->_split_mboxen;
-    }
-
-    # _preliminary_checks()                                            {{{1
-    #
-    # does:   perform preliminary checks
-    #
-    # params: nil
-    # prints: error message on failure
-    # return: n/a, dies on failure
-    method _preliminary_checks () {
-
-        # output directory must exist
-        my $output_dir = $self->output_dir;
-        die "Invalid directory '$output_dir'\n" if not -d $output_dir;
-
-        return;
-    }
-
-    # _split_mboxen()                                                  {{{1
-    #
-    # does:   split mboxen into separate files
-    #
-    # params: nil
-    # prints: error message on failure
-    # return: scalar boolean, exit value of Dn::MboxenSplit
-    method _split_mboxen () {
-
-        # get required parameters
-        my @uris = @{ $self->mbox_uris };
-        die "No uris provided\n" if not @uris;
-        my $output_dir = $self->output_dir;
-        my $overwrite = $self->replace;
-
-        # use module to split mboxen
-        my $ms = Dn::MboxenSplit->new(
-            mbox_uris => [@uris],
-            output_dir => $output_dir,
-            overwrite => $overwrite,
-        );
-        my $succeed = $TRUE;
-        $ms->split or $succeed = $FALSE;
-
-        return $succeed;
-    }    #                                                             }}}1
+    return $succeed;
+  }    # }}}1
 
 }
 
@@ -120,7 +124,10 @@ my $p = Dn::Internal->new_with_options->main;
 
 1;
 
-# POD                                                                  {{{1
+# POD    {{{1
+
+## no critic (RequirePodSections)
+
 __END__
 
 =head1 NAME
@@ -132,6 +139,10 @@ dn-mboxen-split - split mbox files into single mbox files perl email
 B<dn-mboxen-split -m> mbox,mbox,... B<-o> dir [ B<-r> ]
 
 B<dn-mboxen-split -h>
+
+=head1 REQUIRED ARGUMENTS
+
+Nil.
 
 =head1 REQUIRED OPTIONS
 
@@ -169,13 +180,36 @@ Display help and exit.
 
 =head1 DESCRIPTION
 
-This script is a wrapper for the F<Dn::MboxenSplit> module. See the L<Dn::MboxenScript> documentation for the steps taken in splitting mbox files into separate files for each email. It also documents all errors and warnings produced by the module and this script.
+This script is a wrapper for the F<Dn::MboxenSplit> module. See the
+L<Dn::MboxenScript> documentation for the steps taken in splitting mbox files
+into separate files for each email. It also documents all errors and warnings
+produced by the module and this script.
+
+=head1 DIAGNOSTICS
+
+=head2 Invalid directory 'DIR'
+
+The output directory provided with the B<-o> or B<--output_dir> options does
+not exist.
+
+=head2 No uris provided
+
+No mbox file URIs have been provided with the B<-m> or B<--mbox_uris> options.
+
+=head1 CONFIGURATION
+
+This script requires no configuration files.
+
+=head1 INCOMPATIBILITIES
+
+None reported.
 
 =head1 DEPENDENCIES
 
 =head2 Perl modules
 
-English, Function::Parameters, Moo, MooX::HandlesVia, MooX::Options, namespace::clean, Readonly, strictures, version.
+Const::Fast, English, Moo, MooX::Options, namespace::clean, strictures,
+version.
 
 =head1 BUGS AND LIMITATIONS
 
@@ -183,11 +217,11 @@ Please report any bugs to the author.
 
 =head1 AUTHOR
 
-David Nebauer E<lt>davidnebauer@hotkey.net.auE<gt>
+David Nebauer E<lt>david@nebauer.orgE<gt>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (c) 2016 David Nebauer E<lt>davidnebauer@hotkey.net.auE<gt>
+Copyright (c) 2016 David Nebauer E<lt>david@nebauer.orgE<gt>
 
 This script is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

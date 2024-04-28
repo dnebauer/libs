@@ -1,4 +1,8 @@
 Revision history for Dn-MboxenSplit
 
-{{$NEXT}}
+0.2  2024-04-28
+        - Remove dependencies on Function::Parameters and Dn::InteractiveIO
+        - Fix perlcritic warnings
+
+0.1  2016-03-27
         - Initial release

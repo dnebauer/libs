@@ -1,3 +1,10 @@
+libdn-mboxensplit-perl (0.2-1) unstable; urgency=low
+
+  * Remove dependencies on Function::Parameters and Dn::InteractiveIO
+  * Fix perlcritic warnings
+
+ -- David Nebauer <david@nebauer.org>  Sun, 28 Apr 2024 15:50:16 +0930
+
 libdn-mboxensplit-perl (0.1-1) unstable; urgency=low
 
   * Local package
