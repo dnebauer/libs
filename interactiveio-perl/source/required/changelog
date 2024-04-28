@@ -1,7 +1,14 @@
+libdn-interactiveio-perl (0.2-1) unstable; urgency=low
+
+  * Remove dependency on Function::Parameters
+  * Fix perlcritic warnings
+
+ -- David Nebauer <david@nebauer.org>  Sun, 28 Apr 2024 09:38:37 +0930
+
 libdn-interactiveio-perl (0.1-1) unstable; urgency=low
 
   * Local package
   * Initial release
   * Closes: 4101
 
- -- David Nebauer <david@hezmana.cogito.loc>  Sat, 15 Oct 2016 21:29:02 +0930
+ -- David Nebauer <david@nebauer.org>  Sat, 15 Oct 2016 21:29:02 +0930

@@ -1,17 +1,16 @@
 Source: libdn-interactiveio-perl
 Section: perl
 Priority: optional
-Maintainer: David Nebauer <david@hezmana.cogito.loc>
+Maintainer: David Nebauer <david@nebauer.org>
 Build-Depends: debhelper-compat (= 13),
  libmodule-build-perl,
  perl
-Build-Depends-Indep: libfunction-parameters-perl (>= 1.0703),
- libio-interactive-perl (>= 1.021),
+Build-Depends-Indep: libio-interactive-perl (>= 1.021),
  libio-prompter-perl (>= 0.004014),
  libmodule-build-tiny-perl (>= 0.039),
  libmoo-perl (>= 2.000002),
  libnamespace-clean-perl (>= 0.26),
- libreadonly-perl (>= 2),
+ libconst-fast-perl (>= 0.014-2),
  libstrictures-perl (>= 2.000002),
  libterm-readkey-perl (>= 2.33)
 Standards-Version: 3.9.8
@@ -20,15 +19,14 @@ Homepage: https://metacpan.org/release/Dn-InteractiveIO
 Package: libdn-interactiveio-perl
 Architecture: all
 Depends: ${misc:Depends}, ${perl:Depends},
- libfunction-parameters-perl (>= 1.0703),
  libio-interactive-perl (>= 1.021),
  libio-prompter-perl (>= 0.004014),
  libmoo-perl (>= 2.000002),
  libnamespace-clean-perl (>= 0.26),
- libreadonly-perl (>= 2),
+ libconst-fast-perl (>= 0.014-2),
  libstrictures-perl (>= 2.000002),
  libterm-readkey-perl (>= 2.33),
- perl (>= 5.23.9)
+ perl (>= 5.38.1)
 Description: interactive methods
  Displays interactive output, i.e., displays only when connected to a
  terminal.

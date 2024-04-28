@@ -1,4 +1,8 @@
 Revision history for Dn-InteractiveIO
 
+0.2  2024-04-28
+        - remove dependency on Function::Parameters
+        - fix perlcritic warnings
+
 {{$NEXT}}
-        - Initial release
+        - initial release
