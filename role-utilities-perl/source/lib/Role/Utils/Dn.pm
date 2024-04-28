@@ -2245,6 +2245,43 @@ sub interact_confirm ($self, $question)
   return Term::Clui::confirm($question);
 }
 
+# interactive_confirm($question, $default)    {{{1
+#
+# does:   user answers a yes-or-no question if connected to terminal
+# params: $question - question to answer
+#                     [scalar string, optional, default='Proceed?']
+#         $default  - return value if non-interactive
+#                     [scalar boolean, optional, default=true]
+# prints: question and answer if interactive
+# return: boolean
+sub interactive_confirm ($self, $question = 'Proceed?', $default = $TRUE)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitImplicitNewlines)
+  my $result = $default;
+
+  # IO::Prompter::prompt returns a Contextual::Return object that
+  # must be forced to return a boolean value in scalar context
+  if (IO::Interactive::is_interactive) {
+    my @opts                     = ('-yesno', '-single', '-echo' => 'Yes/No');
+    my $contextual_return_object = IO::Prompter::prompt($question, @opts);
+    $result = ($contextual_return_object) ? $TRUE : $FALSE;
+  }
+
+  return $result;
+}
+
+# interact_die($msg)    {{{1
+#
+# does:   display ('say') message to stderr if connected to terminal
+#         and exit with failure exit status
+# params: $msg - message [scalar string, optional]
+# prints: message to stderr
+# return: n/a, dies on exit
+sub interact_die ($self, $msg)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+  if ($msg) { $self->interact_warn($msg); }
+  exit 1;
+}
+
 # interact_echo_e($string)    {{{1
 #
 # does:   use shell command 'echo -e' to display text
@@ -2282,7 +2319,7 @@ sub interact_echo_en ($self, $text)
 # prints: message (if connected to console)
 # return: nil
 sub interact_print ($self, $msg)
-{    ## no critic (RequireInterpolationOfMetachars)
+{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
 
   # IO::Interactive takes care of failed syscall
   ## no critic (RequireCheckedSyscalls)
@@ -3157,6 +3194,16 @@ sub string_underline ($self, $string)
   my $underline_off = q{\033[24m};
   ## use critic
   return $underline_on . $string . $underline_off;
+}
+
+# term_connected()    {{{1
+#
+# does:   determine whether connected to terminal, i.e., is interactive
+# params: nil
+# prints: error message on failure
+# return: boolean
+sub term_connected ($self) {    ## no critic (RequireInterpolationOfMetachars)
+  return IO::Interactive::is_interactive;
 }
 
 # term_height()    {{{1
@@ -4089,6 +4136,15 @@ user selects option from a menu
 
 user answers y/n to a question
 
+=item interactive_confirm($question, $default)
+
+user answers a yes-or-no question if connected to terminal
+
+=item interact_die($msg)
+
+display ('say') message to stderr if connected to terminal and exit with
+failure exit status
+
 =item interact_echo_e($string)
 
 use shell command 'echo -e' to display text
@@ -4108,6 +4164,10 @@ prompt user to press key
 =item pager($lines)
 
 display list of lines in terminal using pager
+
+=item term_connected( )
+
+determine whether connected to terminal, i.e., is interactive
 
 =item term_height( )
 
@@ -6086,6 +6146,60 @@ Scalar boolean.
         # do stuff
     }
 
+=head2 interactive_confirm($question, $default)
+
+=head3 Purpose
+
+User answers a yes-or-no question if connected to terminal.
+
+=head3 Parameters
+
+=over
+
+=item $question
+
+Question to answer. Scalar string. Optional. Default: 'Proceed?'.
+
+=item $default
+
+Value if not connected to a terminal, i.e., non-interactive. Scalar boolean.
+Optional. Default: true.
+
+=back
+
+=head3 Prints
+
+Question and answer if interactive.
+
+=head3 Returns
+
+Boolean.
+
+=head2 interact_die($msg)
+
+=head3 Purpose
+
+Display ('say') message to stderr if connected to a terminal, and exit with
+failure exit status.
+
+=head3 Parameters
+
+=over
+
+=item $msg
+
+Message. Scalar string. Optional.
+
+=back
+
+=head3 Prints
+
+Message to stderr.
+
+=head3 Returns
+
+Nil. Dies on exit.
+
 =head2 interact_echo_e($string)
 
 =head3 Purpose
@@ -6925,6 +7039,24 @@ Nil.
 =head3 Returns
 
 String with enclosing formatting commands.
+
+=head2 term_connected( )
+
+=head3 Purpose
+
+Determine whether the script is connected to terminal, i.e., is interactive.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Error message on failure.
+
+=head3 Returns
+
+Boolean.
 
 =head2 term_height( )
 
