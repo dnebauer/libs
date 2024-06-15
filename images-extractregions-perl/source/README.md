@@ -84,21 +84,34 @@ duplicate output image file names in the corresponding set of output image
 files. For that reason, the `extract_images` method will abort if it detects
 multiple input filepaths with identical file names.
 
+head2 Aids
+
+The command line utility `dn-images-extract-regions` is provided with this
+module. See the script's man page for further information.
+
+A LibreOffice/OpenOffice spreadsheet called `coords-nine-regions.ods`
+is distributed with this module. On debian systems it is usually installed at
+`/usr/share/libdn-images-extractregions-perl/`. The spreadsheet is
+meant to help with images having nine rectangular regions in a 3x3 layout.
+Users enter necessary x and y coordinates and press a button to write a <`coords.yaml` file in the current directory. The spreadsheet assumes the
+rectangular regions are exactly the same in size and are aligned in a perfect
+grid.
+
 # ATTRIBUTES
 
-## coords_file
+## coords\_file
 
 Path to coordinates file. Used when writing or reading the coordinates file.
 Scalar string. Optional. Default: 'coords.yaml'.
 
-## image_files
+## image\_files
 
 Image files to process. Array reference containing strings. Required. No
 default value.
 
 # METHODS
 
-## add_image_files(@filepaths)
+## add\_image\_files(@filepaths)
 
 Add image files to be processed.
 
@@ -106,7 +119,7 @@ Add image files to be processed.
 
 - @filepaths
 
-  Paths to image files to be processed. List of strings. Required.
+    Paths to image files to be processed. List of strings. Required.
 
 ### Prints
 
@@ -116,7 +129,7 @@ Error messages.
 
 Scalar boolean indicating success or failure of operation.
 
-## write_coords_file_template()
+## write\_coords\_file\_template()
 
 Write a template coordinates file. The filepath used is that set in the
 `coords_file` attribute. Note that if the output filepath already exists the
@@ -126,7 +139,7 @@ method will exit _without_ overwriting it. Duplicate filepaths are ignored.
 
 - @filepaths
 
-  Additional image files to be processed.
+    Additional image files to be processed.
 
 ### Prints
 
@@ -136,7 +149,7 @@ Nil.
 
 Nil.
 
-## extract_images()
+## extract\_images()
 
 From each image extract the rectangular regions specified in the coordinates
 file and write them to image files in the current directory.
@@ -149,16 +162,21 @@ There are no configuration files used. There are no module/role settings.
 
 ## Perl modules
 
-autodie, Carp, Const::Fast, Dn::Images::ExtractRegions::RegionCoords, English,
-Function::Parameters, Moo, MooX::HandlesVia, namespace::clean, Role::Utils::Dn,
-strictures, Term::ProgressBar::Simple, Types::Path::Tiny, Types::Standard,
-version, YAML::Tiny.
+autodie,Carp, Const::Fast, Dn::Images::ExtractRegions::RegionCoords, English,
+Moo, MooX::HandlesVia, namespace::clean, Role::Utils::Dn, strictures,
+Term::ProgressBar::Simple, Types::Path::Tiny, Types::Standard, version,
+YAML::Tiny.
 
 ## INCOMPATIBILITIES
 
 There are no known incompatibilities with other modules.
 
 # BUGS AND LIMITATIONS
+
+When processing large pdf files it is possible to exceed the cache resources
+available to the underlying ImageMagick application, resulting in a fatal
+error. See ["Exhausting cache resources during image
+processing" in Role::Utils::Dn](https://metacpan.org/pod/Role%3A%3AUtils%3A%3ADn#Exhausting-cache-resources-during-image-processing) for further details.
 
 Please report any bugs to the author.
 

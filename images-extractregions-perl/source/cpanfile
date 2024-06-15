@@ -4,7 +4,6 @@ requires 'autodie', '2.29';
 requires 'Carp', '1.40';
 requires 'Const::Fast', '0.014';
 requires 'English', '1.10';
-requires 'Function::Parameters', '1.0705';
 requires 'List::SomeUtils', '0.59';
 requires 'Moo', '2.002005';
 requires 'MooX::HandlesVia', '0.001008';
