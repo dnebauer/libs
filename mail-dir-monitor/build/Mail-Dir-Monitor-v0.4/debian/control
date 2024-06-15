@@ -1,0 +1,68 @@
+Source: libmail-dir-monitor-perl
+Maintainer: David Nebauer <david@nebauer.org>
+Section: utils
+Priority: optional
+Build-Depends: debhelper-compat (= 13),
+               libmodule-build-tiny-perl,
+               perl (>= 5.38.0)
+Build-Depends-Indep: libconfig-any-perl (>= 0.33) <!nocheck>,
+                     libconst-fast-perl <!nocheck>,
+                     libemail-sender-perl (>= 2.601) <!nocheck>,
+                     libemail-simple-perl (>= 2.218) <!nocheck>,
+                     libfile-configdir-perl <!nocheck>,
+                     libfile-util-perl <!nocheck>,
+                     libfile-which-perl (>= 1.27) <!nocheck>,
+                     libipc-run-perl (>= 20231003.0) <!nocheck>,
+                     liblogger-syslog-perl <!nocheck>,
+                     libmoo-perl (>= 2.005005) <!nocheck>,
+                     libmoox-handlesvia-perl <!nocheck>,
+                     libnamespace-clean-perl <!nocheck>,
+                     libperl6-slurp-perl <!nocheck>,
+                     libstrictures-perl <!nocheck>,
+                     libsys-hostname-long-perl <!nocheck>,
+                     libtest-simple-perl <!nocheck>,
+                     libtype-tiny-perl (>= 2.004000) <!nocheck>,
+                     libtypes-path-tiny-perl <!nocheck>,
+                     libversion-perl <!nocheck>
+Standards-Version: 4.6.2
+Homepage: https://metacpan.org/release/Mail-Dir-Monitor
+Rules-Requires-Root: no
+
+Package: libmail-dir-monitor-perl
+Architecture: all
+Depends: ${misc:Depends},
+         ${perl:Depends},
+         libconfig-any-perl (>= 0.33),
+         libconst-fast-perl,
+         libemail-sender-perl (>= 2.601),
+         libemail-simple-perl (>= 2.218),
+         libfile-configdir-perl,
+         libfile-util-perl,
+         libfile-which-perl (>= 1.27),
+         libipc-run-perl (>= 20231003.0),
+         liblogger-syslog-perl,
+         libmoo-perl (>= 2.005005),
+         libmoox-handlesvia-perl,
+         libnamespace-clean-perl,
+         libperl6-slurp-perl,
+         libstrictures-perl,
+         libsys-hostname-long-perl,
+         libtype-tiny-perl (>= 2.004000),
+         libtypes-path-tiny-perl,
+         libversion-perl,
+         perl (>= 5.38.0)
+Description: daemon to monitor mail queue directories
+ Users whose email client handles all aspects of email management from
+ checking for, downloading, reading, composing and sending email messages do
+ not need this daemon. They should stop reading now and move on.
+ .
+ Some users, for inexplicable reasons, use different utilities to manage
+ different email tasks. For example, offlineimap to download mail, notmuch to
+ index, thread and search mail, mutt (terminal) or astroid (gui) to read and
+ compose mail, and msmtp to send mail. In these configurations mail for
+ sending is often written to a directory where these messages are queued
+ before being sent. When the user's internet connection is interrupted these
+ messages cannot be sent and, depending on the configuration and fuctionality
+ of the email-related programs, such messages may become stranded and not sent
+ even when internet connectivity is restored. This daemon is designed to be
+ useful in this very specific situation.

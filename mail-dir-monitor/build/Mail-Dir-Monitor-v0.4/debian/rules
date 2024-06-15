@@ -1,0 +1,12 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+# Make directory variable sharedstatedir debian compliant
+override_dh_auto_configure:
+	dh_auto_configure -- --sharedstatedir=/var/lib
+
+# Suppress stripping of information from files
+override_dh_strip_nondeterminism:
+

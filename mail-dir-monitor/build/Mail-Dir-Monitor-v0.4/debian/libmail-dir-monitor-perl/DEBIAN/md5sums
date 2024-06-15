@@ -1,0 +1,9 @@
+df8ad6cf7f4cdee64105065ce8a05c66  usr/share/doc/libmail-dir-monitor-perl/changelog.Debian.gz
+904e0178456dfa29ce238491a55dea46  usr/share/doc/libmail-dir-monitor-perl/changelog.gz
+298fe4d90a491e9b955f575852f5f02e  usr/share/doc/libmail-dir-monitor-perl/copyright
+ec5d1aa4437268427a271bb2bb58190d  usr/share/man/man3/Mail::Dir::Monitor.3pm.gz
+23d753b4a35817e729e6fde0ff7d3f47  usr/share/man/man3/Mail::Dir::Monitor::Comms.3pm.gz
+2b8bfca95dff038a4a5f5fb247552e99  usr/share/man/man3/Mail::Dir::Monitor::Dir.3pm.gz
+177ff026535649588dbf0a0532fda682  usr/share/perl5/Mail/Dir/Monitor.pm
+fe9a03fcf53a0df48bf6ab93daaf0828  usr/share/perl5/Mail/Dir/Monitor/Comms.pm
+bfd0a2b5f77bc5328973c93bb7052890  usr/share/perl5/Mail/Dir/Monitor/Dir.pm

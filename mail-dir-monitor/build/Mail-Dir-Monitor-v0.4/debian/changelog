@@ -1,0 +1,7 @@
+libmail-dir-monitor-perl (0.4-1) UNRELEASED; urgency=low
+
+  * Closes: 654923
+  * Local package
+  * Initial release
+
+ -- David Nebauer <david@nebauer.org>  Fri, 14 Jun 2024 23:35:47 +0930

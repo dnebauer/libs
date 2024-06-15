@@ -1,0 +1,31 @@
+requires 'perl', '5.038';
+requires 'Carp', '1.54';
+requires 'Config::Any', '0.33';
+requires 'Const::Fast', '0.014';
+requires 'Cwd', '3.89';
+requires 'Email::Sender::Simple', '2.601';
+requires 'Email::Simple', '2.218';
+requires 'English', '1.11';
+requires 'File::ConfigDir', '0.021';
+requires 'File::Spec', '3.88';
+requires 'File::Util', '4.201720';
+requires 'File::Which', '1.27';
+requires 'IO::File', '1.52';
+requires 'IPC::Run', '20231003.0';
+requires 'Logger::Syslog', '1.1';
+requires 'Moo::Role', '2.005005';
+requires 'Moo', '2.005005';
+requires 'MooX::HandlesVia', '0.001009';
+requires 'namespace::clean', '0.27';
+requires 'POSIX', '2.13';
+requires 'Perl6::Slurp', '0.051005';
+requires 'strictures', '2.000006';
+requires 'Sys::Hostname::Long', '1.5';
+requires 'Types::Path::Tiny', '0.006';
+requires 'Types::Standard', '2.004000';
+requires 'User::pwent', '1.02';
+requires 'version', '0.9930';
+
+on test => sub {
+    requires 'Test::More', '0.96';
+};
