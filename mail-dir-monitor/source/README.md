@@ -4,7 +4,7 @@ Mail::Dir::Monitor - daemon to monitor mail queue directories
 
 # VERSION
 
-This documentation applies to Mail::Dir::Monitor version 0.4.
+This documentation applies to Mail::Dir::Monitor version 0.5.
 
 # SYNOPSIS
 
@@ -51,7 +51,7 @@ This script generates only info and warning level messages.
 
 ## Properties
 
-### conf\_dir
+### conf_dir
 
 Display path to configuration directory and exit.
 
@@ -82,83 +82,83 @@ false, respectively; other values will cause the script to die on startup.
 
 - dir
 
-    The path to the directory.
+  The path to the directory.
 
-    String. Required.
+  String. Required.
 
 - mail
 
-    Whether to notify user of blocked email messages by sending an email to their
-    local user account using the `mail` utility that is standard on \*nix systems.
-    Will have no effect if no `mail` executable is available.
+  Whether to notify user of blocked email messages by sending an email to their
+  local user account using the `mail` utility that is standard on \*nix systems.
+  Will have no effect if no `mail` executable is available.
 
-    Note that most systems are not set up by default to notify a user when local
-    user mail is received -- local user mail is handled differently to email
-    received from an ISP. The only notification is that users receive a message in
-    their terminal the next time they log into it. Users who rely on a graphical
-    user interface and do not use terminals will never see any notifications
-    regarding local user mail.
+  Note that most systems are not set up by default to notify a user when local
+  user mail is received -- local user mail is handled differently to email
+  received from an ISP. The only notification is that users receive a message in
+  their terminal the next time they log into it. Users who rely on a graphical
+  user interface and do not use terminals will never see any notifications
+  regarding local user mail.
 
-    Boolean. Optional. Default: false.
+  Boolean. Optional. Default: false.
 
 - mask
 
-    By default this script monitors all files in a mail queue directory. Sometimes,
-    however, it may be preferable to monitor only a particular type of file. For
-    example, in mail configurations including msmtp each email sent can result in
-    two files being created in the mail queue directory: a `.msmtp` file and a
-    `.mail` file. Since notification messages include a list of "stuck" files, to
-    minimise message size it may be desirable to monitor only one of those two file
-    types.
+  By default this script monitors all files in a mail queue directory. Sometimes,
+  however, it may be preferable to monitor only a particular type of file. For
+  example, in mail configurations including msmtp each email sent can result in
+  two files being created in the mail queue directory: a `.msmtp` file and a
+  `.mail` file. Since notification messages include a list of "stuck" files, to
+  minimise message size it may be desirable to monitor only one of those two file
+  types.
 
-    This is done by specifying a regular expression that matches the file type to
-    be monitored. Only the expression itself need by specified. For example, to
-    specify `.msmtp` files you may use the value "\[.\]msmtp\\Z". This will be
-    converted internally into the regular expression
+  This is done by specifying a regular expression that matches the file type to
+  be monitored. Only the expression itself need by specified. For example, to
+  specify `.msmtp` files you may use the value "\[.\]msmtp\\Z". This will be
+  converted internally into the regular expression
 
         qr/[.]msmtp\Z/xsm
 
-    String. Optional. Default: ".\*".
+  String. Optional. Default: ".\*".
 
 - name
 
-    A human readable name for the directory intended to be used in user feedback.
-    The name can consist of multiple words. It should fit naturally into the
-    following sentence instead of NAME: "The NAME has stuck email files."
+  A human readable name for the directory intended to be used in user feedback.
+  The name can consist of multiple words. It should fit naturally into the
+  following sentence instead of NAME: "The NAME has stuck email files."
 
-    String. Required.
+  String. Required.
 
 - user
 
-    User login name of the owner of the mail queue. This is used for sending direct
-    feedback via local mail and terminal messages, so if there is any confusion
-    over the ownership of a mail queue, choose the user to whom notifications
-    should be sent. This value is required even if both `mail` and `write` are to
-    be left disabled.
+  User login name of the owner of the mail queue. This is used for sending direct
+  feedback via local mail and terminal messages, so if there is any confusion
+  over the ownership of a mail queue, choose the user to whom notifications
+  should be sent. This value is required even if both `mail` and `write` are to
+  be left disabled.
 
-    Boolean. Optional. Default: false.
+  Boolean. Optional. Default: false.
 
 - write
 
-    Whether to notify user of blocked email messages by sending a message directly
-    to their terminal using the `write` utility that is standard on \*nix systems.
-    Will have no effect if no `write` executable is available.
+  Whether to notify user of blocked email messages by sending a message directly
+  to their terminal using the `write` utility that is standard on \*nix systems.
+  Will have no effect if no `write` executable is available.
 
-    Individual users can configure their terminals to not receive `write`
-    messages, though on most system the default for users is to allow display of
-    such messages. See the manpage for `write` for more details.
+  Individual users can configure their terminals to not receive `write`
+  messages, though on most system the default for users is to allow display of
+  such messages. See the manpage for `write` for more details.
 
-    There are a number of circumstances in which it may be inadvisable to utilise
-    this method of notification:
+  There are a number of circumstances in which it may be inadvisable to utilise
+  this method of notification:
 
-    - Users who rely on a graphical user environment and do not use terminals.
-    - Users who primarily use terminals for console editors, such as vim, as the
+  - Users who rely on a graphical user environment and do not use terminals.
+  - Users who primarily use terminals for console editors, such as vim, as the
     messages sent by write will disrupt the editor display.
-    - Users who routinely use multiple terminals and/or terminal multiplexers, as the
+  - Users who routinely use multiple terminals and/or terminal multiplexers, as the
     message will be sent to only one terminal and that terminal may not be visible
     to the user at the time the message is sent.
 
-    Boolean. Optional. Default: false.
+  Boolean. Optional. Default: false.
 
 ## Environment
 

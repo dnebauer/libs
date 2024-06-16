@@ -1,0 +1,25 @@
+Format: 1.8
+Date: Sun, 16 Jun 2024 14:11:04 +0930
+Source: libmail-dir-monitor-perl
+Binary: libmail-dir-monitor-perl
+Architecture: all
+Version: 0.5-1
+Distribution: UNRELEASED
+Urgency: low
+Maintainer: David Nebauer <david@nebauer.org>
+Changed-By: David Nebauer <david@nebauer.org>
+Description:
+ libmail-dir-monitor-perl - daemon to monitor mail queue directories
+Changes:
+ libmail-dir-monitor-perl (0.5-1) UNRELEASED; urgency=low
+ .
+   * Moved options from separately packaged wrapper script into module
+Checksums-Sha1:
+ bc259eacd96610acf2a5cf3f224b5b2beb7c7963 22708 libmail-dir-monitor-perl_0.5-1_all.deb
+ e65d3749a2120533caf9f9cdc0b5184ba2203267 9026 libmail-dir-monitor-perl_0.5-1_amd64.buildinfo
+Checksums-Sha256:
+ 730000579ccac6aaf65f8dd120d483ba17c46721570ead1682ebc053fe7cf63e 22708 libmail-dir-monitor-perl_0.5-1_all.deb
+ 25589997859bfdcf1bc5428fb41e35b3d449bb258ee9efddf3b9217815a0d6da 9026 libmail-dir-monitor-perl_0.5-1_amd64.buildinfo
+Files:
+ 492df75adf87b65ad41bb0f277a57af3 22708 utils optional libmail-dir-monitor-perl_0.5-1_all.deb
+ 6231dd63d0e6bb51b7f6c8fc33e010d6 9026 utils optional libmail-dir-monitor-perl_0.5-1_amd64.buildinfo

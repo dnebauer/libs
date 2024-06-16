@@ -1,3 +1,9 @@
+
+0.5 2024-06-16
+
+0.5 2024-06-16
+        - Moved options from separately packaged script into module
+        - Moved options from separately packaged script into module
 {
    "abstract" : "daemon to monitor mail queue directories",
    "author" : [
@@ -73,7 +79,7 @@
       }
    },
    "release_status" : "stable",
-   "version" : "v0.4",
+   "version" : "v0.5",
    "x_contributors" : [
       "David Nebauer <david@nebauer.org>"
    ],

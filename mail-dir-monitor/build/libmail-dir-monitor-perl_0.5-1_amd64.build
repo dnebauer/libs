@@ -1,0 +1,68 @@
+ dpkg-buildpackage -us -uc -ui -i -b
+dpkg-buildpackage: info: source package libmail-dir-monitor-perl
+dpkg-buildpackage: info: source version 0.5-1
+dpkg-buildpackage: info: source distribution UNRELEASED
+dpkg-buildpackage: info: source changed by David Nebauer <david@nebauer.org>
+ dpkg-source -i --before-build .
+dpkg-buildpackage: info: host architecture amd64
+ debian/rules clean
+dh clean
+   dh_clean
+ debian/rules binary
+dh binary
+   dh_update_autotools_config
+   dh_autoreconf
+   debian/rules override_dh_auto_configure
+make[1]: Entering directory '/home/david/data/computing/projects/libs/mail-dir-monitor/build/Mail-Dir-Monitor-v0.5'
+dh_auto_configure -- --sharedstatedir=/var/lib
+	/usr/bin/perl Build.PL --installdirs vendor --config "optimize=-g -O2 -Werror=implicit-function-declaration -ffile-prefix-map=/home/david/data/computing/projects/libs/mail-dir-monitor/build/Mail-Dir-Monitor-v0.5=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -Wdate-time -D_FORTIFY_SOURCE=2" --config "ld=x86_64-linux-gnu-gcc -g -O2 -Werror=implicit-function-declaration -ffile-prefix-map=/home/david/data/computing/projects/libs/mail-dir-monitor/build/Mail-Dir-Monitor-v0.5=. -fstack-protector-strong -fstack-clash-protection -Wformat -Werror=format-security -fcf-protection -Wl,-z,relro" --sharedstatedir=/var/lib
+Creating new 'Build' script for 'Mail-Dir-Monitor' version 'v0.5'
+make[1]: Leaving directory '/home/david/data/computing/projects/libs/mail-dir-monitor/build/Mail-Dir-Monitor-v0.5'
+   dh_auto_build
+	/usr/bin/perl Build
+Unknown option: sharedstatedir
+cp lib/Mail/Dir/Monitor.pm blib/lib/Mail/Dir/Monitor.pm
+cp lib/Mail/Dir/Monitor/Comms.pm blib/lib/Mail/Dir/Monitor/Comms.pm
+cp lib/Mail/Dir/Monitor/Dir.pm blib/lib/Mail/Dir/Monitor/Dir.pm
+   dh_auto_test
+	/usr/bin/perl Build test --verbose 1
+Unknown option: sharedstatedir
+t/author-pod-syntax.t .. skipped: these tests are for testing by the author
+t/basic.t .............. 
+ok 1
+1..1
+ok
+All tests successful.
+Files=2, Tests=1,  1 wallclock secs ( 0.01 usr  0.00 sys +  0.18 cusr  0.04 csys =  0.23 CPU)
+Result: PASS
+   create-stamp debian/debhelper-build-stamp
+   dh_prep
+   dh_auto_install --destdir=debian/libmail-dir-monitor-perl/
+	/usr/bin/perl Build install --destdir /home/david/data/computing/projects/libs/mail-dir-monitor/build/Mail-Dir-Monitor-v0.5/debian/libmail-dir-monitor-perl --create_packlist 0
+Unknown option: sharedstatedir
+Installing /home/david/data/computing/projects/libs/mail-dir-monitor/build/Mail-Dir-Monitor-v0.5/debian/libmail-dir-monitor-perl/usr/share/perl5/Mail/Dir/Monitor.pm
+Installing /home/david/data/computing/projects/libs/mail-dir-monitor/build/Mail-Dir-Monitor-v0.5/debian/libmail-dir-monitor-perl/usr/share/perl5/Mail/Dir/Monitor/Dir.pm
+Installing /home/david/data/computing/projects/libs/mail-dir-monitor/build/Mail-Dir-Monitor-v0.5/debian/libmail-dir-monitor-perl/usr/share/perl5/Mail/Dir/Monitor/Comms.pm
+Installing /home/david/data/computing/projects/libs/mail-dir-monitor/build/Mail-Dir-Monitor-v0.5/debian/libmail-dir-monitor-perl/usr/share/man/man3/Mail::Dir::Monitor::Comms.3pm
+Installing /home/david/data/computing/projects/libs/mail-dir-monitor/build/Mail-Dir-Monitor-v0.5/debian/libmail-dir-monitor-perl/usr/share/man/man3/Mail::Dir::Monitor.3pm
+Installing /home/david/data/computing/projects/libs/mail-dir-monitor/build/Mail-Dir-Monitor-v0.5/debian/libmail-dir-monitor-perl/usr/share/man/man3/Mail::Dir::Monitor::Dir.3pm
+   dh_installdocs
+   dh_installchangelogs
+   dh_installman
+   dh_perl
+   dh_link
+   dh_compress
+   dh_fixperms
+   dh_missing
+   dh_installdeb
+   dh_gencontrol
+   dh_md5sums
+   dh_builddeb
+dpkg-deb: building package 'libmail-dir-monitor-perl' in '../libmail-dir-monitor-perl_0.5-1_all.deb'.
+ dpkg-genbuildinfo --build=binary -O../libmail-dir-monitor-perl_0.5-1_amd64.buildinfo
+ dpkg-genchanges --build=binary -O../libmail-dir-monitor-perl_0.5-1_amd64.changes
+dpkg-genchanges: info: binary-only upload (no source code included)
+ dpkg-source -i --after-build .
+dpkg-buildpackage: info: binary-only upload (no source included)
+Now running lintian libmail-dir-monitor-perl_0.5-1_amd64.changes ...
+Finished running lintian.

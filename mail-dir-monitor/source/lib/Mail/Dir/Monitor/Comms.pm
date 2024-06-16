@@ -177,7 +177,7 @@ Mail::Dir::Monitor::Comms - helper role providing methods
 
 =head1 VERSION
 
-This documentation is for Mail::Dir::Monitor::Comms version 0.4.
+This documentation is for Mail::Dir::Monitor::Comms version 0.5.
 
 =head1 SYNOPSIS
 

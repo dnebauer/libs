@@ -1,4 +1,7 @@
 Revision history for Mail-Dir-Monitor
 
+0.5 2024-06-16
+        - Moved options from separately packaged script into module
+
 0.4 2024-06-15
         - Initial conversion to module package

@@ -1,3 +1,9 @@
+libmail-dir-monitor-perl (0.5-1) UNRELEASED; urgency=low
+
+  * Moved options from separately packaged wrapper script into module
+
+ -- David Nebauer <david@nebauer.org>  Sun, 16 Jun 2024 14:11:04 +0930
+
 libmail-dir-monitor-perl (0.4-1) UNRELEASED; urgency=low
 
   * Closes: 654923

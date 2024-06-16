@@ -1,0 +1,24 @@
+Package: libmail-dir-monitor-perl
+Version: 0.5-1
+Architecture: all
+Maintainer: David Nebauer <david@nebauer.org>
+Installed-Size: 66
+Depends: perl:any, libconfig-any-perl (>= 0.33), libconst-fast-perl, libemail-sender-perl (>= 2.601), libemail-simple-perl (>= 2.218), libfile-configdir-perl, libfile-util-perl, libfile-which-perl (>= 1.27), libipc-run-perl (>= 20231003.0), liblogger-syslog-perl, libmoo-perl (>= 2.005005), libmoox-handlesvia-perl, libnamespace-clean-perl, libperl6-slurp-perl, libstrictures-perl, libsys-hostname-long-perl, libtype-tiny-perl (>= 2.004000), libtypes-path-tiny-perl, libversion-perl, perl (>= 5.38.0)
+Section: utils
+Priority: optional
+Homepage: https://metacpan.org/release/Mail-Dir-Monitor
+Description: daemon to monitor mail queue directories
+ Users whose email client handles all aspects of email management from
+ checking for, downloading, reading, composing and sending email messages do
+ not need this daemon. They should stop reading now and move on.
+ .
+ Some users, for inexplicable reasons, use different utilities to manage
+ different email tasks. For example, offlineimap to download mail, notmuch to
+ index, thread and search mail, mutt (terminal) or astroid (gui) to read and
+ compose mail, and msmtp to send mail. In these configurations mail for
+ sending is often written to a directory where these messages are queued
+ before being sent. When the user's internet connection is interrupted these
+ messages cannot be sent and, depending on the configuration and fuctionality
+ of the email-related programs, such messages may become stranded and not sent
+ even when internet connectivity is restored. This daemon is designed to be
+ useful in this very specific situation.

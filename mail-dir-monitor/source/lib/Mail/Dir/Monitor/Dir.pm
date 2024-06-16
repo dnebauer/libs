@@ -5,7 +5,7 @@ use Moo;
 use strictures 2;
 use 5.006;
 use 5.038_001;
-use version; our $VERSION = qv('0.4');
+use version; our $VERSION = qv('0.5');
 use namespace::clean;
 use Const::Fast;
 use Cwd;
@@ -279,7 +279,7 @@ Mail::Dir::Monitor::Dir - model a mail queue directory
 
 =head1 VERSION
 
-This documentation is for Mail::Dir::Monitor::Dir version 0.4.
+This documentation is for Mail::Dir::Monitor::Dir version 0.5.
 
 =head1 SYNOPSIS
 
