@@ -5,7 +5,7 @@
 # Process this file with autoconf to produce a configure script
 AC_PREREQ([2.71])
 AC_INIT([Library of bash functions],
-        [5.30],
+        [6.2],
         [david@nebauer.org],
         [libdncommon-bash],
 )
@@ -179,30 +179,33 @@ AC_SUBST(vim_reg)
 
 # Create files
 AC_CONFIG_FILES([
-				Makefile man/Makefile libs/Makefile
-				vim/Makefile misc/Makefile store/Makefile
+  Makefile
+  libs/Makefile
+  man/Makefile
+  misc/Makefile
+  store/Makefile
+  vim/Makefile
 
-				libs/liball libs/libarrays libs/libcontrol
-				libs/libconvert libs/libdevices libs/libdvd
-				libs/libfiles libs/libinternet
-				libs/liblists libs/libnumbers
-				libs/libprogram-interaction libs/libstrings
-				libs/libtime libs/libuser-interaction
-				libs/libvariables
-				
-				man/libdncommon-bash.1
+  libs/liball
 
-				vim/sh_libdncommon-bash.vim
-				vim/libdncommon-bash-shell-ftplugin.txt
-				vim/funcdict vim/funcload.vim
-				vim/libdncommon-bash.yaml
-                vim/libfile-functions.vim
+  man/libdncommon-bash.1
 
-				misc/error.xpm misc/info.xpm
-				misc/question.xpm misc/warn.xpm
-				misc/alert-tone-3-pulses.wav misc/dramatic_chord.wav
+  vim/funcdict
+  vim/funcload.vim
+  vim/libdncommon-bash-shell-ftplugin.txt
+  vim/libdncommon-bash.yaml
+  vim/libfile-functions.vim
+  vim/sh_libdncommon-bash.vim
 
-				store/perlfuncdata store/dn-bashcom-funcdata
-				store/dn-bashcom-funcdata.1
-				])
+  misc/alert-tone-3-pulses.wav
+  misc/dramatic_chord.wav
+  misc/error.xpm
+  misc/info.xpm
+  misc/question.xpm
+  misc/warn.xpm
+
+  store/dn-bashcom-funcdata
+  store/dn-bashcom-funcdata.1
+  store/perlfuncdata
+])
 AC_OUTPUT

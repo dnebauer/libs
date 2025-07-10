@@ -8,7 +8,7 @@
 " 1. FUNCTIONS                                                        {{{1
 
 " Function:   abort                                                   {{{2
-" Purpose:    common tasks on exit from Dn_AddFnTags
+" Purpose:    common tasks on exit from s:addFnTags
 " Parameters: 1 - Warning message
 "             2 - 'More' attribute's initial status
 " Prints:     supplied messages
@@ -553,11 +553,11 @@ endfunction
 
 " - add function tags                                                 {{{2
 if !hasmapto( '<Plug>DbnAFI' )
-    imap <buffer> <unique> <LocalLeader>a <Plug>DbnAFI
+    imap <buffer> <unique> <LocalLeader>aft <Plug>DbnAFI
 endif
 imap <buffer> <unique> <Plug>DbnAFI <Esc>:call <SID>addFnTags()<CR>
 if !hasmapto( '<Plug>DbnAFN' )
-    nmap <buffer> <unique> <LocalLeader>a <Plug>DbnAFN
+    nmap <buffer> <unique> <LocalLeader>aft <Plug>DbnAFN
 endif
 nmap <buffer> <unique> <Plug>DbnAFN :call <SID>addFnTags()<CR>
 

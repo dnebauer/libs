@@ -2,7 +2,7 @@
 
 use Moo;                                  # {{{1
 use strictures 2;
-use 5.036_001;
+use 5.038_001;
 use namespace::clean;
 use version; our $VERSION = qv('0.1');    # }}}1
 
@@ -18,14 +18,15 @@ use version; our $VERSION = qv('0.1');    # }}}1
   my $cb = Dn::CommonBash->new();
 
   const my $TRUE  => 1;
-  const my $FALSE => 0;                   # }}}1
+  const my $FALSE => 0;
+  const my $OPT_S => 's';                 # }}}1
 
   # Options
 
   # master     (-m) {{{1
   option 'master' => (
     is            => 'rw',
-    format        => 's',
+    format        => $OPT_S,
     required      => $TRUE,
     short         => 'm',
     documentation => 'Root file in dncommon-bash library',
@@ -34,7 +35,7 @@ use version; our $VERSION = qv('0.1');    # }}}1
   # dictionary (-d) {{{1
   option 'dictionary' => (
     is            => 'rw',
-    format        => 's',     ## no critic (ProhibitDuplicateLiteral)
+    format        => $OPT_S,
     required      => $TRUE,
     short         => 'd',
     documentation => 'Vim dictionary file to be written',
@@ -43,7 +44,7 @@ use version; our $VERSION = qv('0.1');    # }}}1
   # loader     (-l) {{{1
   option 'loader' => (
     is            => 'rw',
-    format        => 's',     ## no critic (ProhibitDuplicateLiteral)
+    format        => $OPT_S,
     required      => $TRUE,
     short         => 'l',
     documentation => 'Vim loader script to be written',
@@ -52,11 +53,11 @@ use version; our $VERSION = qv('0.1');    # }}}1
   # store      (-s) {{{1
   option 'store' => (
     is            => 'rw',
-    format        => 's',     ## no critic (ProhibitDuplicateLiteral)
+    format        => $OPT_S,
     required      => $TRUE,
-    short         => 's',     ## no critic (ProhibitDuplicateLiteral)
+    short         => $OPT_S,
     documentation => 'Perl persistent data store',
-  );                          # }}}1
+  );    # }}}1
 
   # Methods
 
@@ -66,12 +67,12 @@ use version; our $VERSION = qv('0.1');    # }}}1
   # params: nil
   # prints: feedback
   # return: nil
-  sub run ($self) {    ## no critic (RequireInterpolationOfMetachars)
+  sub run ($self) {
     $cb->write_dictionary($self->dictionary, $self->master);
     $cb->write_loader($self->loader, $self->master);
     $cb->write_store($self->store, $self->master);
     return $TRUE;
-  }                    # }}}1
+  }    # }}}1
 
 }
 
@@ -80,8 +81,6 @@ my $p = Dn::Internal->new_with_options->run;
 1;
 
 # POD {{{1
-
-## no critic (RequirePodSections)
 
 __END__
 
@@ -94,32 +93,6 @@ gen-helper-files - create build files for dncommon-bash library
 B<gen-helper-files> I<-m> master I<-d> dictionary I<-l> loader I<-s> store
 
 B<gen-helper-files -h>
-
-=head1 REQUIRED ARGUMENTS
-
-=head2 --master -m
-
-Master (root) file in dncommon-bash library.
-
-Required. Filepath.
-
-=head2 --dictionary -d
-
-Vim dictionary file to be written.
-
-Required. Filepath.
-
-=head2 --loader -l
-
-Vim loader script to be written.
-
-Required. Filepath.
-
-=head2 --store -s
-
-Perl persistent data store to be written.
-
-Required. Filepath.
 
 =head1 DESCRIPTION
 
@@ -149,18 +122,67 @@ accessing function data.
 
 =back
 
-=head1 DEPENDENCIES
+=head1 CONFIGURATION
 
-Const::Fast, Dn::CommonBash, Moo, MooX::Options, namespace::clean, strictures,
-version.
+This script requires no configuration files or environmental variables.
+
+=head1 REQUIRED ARGUMENTS
+
+=head2 --master -m
+
+Master (root) file in dncommon-bash library.
+
+Required. Filepath.
+
+=head2 --dictionary -d
+
+Vim dictionary file to be written.
+
+Required. Filepath.
+
+=head2 --loader -l
+
+Vim loader script to be written.
+
+Required. Filepath.
+
+=head2 --store -s
+
+Perl persistent data store to be written.
+
+Required. Filepath.
+
+=head1 OPTIONS
+
+Nil.
+
+=head1 EXIT STATUS
+
+The exit code is 0 for successful execution and 1 if the script does a
+controlled exit following an error. If the script crashes unexpectedly
+the error code is that given by the system.
+
+=head1 DIAGNOSTICS
+
+This script is a wrapper for several functions from the Dn::CommonBash module.
+See L<Dn::CommonBash/DIAGNOSTICS> for the diagnostic messages it emits.
+
+=head1 INCOMPATIBILITIES
+
+None reported.
 
 =head1 BUGS AND LIMITATIONS
 
 Please report any bugs to the author.
 
+=head1 DEPENDENCIES
+
+Const::Fast, Dn::CommonBash, Moo, MooX::Options, namespace::clean, strictures,
+version.
+
 =head1 AUTHOR
 
-David Nebauer E<lt>davidnebauer@hotkey.net.auE<gt>
+David Nebauer E<lt>david@nebauer.orgE<gt>
 
 =head1 LICENSE AND COPYRIGHT
 

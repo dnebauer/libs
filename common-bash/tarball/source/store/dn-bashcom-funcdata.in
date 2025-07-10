@@ -11,11 +11,20 @@ use version; our $VERSION = qv('0.1');    # }}}1
   package Dn::Internal;
 
   use Moo;                                # {{{1
-  use MooX::Options;
   use namespace::clean -except => [ '_options_data', '_options_config' ];
   use Const::Fast;
-  use Carp;
   use Dn::CommonBash;
+  use MooX::Options (
+    authors     => 'David Nebauer <david at nebauer dot org>',
+    description => 'The user selects a function from the libdncommon-bash'
+        . ' library The list of function names is filtered to display only'
+        . ' those containing the text fragment. Exact matches take'
+        . ' precedence over partial matches. That is, if the filter exactly'
+        . ' matches a function name that function will be displayed, even if'
+        . ' the filter partially matches other functions. Once a function is'
+        . ' selected, information about it is then displayed.',
+    protect_argv => 0,
+  );
 
   with qw(Role::Utils::Dn);
 
@@ -23,17 +32,15 @@ use version; our $VERSION = qv('0.1');    # }}}1
 
   const my $TRUE  => 1;
   const my $FALSE => 0;
-  ## no critic (RequireInterpolationOfMetachars)
-  const my $STORE => q{@pkgdata_dir@/perlfuncdata};
-  ## use critic
+  const my $STORE => q{@pkgdata_dir@/perlfuncdata};    ## no critic (RequireInterpolationOfMetachars)
 
   # }}}1
 
   # Options
 
-  # filter (-f) {{{1
-  option 'filter' => (
-    is            => 'rw',
+  # name_filter (-f) {{{1
+  option ' name_filter ' => (
+    is            => ' rw ',
     format        => 's',
     required      => $TRUE,
     short         => 'f',
@@ -48,10 +55,10 @@ use version; our $VERSION = qv('0.1');    # }}}1
   # params: nil
   # prints: nil
   # return: n/a, dies on failure
-  sub run ($self) {    ## no critic (RequireInterpolationOfMetachars)
+  sub run ($self) {
 
     # user selects function to display
-    my $funcname = $library->select_function($self->filter, $STORE);
+    my $funcname = $library->select_function($self->name_filter, $STORE);
 
     # display function information
     if ($funcname) {
@@ -70,8 +77,6 @@ my $p = Dn::Internal->new_with_options->run;
 
 # POD {{{1
 
-## no critic (RequirePodSections)
-
 __END__
 
 =head1 NAME
@@ -84,14 +89,6 @@ B<dn-bashcom-funcdata> filter
 
 B<dn-bashcom-funcdata -h>
 
-=head1 REQUIRED ARGUMENTS
-
-=head2 filter
-
-Filter function names to choose from, i.e., part of function name to match on.
-
-Required.
-
 =head1 DESCRIPTION
 
 The user selects a function from the libdncommon-bash library. The list of
@@ -103,14 +100,45 @@ filter partially matches other functions.
 
 Once a function is selected, information about it is then displayed.
 
-=head1 DEPENDENCIES
+=head1 CONFIGURATION
 
-Carp, Const::Fast, Dn::Common, Dn::CommonBash, Moo, MooX::Options,
-namespace::clean, Role::Utils::Dn, strictures, version.
+This script requires no configuration files or environmental variables.
+
+=head1 REQUIRED ARGUMENTS
+
+=head2 name_filter
+
+Filter function names to choose from, i.e., part of function name to match on.
+
+=head1 OPTIONS
+
+=head2 -h, --help
+
+Display user help and exit.
+
+=head1 EXIT STATUS
+
+The exit code is 0 for successful execution and 1 if the script does a
+controlled exit following an error. If the script crashes unexpectedly
+the error code is that given by the system.
+
+=head1 DIAGNOSTICS
+
+This script is a wrapper for the Dn::CommonBash module.
+See L<Dn::CommonBash/DIAGNOSTICS> for the diagnostic messages it emits.
+
+=head1 INCOMPATIBILITIES
+
+None reported.
 
 =head1 BUGS AND LIMITATIONS
 
 Please report any bugs to the author.
+
+=head1 DEPENDENCIES
+
+Const::Fast, Dn::CommonBash, Moo, MooX::Options, namespace::clean,
+Role::Utils::Dn, strictures, version.
 
 =head1 AUTHOR
 

@@ -1,14 +1,14 @@
 .\" Hey, EMACS: -*- nroff -*-
-.\" 
+.\"
 .\" Filename: libdncommon-bash.1
 .\" Author:   David Nebauer
 .\" History:  2007-07-11 - created
-.\" 
+.\"
 .\" For header (.TH), first parameter, NAME, should be all caps
 .\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
 .\" Other parameters are allowed: see man(7), man(1)
 .\" Please adjust the date whenever revising the manpage.
-.\" 
+.\"
 .\" Some roff macros, for reference:
 .\" .nh        disable hyphenation
 .\" .hy        enable hyphenation
@@ -19,7 +19,7 @@
 .\" .br        insert line break
 .\" .sp <n>    insert n+1 empty lines
 .\" for manpage-specific macros, see man(7)
-.\" 
+.\"
 .\" Formatting [see groff_char (7) for details]:
 .\" \(aq  : escape sequence for (')
 .\" ``    : left/open double quote
@@ -42,10 +42,10 @@
 .\" .RB   : following arguments are roman alternating with bold
 .\" .RI   : following arguments are roman alternating with italics
 .\" .SM   : following arguments are small (scaled 9/10 of the regular size)
-.\" .SB   : following arguments are small bold (not small alternating with bold) 
+.\" .SB   : following arguments are small bold (not small alternating with bold)
 .\"         [note: if argument in alternating pattern contains whitespace,
 .\"                enclose in whitespace]
-.\" 
+.\"
 .\" Bulleted list:
 .\"    A bulleted list:
 .\"    .IP \[bu] 2
@@ -66,22 +66,41 @@
 .TH "LIBDNCOMMON-BASH" "1" "2007-07-11" "" "Libdncommon-bash Manual"
 .ds self libdncommon-bash
 .SH "NAME"
-\*[self] \- common library of bash routines 
+\*[self] \- common library of bash routines
 .SH "DESCRIPTION"
-\*[self] is a library of common bash routines used by the package author.  It also provides commonly used variables (see VARIABLES below).  These are defined in a configuration file (see FILES below).
-.PP 
-To source this library in a script packaged using autotools, use the following line:
+\*[self] is a library of common bash routines used by the package author.
+It also provides commonly used variables (see VARIABLES below).
+These are defined in a configuration file (see FILES below).
+.PP
+To source this library in a script packaged using autotools,
+use the following line:
 .RS 3
 source "@pkglib_dir@/liball"
 .RE
 .PP
-A number of supplementary tools are provided.  A perl data store containing function data is created (@pkgdata_dir@/perlfuncdata) for use by perl scripts.  One such tool,
+A number of supplementary tools are provided.
+A perl data store containing function data is created
+(@pkgdata_dir@/perlfuncdata) for use by perl scripts.
+One such tool,
 .BR dn-bashcom-funcdata ","
-is provided.  It enables the user to display data on a selected function (see manpage for further information).
+is provided.
+It enables the user to display data on a selected function
+(see manpage for further information).
 .PP
-A number of vim tools are also provided.  A vim script (@vim_libdncb@/funcload.vim) is provided that, when sourced, loads a dictionary variable (dnLibCommonBash) with function data.  A file (@vim_libdncb@/funcdict) containing a list of library function names is provided for use as a word dictionary.  A filetype plugin (@vim_ftplugin@/sh_libdncommon-bash.vim) for shell scripts loading a word dictionary, dictionary variable and some useful vim functions and mappings.  The plugin itself provides vim help which can be accessed via help tags \(aqft-sh-libdncommon-bash-ftplugin\(aq or \(aqlibdncommon-bash\(aq.
+A number of vim tools are also provided.
+A vim script (@vim_libdncb@/funcload.vim) is provided that, when sourced,
+loads a dictionary variable (dnLibCommonBash) with function data.
+A file (@vim_libdncb@/funcdict) containing a list of library function names
+is provided for use as a word dictionary.
+A filetype plugin (@vim_ftplugin@/sh_libdncommon-bash.vim) for shell scripts
+loading a word dictionary, dictionary variable and some useful vim functions
+and mappings.
+The plugin itself provides vim help which can be accessed via help tags
+\(aqft-sh-libdncommon-bash-ftplugin\(aq or \(aqlibdncommon-bash\(aq.
 .SH "VARIABLES"
-The following variables are provided by the global configuration file and read in by the \(aq@pkglib_dir@/libvariables\(aq file (array variables are indicated by \(aq[]\(aq):
+The following variables are provided by the global configuration file and read
+in by the \(aq@pkglib_dir@/libvariables\(aq file
+(array variables are indicated by \(aq[]\(aq):
 .SS convenience variables
 .IP \[bu] 2
 dn_self  (= name of calling script)
@@ -228,6 +247,6 @@ Vim script loading a dictionary variable with function data.
 Vim filetype plugin for shell scripts.
 .SH "AUTHOR"
 \*[self] was written by David Nebauer <david@nebauer.org>.
-.PP 
+.PP
 This manual page was written by David Nebauer <david@nebauer.org>
 for the Debian project (but may be used by others).

@@ -1,4 +1,4 @@
 # Makefile.am file for the libdncommon-bash project
 
 # Subdirectories
-SUBDIRS = man libs vim store misc
+SUBDIRS = libs man misc store vim

@@ -15,10 +15,10 @@
 # VARIABLES
 
 x_root='/home/david/data/computing/projects/libs/common-bash'
-x_funcdict="$( pwd )/vim/funcdict.in"
-x_funcload="$( pwd )/vim/funcload.vim.in"
-x_libmaster="$( pwd )/libs/liball.in"
-x_storage="$( pwd )/store/perlfuncdata.in"
+x_funcdict="$(pwd)/vim/funcdict.in"
+x_funcload="$(pwd)/vim/funcload.vim.in"
+x_libmaster="$(pwd)/libs/liball.in"
+x_storage="$(pwd)/store/perlfuncdata.in"
 x_gen_script="$x_root/debianise/scripts/gen-helper-files"
 x_exit_status=true
 
@@ -27,17 +27,17 @@ x_exit_status=true
 # generate dictionary and vim function loader files
 echo 'Creating application helper files'
 echo '----------------------------------'
-${x_gen_script}         \
+${x_gen_script} \
 	-m "${x_libmaster}" \
-	-d "${x_funcdict}"  \
-	-l "${x_funcload}"  \
-	-s "${x_storage}"   \
-	|| x_exit_status=false
+	-d "${x_funcdict}" \
+	-l "${x_funcload}" \
+	-s "${x_storage}" ||
+	x_exit_status=false
 echo '----------------------------------'
 
 unset x_funcdict x_funcload x_libmaster x_gen_script x_storage
 
-if [[ $x_exit_status = false ]] ; then
-	echo 'Creation of application helper files failed' > /dev/stderr
+if [[ $x_exit_status = false ]]; then
+	echo 'Creation of application helper files failed' 1>&2
 	exit 1
 fi

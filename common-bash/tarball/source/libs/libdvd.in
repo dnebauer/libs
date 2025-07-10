@@ -5,7 +5,6 @@
 # Author: David Nebauer
 # Purpose: Useful bash functions for using DVDs
 
-
 # Function: dnAviToDvdMpg                                            {{{1
 # Convert AVI to dvd MPG
 #   params: -a = avi file for conversion (mandatory)
@@ -53,94 +52,100 @@
 # fn_tag dnAviToDvdMpg param -r value 4:3
 # fn_tag dnAviToDvdMpg param -r value 16:9
 # fn_tag dnAviToDvdMpg param -r defaul 4:3
-dnAviToDvdMpg () {
+dnAviToDvdMpg() {
 	# set local variables
 	local avi="" target_basename="" delete=1 video="" aspect_ratio="" retval=""
 	# process command-line variables
 	OPTIND=1
-	while getopts ":do:a:v:r:" opt ; do
+	while getopts ":do:a:v:r:" opt; do
 		case ${opt} in
-			d  ) delete=0;;
-			o  ) target_basename="${OPTARG}";;
-			a  ) avi="${OPTARG}";;
-			v  ) video="${OPTARG}";;
-			a  ) aspect_ratio="${OPTARG}";;
-			\? ) msg="Invalid flag '${OPTARG}' detected"
-			     msg="${msg} in function '${FUNCNAME}'"
-			     dnError "${msg}"
-				 exit 1;;
-			\: ) msg="No argument supplied for flag '${OPTARG}'"
-			     msg="${msg} in function '${FUNCNAME}'"
-				 dnError "${msg}"
-				 exit 1;;
+		d) delete=0 ;;
+		o) target_basename="${OPTARG}" ;;
+		a) avi="${OPTARG}" ;;
+		v) video="${OPTARG}" ;;
+		r) aspect_ratio="${OPTARG}" ;;
+		\?)
+			msg="Invalid flag '${OPTARG}' detected"
+			msg="${msg} in function '${FUNCNAME[0]}'"
+			dnError "${msg}"
+			exit 1
+			;;
+		:)
+			msg="No argument supplied for flag '${OPTARG}'"
+			msg="${msg} in function '${FUNCNAME[0]}'"
+			dnError "${msg}"
+			exit 1
+			;;
 		esac
 	done
-	shift $(( ${OPTIND} - 1 ))
+	shift $((OPTIND - 1))
 	# check variables
 	#   avi source file
-	local avi_filepath="$( dnNormalisePath "${avi}" )"
-	local avi_path="$( dnParentDir "${avi}" )"
-	local avi_file="$( dnExtractFilename "${avi}" )"
-	if test $( echo ${avi_file} | grep -c -- "\.[aA][vV][iI]$" ) -ne 1 ; then
+	local avi_filepath
+	avi_filepath="$(dnNormalisePath "${avi}")"
+	local avi_file
+	avi_file="$(dnExtractFilename "${avi}")"
+	if [[ $(grep -c -- "\.avi$" <<<"${avi_file}") != 1 ]]; then
 		dnError "Source AVI file '${avi}' has an invalid extension"
 		return 1
 	fi
 	#   target_basename
-	local source_basename="$( echo "${avi_file}" \
-			| sed -e 's=\([[:print:]]\+\)\.[aA][vV][iI]$=\1=' )"
+	local source_basename
+	source_basename="$(echo "${avi_file}" |
+		sed -e 's=\([[:print:]]\+\)\.[aA][vV][iI]$=\1=')"
 	test -z "${target_basename}" && target_basename="${source_basename}"
 	#   video mode
 	test -z "${video}" && video="pal"
-	if test $( echo "${video}" | grep -c -- "^pal$\|^ntsc$" ) -ne 1 ; then
+	if test "$(echo "${video}" | grep -c -- "^pal$\|^ntsc$")" -ne 1; then
 		dnError "Invalid video mode '${video}' (must be 'pal' or 'ntsc')"
 		return 1
 	fi
 	#   playback aspect ratio
 	test -z "${aspect_ratio}" && aspect_ratio="4:3"
-	if test $( echo "${aspect_ratio}" | grep -c -- "^4:3$\|^16:9$" ) -ne 1 ; then
+	if test "$(echo "${aspect_ratio}" | grep -c -- "^4:3$\|^16:9$")" -ne 1; then
 		dnError "Invalid aspect ratio '${aspect_ratio}'" \
-		        "(must be '4:3' or '16:9')"
+			"(must be '4:3' or '16:9')"
 		return 1
 	fi
 	# feedback
 	dnInfo "Configuration:"
 	dnInfo "${dn_divider_top}"
 	dnInfo "Source AVI = ${avi_filepath}"
-	dnInfo "Target MPG = $( pwd )/${target_basename}.mpg"
+	dnInfo "Target MPG = $(pwd)/${target_basename}.mpg"
 	dnInfo "Video mode = ${video}"
 	dnInfo "Aspect ratio = ${aspect_ratio}"
 	case ${delete} in
-		0 ) dnInfo "Delete intermediate files = true";;
-		* ) dnInfo "Delete intermediate files = false";;
+	0) dnInfo "Delete intermediate files = true" ;;
+	*) dnInfo "Delete intermediate files = false" ;;
 	esac
 	dnInfo "${dn_divider_bottom}"
 	# assemble command for conversion to intermediate video and sound files
-	local transcode="transcode"  # transcoding tool
-	transcode="${transcode} -i ${avi_filepath}"  # input avi file
-	transcode="${transcode} -y ffmpeg"  # video export module
-	case "${video}" in  # video format
-		'pal'  ) transcode="${transcode} --export_prof dvd-pal";;
-		'ntsc' ) transcode="${transcode} --export_prof dvd-ntsc";;
+	local transcode="transcode"                 # transcoding tool
+	transcode="${transcode} -i ${avi_filepath}" # input avi file
+	transcode="${transcode} -y ffmpeg"          # video export module
+	case "${video}" in                          # video format
+	'pal') transcode="${transcode} --export_prof dvd-pal" ;;
+	'ntsc') transcode="${transcode} --export_prof dvd-ntsc" ;;
 	esac
-	case "${aspect_ratio}" in  # playback aspect ratio: 2=4:3, 3=16:9
-		'4:3'  ) transcode="${transcode} --export_asr 2";;
-		'16:9' ) transcode="${transcode} --export_asr 3";;
+	case "${aspect_ratio}" in # playback aspect ratio: 2=4:3, 3=16:9
+	'4:3') transcode="${transcode} --export_asr 2" ;;
+	'16:9') transcode="${transcode} --export_asr 3" ;;
 	esac
-	transcode="${transcode} -o ${source_basename} "  # video output
-	                                                 # file basename
-	transcode="${transcode} -D 0"  # video to start at this audio frame number
-	transcode="${transcode} -b 224"  # audio encoder bitrate
-	transcode="${transcode} -N 0x2000"  # audio export format: 0x2000=AC3, 
-	                                    # 0x50=MP2, 0x55=MP3, 0xfffe=OGG
-	transcode="${transcode} -s 2"  # increase volume of audio stream by 2
-	transcode="${transcode} -m ${source_basename}.ac3"  # audio output filename
-	transcode="${transcode} -J modfps=clonetype=3"  # external filter plugin
-	transcode="${transcode} --export_fps 25"  # export framerate
+	transcode="${transcode} -o ${source_basename} " # video output
+	# file basename
+	transcode="${transcode} -D 0"      # video to start at this audio frame number
+	transcode="${transcode} -b 224"    # audio encoder bitrate
+	transcode="${transcode} -N 0x2000" # audio export format: 0x2000=AC3,
+	# 0x50=MP2, 0x55=MP3, 0xfffe=OGG
+	transcode="${transcode} -s 2"                      # increase volume of audio stream by 2
+	transcode="${transcode} -m ${source_basename}.ac3" # audio output filename
+	transcode="${transcode} -J modfps=clonetype=3"     # external filter plugin
+	transcode="${transcode} --export_fps 25"           # export framerate
 	# assemble command to multiplex intermediate files into one dvd MPG
-	local mplex="mplex"  # multiplexing tool
-	mplex="${mplex} -f 8"  # output format: 8=DVD with NAV sectors
-	mplex="${mplex} -o ${target_basename}.mpg"  # output file name
-	mplex="${mplex} ${source_basename}.m2v"  # input files
+	local mplex="mplex"                        # multiplexing tool
+	mplex="${mplex} -f 8"                      # output format: 8=DVD with NAV sectors
+	mplex="${mplex} -o ${target_basename}.mpg" # output file name
+	mplex="${mplex} ${source_basename}.m2v"    # input files
 	mplex="${mplex} ${source_basename}.ac3"
 	# create intermediate files (note: will be put into cwd)
 	dnInfo "Transcoding (creates intermediate files)..."
@@ -148,7 +153,7 @@ dnAviToDvdMpg () {
 	${transcode}
 	retval=${?}
 	dnInfo "${dn_divider_bottom}"
-	if test ${retval} -ne 0 ; then
+	if test ${retval} -ne 0; then
 		dnError "Transcoding of source AVI file to intermediate files failed"
 		return 1
 	fi
@@ -158,20 +163,20 @@ dnAviToDvdMpg () {
 	${mplex}
 	retval=${?}
 	dnInfo "${dn_divider_bottom}"
-	if test ${retval} -ne 0 ; then
+	if test ${retval} -ne 0; then
 		dnError "Multiplexing of intermediate files to dvd MPG failed"
 		return 1
 	fi
 	# delete intermediate files
-	if test ${delete} -eq 0 ; then
+	if test ${delete} -eq 0; then
 		retval=0
 		dnInfon "Deleting intermediate files... "
-		for ext in m2v ac3 ; do
-			rm -f ${source_basename}.${ext} &> /dev/null || retval=1
+		for ext in m2v ac3; do
+			rm -f "${source_basename}.${ext}" &>/dev/null || retval=1
 		done
 		case ${retval} in
-			0 ) echo "OK";;
-			1 ) echo "Failed";;
+		0) echo "OK" ;;
+		1) echo "Failed" ;;
 		esac
 	fi
 }
@@ -188,12 +193,13 @@ dnAviToDvdMpg () {
 # fn_tag dnGetDvdTitle param device required yes
 # fn_tag dnGetDvdTitle param device multipart no
 # fn_tag dnGetDvdTitle param device type path
-dnGetDvdTitle () {
+dnGetDvdTitle() {
 	local exit_status="" title="" source_device="${1}"
-	title=$( dvdbackup -i "${source_device}" -I 2> /dev/null \
-	         | grep "DVD\-Video information of the DVD" \
-	         | awk -F " " '{ print $NF }' \
-	       )
+	title=$(
+		dvdbackup -i "${source_device}" -I 2>/dev/null |
+			grep "DVD\-Video information of the DVD" |
+			awk -F " " '{ print $NF }'
+	)
 	exit_status=${?}
 	echo "${title}"
 	return ${exit_status}
@@ -211,14 +217,17 @@ dnGetDvdTitle () {
 # fn_tag dnGetIsoTitle param filepath required yes
 # fn_tag dnGetIsoTitle param filepath multipart no
 # fn_tag dnGetIsoTitle param filepath type path
-dnGetIsoTitle () {
+dnGetIsoTitle() {
 	# create and set variables
-	local title="" iso="$( dnNormalisePath "${1}" )"
-	local exit_status=0  # default
+	local iso
+	iso="$(dnNormalisePath "${1}")"
+	local exit_status
+	exit_status=0 # default
+	local title
 	# get title and strip spaces
-	title="$( dd if=${iso} bs=1 skip=32808 count=32 2>/dev/null )"
+	title="$(dd if="${iso}" bs=1 skip=32808 count=32 2>/dev/null)"
 	dnFlagTrue ${?} || exit_status=1
-	title="$( dnStripEnclosingSpaces "${title}" )"
+	title="$(dnStripEnclosingSpaces "${title}")"
 	dnFlagTrue ${?} || exit_status=1
 	# return result and indicate outcome
 	echo "${title}"
@@ -242,23 +251,26 @@ dnGetIsoTitle () {
 # fn_tag dnSetIsoTitle param title required yes
 # fn_tag dnSetIsoTitle param title multipart no
 # fn_tag dnSetIsoTitle param title type string
-dnSetIsoTitle () {
+dnSetIsoTitle() {
 	# create and set variables
-	local iso="$( dnNormalisePath "${1}" )"
-	local title="$( dnTidyDvdName "${2}" )"
-	while [ $( dnStrLen "${title}" ) -lt 32 ] ; do title="${title} " ; done
-	local exit_status=0  # default
+	local iso
+	iso="$(dnNormalisePath "${1}")"
+	local title
+	title="$(dnTidyDvdName "${2}")"
+	while [ "$(dnStrLen "${title}")" -lt 32 ]; do title="${title} "; done
+	local exit_status
+	exit_status=0 # default
 	# set title
-	echo -n "${title}" \
-		| dd of=${iso} \
-		     conv=notrunc \
-			 bs=1 \
-			 seek=32808 \
-			 count=32 \
-		2>/dev/null
+	echo -n "${title}" |
+		dd of="${iso}" \
+			conv=notrunc \
+			bs=1 \
+			seek=32808 \
+			count=32 \
+			2>/dev/null
 	exit_status=${PIPESTATUS[1]}
 	# indicate outcome
-	return ${exit_status}
+	return "${exit_status}"
 }
 # Function: dnRipDvd                                                 {{{1
 # Rip video dvd to disk
@@ -319,13 +331,19 @@ dnSetIsoTitle () {
 # fn_tag dnRipDvd param dvd_name multipart no
 # fn_tag dnRipDvd param dvd_name type string
 # fn_tag dnRipDvd param dvd_name note Overrides existing image name
-dnRipDvd () {
+dnRipDvd() {
 	# set and check variables
-	local device="${1}" dir="$( dnNormalisePath "${2}" )"
-	local err_log="$( dnNormalisePath "${3}" )" name="${4:-""}"
+	local device
+	device="${1}"
+	local dir
+	dir="$(dnNormalisePath "${2}")"
+	local err_log
+	err_log="$(dnNormalisePath "${3}")"
+	local name
+	name="${4:-""}"
 	[ -z "${device}" ] && dnFailScript "No dvd device supplied"
 	dnDirValid "${dir}" || dnFailScript "No valid output directory supplied"
-	if ! dnFileValid "${err_log}" ; then
+	if ! dnFileValid "${err_log}"; then
 		dnError "No error log filepath supplied"
 		return 1
 	fi
@@ -415,47 +433,56 @@ dnRipDvd () {
 # fn_tag dnMakeIso param error-log multipart no
 # fn_tag dnMakeIso param error-log type path
 # fn_tag dnMakeIso param error-log note Does not have to exists prior to calling function
-dnMakeIso () {
+dnMakeIso() {
 	# set and check variables
-	local mode="${1}" iso="$( dnNormalisePath "${2}" )"
-	local dir="$( dnNormalisePath "${3}" )"
-	local name="${4}"
+	local mode
+	mode="${1}"
+	local iso
+	iso="$(dnNormalisePath "${2}")"
+	local dir
+	dir="$(dnNormalisePath "${3}")"
+	local name
+	name="${4}"
 	[ "${name}" = "X" ] && name=''
-	name="$( dnTidyDvdName "${name}" )"
-	local err_log="$( dnNormalisePath "${5}" )"
-	local retval= msg= cmd=
+	name="$(dnTidyDvdName "${name}")"
+	local err_log
+	err_log="$(dnNormalisePath "${5}")"
+	local retval
+	local msg
+	local cmd
 	[ -z "${iso}" ] && dnFailScript "No output ISO filepath supplied"
 	[ -z "${dir}" ] && dnFailScript "No input directory tree supplied"
 	dnDirValid "${dir}" || dnFailScript "Invalid input directory tree"
-		# if mode is progress must have error log
-	[ "${mode}" = 'progress' ] && ! dnFileValid "${err_log}" \
-		&& dnError "No error log filepath supplied" && return 1
+	# if mode is progress must have error log
+	[ "${mode}" = 'progress' ] && ! dnFileValid "${err_log}" &&
+		dnError "No error log filepath supplied" && return 1
 	# make iso and capture exit status
 	cmd="genisoimage -J -R -dvd-video"
 	[ -n "${name}" ] && cmd="${cmd} -V ${name}"
 	cmd="${cmd} -o ${iso} ${dir}"
 	case ${mode} in
-	'raw'      ) #genisoimage -J -R -dvd-video -o ${iso} ${dir}
-	             ${cmd}
-	             retval=${?}
-				 ;;
-	'silent'   ) #genisoimage -J -R -dvd-video -o ${iso} ${dir} &> /dev/null
-	             ${cmd} &> /dev/null
-	             retval=${?}
-				 ;;
-	'progress' ) #genisoimage -J -R -dvd-video -o ${iso} ${dir} 2>&1 \
-	             ${cmd} 2>>"${err_log}" \
-				 	| dnProgressBarFilter genisoimage \
-					| progressbar
-                 retval=${PIPESTATUS[0]}
-                 echo  # progress bar sometimes ends with cursor on bar line
-                 ;;
-	*          ) msg= "Case failure in function '${FUNCTNAME}'"
-				 dnFailScript "${msg}"
-				 ;;
+	'raw') #genisoimage -J -R -dvd-video -o ${iso} ${dir}
+		${cmd}
+		retval=${?}
+		;;
+	'silent') #genisoimage -J -R -dvd-video -o ${iso} ${dir} &> /dev/null
+		${cmd} &>/dev/null
+		retval=${?}
+		;;
+	'progress') #genisoimage -J -R -dvd-video -o ${iso} ${dir} 2>&1 \
+		${cmd} 2>>"${err_log}" |
+			dnProgressBarFilter genisoimage |
+			progressbar
+		retval=${PIPESTATUS[0]}
+		echo # progress bar sometimes ends with cursor on bar line
+		;;
+	*)
+		msg="Case failure in function '${FUNCTNAME}'"
+		dnFailScript "${msg}"
+		;;
 	esac
 	# signal result
-	return ${retval}
+	return "${retval}"
 }
 # Function: dnBurnDvd                                                {{{1
 # Burn ISO9660 filesystem image to dvd
@@ -516,15 +543,25 @@ dnMakeIso () {
 # fn_tag dnBurnDvd param error_log multipart no
 # fn_tag dnBurnDvd param error_log type path
 # fn_tag dnBurnDvd param error_log note Required if feedback mode set to 'progress'
-dnBurnDvd () {
+dnBurnDvd() {
 	# set and check variables
-	local mode="${1}" device="${2}" iso="$( dnNormalisePath "${3}" )"
-	local speed="$( echo "${4}" | tr '[:lower:]' '[:upper:]' )"
-	local err_log="$( dnNormalisePath "${5:-""}" )" retval= msg= cmd=
+	local mode
+	mode="${1}"
+	local device
+	device="${2}"
+	local iso
+	iso="$(dnNormalisePath "${3}")"
+	local speed
+	speed="$(echo "${4}" | tr '[:lower:]' '[:upper:]')"
+	local err_log
+	err_log="$(dnNormalisePath "${5:-""}")"
+	local retval
+	local msg
+	local cmd
 	dnFileValid "${iso}" || dnFailScript "No ISO filepath supplied"
-		# if mode is progress must have error log
-	[ "${mode}" = 'progress' ] && ! dnFileValid "${err_log}" \
-		&& dnError "No error log filepath supplied" && return 1
+	# if mode is progress must have error log
+	[ "${mode}" = 'progress' ] && ! dnFileValid "${err_log}" &&
+		dnError "No error log filepath supplied" && return 1
 	dnValidNonZeroPosInt "${speed}" || speed='X'
 	# build basic command
 	cmd="growisofs -dvd-compat"
@@ -532,24 +569,28 @@ dnBurnDvd () {
 	cmd="${cmd} -Z ${device}=${iso}"
 	# burn iso and capture exit status
 	case ${mode} in
-	'raw'      ) ${cmd}
-	             retval=${?}
-				 ;;
-	'silent'   ) ${cmd} &> /dev/null
-	             retval=${?}
-				 ;;
-	'progress' ) ${cmd} 2>>"${err_log}" \
-	             		| dnProgressBarFilter growisofs \
-				 		| progressbar
-                 retval=${PIPESTATUS[0]}
-                 echo  # progress bar sometimes ends with cursor on bar line
-                 ;;
-	*          ) msg= "Case failure in function '${FUNCTNAME}'"
-				 dnFailScript "${msg}"
-				 ;;
+	'raw')
+		${cmd}
+		retval=${?}
+		;;
+	'silent')
+		${cmd} &>/dev/null
+		retval=${?}
+		;;
+	'progress')
+		${cmd} 2>>"${err_log}" |
+			dnProgressBarFilter growisofs |
+			progressbar
+		retval=${PIPESTATUS[0]}
+		echo # progress bar sometimes ends with cursor on bar line
+		;;
+	*)
+		msg="Case failure in function '${FUNCTNAME}'"
+		dnFailScript "${msg}"
+		;;
 	esac
 	# signal result
-	return ${retval}
+	return "${retval}"
 }
 # Function: dnTidyDvdName                                            {{{1
 # Tidy dvd name
@@ -564,16 +605,16 @@ dnBurnDvd () {
 # fn_tag dnTidyDvdName param name required yes
 # fn_tag dnTidyDvdName param name multipart no
 # fn_tag dnTidyDvdName param name type string
-dnTidyDvdName () {
+dnTidyDvdName() {
 	local name="${1}"
 	# strip extraneous spaces
-	name="$( dnStripEnclosingSpaces "${name}" )"
+	name="$(dnStripEnclosingSpaces "${name}")"
 	# convert lower->upper and spaces->underscores
-	name="$( echo "${name}" | tr '[:lower:]' '[:upper:]' | tr '[:space:]' '_' )"
+	name="$(echo "${name}" | tr '[:lower:]' '[:upper:]' | tr '[:space:]' '_')"
 	# 'tr' conversion often add terminal space
-	name="$( echo "${name}" | sed -e 's/_*$//' )"
+	name="$(echo "${name}" | sed -e 's/_*$//')"
 	# max length 32 characters
-	name="$( echo "${name}" | head --bytes=32 )"
+	name="$(echo "${name}" | head --bytes=32)"
 	# done
 	echo "${name}"
 }
@@ -597,16 +638,20 @@ dnTidyDvdName () {
 # fn_tag dnOversizeIso param maximum value 4.7G
 # fn_tag dnOversizeIso param maximum value 8.5G
 # fn_tag dnOversizeIso param maximum default 4.7G
-dnOversizeIso () {
+dnOversizeIso() {
 	# set and check variables
-	local iso="$( dnNormalisePath "${1}" )" limit="${2:-"4.7G"}" max_bytes=
+	local iso
+	iso="$(dnNormalisePath "${1}")"
+	local limit
+	limit="${2:-"4.7G"}"
+	local max_bytes
 	case ${limit} in
-		'4.7G' ) max_bytes='4700000000';;
-		'8.5G' ) max_bytes='8500000000';;
-		*      ) dnFatal "Case mismatch in function '${FUNCNAME}'" && exit 1;;
+	'4.7G') max_bytes='4700000000' ;;
+	'8.5G') max_bytes='8500000000' ;;
+	*) dnFatal "Case mismatch in function '${FUNCNAME[0]}'" && exit 1 ;;
 	esac
 	# check size and return result
-	[ $( dnFileSize "${iso}" 'b' ) -gt ${max_bytes} ]
+	[ "$(dnFileSize "${iso}" 'b')" -gt ${max_bytes} ]
 	return ${?}
 }
 # Resizes ISO
@@ -632,56 +677,59 @@ dnOversizeIso () {
 # fn_tag dnResizeIso param size value 4.7G
 # fn_tag dnResizeIso param size value 8.5G
 # fn_tag dnResizeIso param size note Same allowable values as used for dnOversizeIso parameter 'maximum'
-dnResizeIso () {
+dnResizeIso() {
 	# create and check variables
-	local iso="$( dnNormalisePath "${1}" )" max_size="${2}" retval=1 msg=
+	local iso
+	iso="$(dnNormalisePath "${1}")" max_size="${2}" retval=1 msg=
 	! dnFileValid "${iso}" && dnError "Invalid ISO file '${iso}'" && return 1
 	[ -z "${max_size}" ] && dnError "No size limit provided" && return 1
 	local dvd_shrink="${HOME}/.wine/drive_c/Program Files"
 	dvd_shrink="${dvd_shrink}/DVD Shrink/DVD Shrink 3.2.exe"
 	# prepare to run DVDShrink
 	dnInfo "ISO image must be resized with DVDShrink"
-	iso_old="$( dnParentDir "${iso}" )/$( dnExtractFileBase "${iso}" )_orig.iso"
+	iso_old="$(dnParentDir "${iso}")/$(dnExtractFileBase "${iso}")_orig.iso"
 	dnInfo "Renaming ISO image"
-	mv "${iso}" "${iso_old}"
-	if [ ${?} -eq 0 ] ; then dnInfo "File successfully renamed"
-	else dnError "Renaming failed" ; return 1
+	if mv "${iso}" "${iso_old}"; then
+		dnInfo "File successfully renamed"
+	else
+		dnError "Renaming failed"
+		return 1
 	fi
 	dnInfo "Changed ISO image name to:" \
-		 "  '${iso_old}'." \
-		 "You must save the new ISO image as:" \
-		 "  '${iso}'."
+		"  '${iso_old}'." \
+		"You must save the new ISO image as:" \
+		"  '${iso}'."
 	dnInfo "Ready to run DVDShrink using wine." \
-		 "Use Ctrl-I to open ISO image, optionally do deep analysis by" \
-		 "clicking the \"Analysis\" button (examines each frame" \
-		 "rather than the default of 1 in 100), click the \"Re-author\"" \
-		 "button, select titles in right-hand pane by right-clicking and" \
-		 "selecting \"Add\", click \"Backup!\" when disc image ready," \
-		 "choose target \"ISO image file\", enter target image file name" \
-		 "(preferably as suggested above) and, finally, click \"OK\"."
+		"Use Ctrl-I to open ISO image, optionally do deep analysis by" \
+		"clicking the \"Analysis\" button (examines each frame" \
+		"rather than the default of 1 in 100), click the \"Re-author\"" \
+		"button, select titles in right-hand pane by right-clicking and" \
+		"selecting \"Add\", click \"Backup!\" when disc image ready," \
+		"choose target \"ISO image file\", enter target image file name" \
+		"(preferably as suggested above) and, finally, click \"OK\"."
 	dnPromptUser
 	# do shrink
 	dnInfo "${dn_divider}"
 	wine "${dvd_shrink}"
 	dnInfo "${dn_divider}"
 	# check for resized iso
-	if dnFileValid "${iso}" ; then  # found iso
+	if dnFileValid "${iso}"; then # found iso
 		dnInfo "Found ISO image with recommended name:" "  '${iso}'"
-		if dnFileValid "${iso_old}" ; then  # delete old iso file
+		if dnFileValid "${iso_old}"; then # delete old iso file
 			dnInfo "Old ISO image is no longer used but still present:" \
-				 "  '${iso_old}'"
+				"  '${iso_old}'"
 			dnInfon "Deleting... "
-			rm -f "${iso_old}" &> /dev/null
+			rm -f "${iso_old}" &>/dev/null
 			dnReport ${?}
 		fi
-		if dnOversizeIso "${iso}" "${max_size}" ; then
-			msg="ISO image is still too large: $( dnFileSize "${iso}" 'h' )"
+		if dnOversizeIso "${iso}" "${max_size}"; then
+			msg="ISO image is still too large: $(dnFileSize "${iso}" 'h')"
 			dnError "${msg}"
 		else
 			dnInfo "Resizing succeeded"
-			retval=0  # only codepoint where success guaranteed
+			retval=0 # only codepoint where success guaranteed
 		fi
-	else  # user did not create resized file with same filepath
+	else # user did not create resized file with same filepath
 		dnError "Unable to locate ISO image:" "  '${iso}'" "Resizing failed"
 	fi
 	# indicate result
@@ -713,84 +761,91 @@ dnResizeIso () {
 # fn_tag dnShowPlayerHelp param temp_file multipart no
 # fn_tag dnShowPlayerHelp param temp_file type path
 # fn_tag dnShowPlayerHelp param temp_file note This file does not need to exists prior to function invocation
-dnShowPlayerHelp () {
+dnShowPlayerHelp() {
 	# set and check variables
-	local player="${1}" file="$( dnNormalisePath "${2}" )"
-	local pid= help= title= size=
-	local icon="/home/david/conf/system/icons/help.png"
+	local player
+	player="${1}" file="$(dnNormalisePath "${2}")"
+	local icon
+	icon="/home/david/conf/system/icons/help.png"
+	local pid
+	local help
+	local title
+	local size
 	# set application specific settings: help, title and size
 	case ${player} in
-	'xine' )
-	help=$( cat <<-EOI
-			XINE help
-			=========
-			
-			Play
-			----
-			<RET>: play
-			<SPC>: pause
-			s: stop
-			fullscreen: f
+	'xine')
+		help=$(
+			cat <<-EOI
+				XINE help
+				=========
 
-			Jump ahead
-			----------
-			60s: <Right>
-			30s: Alt-<Right>
-			15s: Ctl-<Right>
+				Play
+				----
+				<RET>: play
+				<SPC>: pause
+				s: stop
+				fullscreen: f
 
-			Jump to %
-			---------
-			start 10% ... 90%
-			Ctl-0 -1      -9
+				Jump ahead
+				----------
+				60s: <Right>
+				30s: Alt-<Right>
+				15s: Ctl-<Right>
 
-			Speed
-			-----
-			Increase: <Up>
-			Decrease: <Down>
-			Reset: Alt-<Down>
+				Jump to %
+				---------
+				start 10% ... 90%
+				Ctl-0 -1      -9
 
-			Volume
-			------
-			Increase: V
-			Decrease: v
-			Mute toggle: Ctl-m
+				Speed
+				-----
+				Increase: <Up>
+				Decrease: <Down>
+				Reset: Alt-<Down>
 
-			Audio Channels
-			--------------
-			Next: +
-			Prev: -
+				Volume
+				------
+				Increase: V
+				Decrease: v
+				Mute toggle: Ctl-m
 
-			Subtitles
-			---------
-			Next: ,
-			Prev: .
+				Audio Channels
+				--------------
+				Next: +
+				Prev: -
 
-			Menu Nav.
-			---------
-			Numeric cluster
-			  arrows
-			
-			Jump to Menu
-			------------
-			Title: <F1>
-			Root: <F2>
-			Subtitle: <F3>
-			Audio: <F4>
-			EOI)
-	title="Xine Help"
-	size="20x40"
+				Subtitles
+				---------
+				Next: ,
+				Prev: .
+
+				Menu Nav.
+				---------
+				Numeric cluster
+				  arrows
+
+				Jump to Menu
+				------------
+				Title: <F1>
+				Root: <F2>
+				Subtitle: <F3>
+				Audio: <F4>
+			EOI
+		)
+		title="Xine Help"
+		size="20x40"
 		;;
-	* ) dnError "Case mismatch in function '${FUNCNAME}'" && return 1;;
+	*) dnError "Case mismatch in function '${FUNCNAME[0]}'" && return 1 ;;
 	esac
 	# write help text to file
-	echo "${help}" > "${file}"
+	echo "${help}" >"${file}"
 	# display help
 	konsole -T "${title}" \
-			--icon "${icon}" \
-			--vt_sz "${size}" \
-			--nomenubar \
-			--notabbar \
-			-e less "${file}" &> /dev/null &
+		--icon "${icon}" \
+		--vt_sz "${size}" \
+		--nomenubar \
+		--notabbar \
+		-e less "${file}" &>/dev/null &
 	# get and return pid
 	pid="${!}"
 	echo "${pid}"
@@ -816,21 +871,21 @@ dnShowPlayerHelp () {
 # fn_tag dnPlayIso param iso required yes
 # fn_tag dnPlayIso param iso multipart no
 # fn_tag dnPlayIso param iso type path
-dnPlayIso () {
+dnPlayIso() {
 	# set and check variables
 	local player="${1}" dev_file="${2}" retval=1 cmd=
 	# create player command
 	case ${player} in
-	'xine' ) cmd="xine dvd:${dev_file}";;
-	* ) dnError "Case mismatch in function '${FUNCNAME}'" && return 1;;
+	'xine') cmd="xine dvd:${dev_file}" ;;
+	*) dnError "Case mismatch in function '${FUNCNAME[0]}'" && return 1 ;;
 	esac
 	# play dvd
-	${cmd} &> /dev/null
+	${cmd} &>/dev/null
 	# indicate success or failure
 	return ${?}
 }
 # Function: dnExtractM2vFromVob                                      {{{1
-# Extract video stream from vob 
+# Extract video stream from vob
 #   params: 1 - input filepath [required]
 #           2 - output filepath [required]
 #   prints: nil
@@ -849,16 +904,18 @@ dnPlayIso () {
 # fn_tag dnExtractM2vFromVob param output multipart no
 # fn_tag dnExtractM2vFromVob param output type path
 # fn_tag dnExtractM2vFromVob param output note This file need not, and usually does not, exist
-dnExtractM2vFromVob () {
+dnExtractM2vFromVob() {
 	# set and check variables
-	local in_file="$( dnNormalisePath "${1}" )"
-	local out_file="$( dnNormalisePath "${2}" )"
+	local in_file
+	in_file="$(dnNormalisePath "${1}")"
+	local out_file
+	out_file="$(dnNormalisePath "${2}")"
 	# extract stream
-	tcextract -i "${in_file}" -x mpeg2 > "${out_file}" 2>/dev/null
+	tcextract -i "${in_file}" -x mpeg2 >"${out_file}" 2>/dev/null
 	return ${?}
 }
 # Function: dnExtractAc3FromVob                                      {{{1
-# Extract audio stream from vob 
+# Extract audio stream from vob
 #   params: 1 - input filepath [required]
 #           2 - output filepath [required]
 #   prints: nil
@@ -877,16 +934,18 @@ dnExtractM2vFromVob () {
 # fn_tag dnExtractAc3FromVob param output multipart no
 # fn_tag dnExtractAc3FromVob param output type path
 # fn_tag dnExtractAc3FromVob param output note This file need not, and usually does not, exist
-dnExtractAc3FromVob () {
+dnExtractAc3FromVob() {
 	# set and check variables
-	local in_file="$( dnNormalisePath "${1}" )"
-	local out_file="$( dnNormalisePath "${2}" )"
+	local in_file
+	in_file="$(dnNormalisePath "${1}")"
+	local out_file
+	out_file="$(dnNormalisePath "${2}")"
 	# extract stream
-	tcextract -i "${in_file}" -x ac3 > "${out_file}" 2>/dev/null
+	tcextract -i "${in_file}" -x ac3 >"${out_file}" 2>/dev/null
 	return ${?}
 }
 # Function: dnRemuxVob                                               {{{1
-# Remultiplex a VOB 
+# Remultiplex a VOB
 #   params: 1 - input filepath [required]
 #   prints: nil
 #   return: boolean (0=success|1=failure)
@@ -899,19 +958,28 @@ dnExtractAc3FromVob () {
 # fn_tag dnRemuxVob param input required yes
 # fn_tag dnRemuxVob param input multipart no
 # fn_tag dnRemuxVob param input type path
-dnRemuxVob () {
+dnRemuxVob() {
 	# set and check variables
-	local in_file="$( dnNormalisePath "${1}" )" out_file=
-	local in_file_basename="$( basename "${in_file}" )"
-	local file_base="$( dnExtractFileBase "${in_file}" )"
-	local renamed_to="$( dnParentDir "${in_file}" )/${file_base}_orig.vob"
-	local renamed_to_basename="$( basename "${renamed_to}" )"
-	local tmp_dir="$( mktemp -d )" \
-		|| dnEndScript 1 "Unable to make temp directory"
+	local in_file
+	in_file="$(dnNormalisePath "${1}")" out_file=
+	local in_file_basename
+	in_file_basename="$(basename "${in_file}")"
+	local file_base
+	file_base="$(dnExtractFileBase "${in_file}")"
+	local renamed_to
+	renamed_to="$(dnParentDir "${in_file}")/${file_base}_orig.vob"
+	local renamed_to_basename
+	renamed_to_basename="$(basename "${renamed_to}")"
+	local tmp_dir
+	tmp_dir="$(mktemp -d)" ||
+		dnEndScript 1 "Unable to make temp directory"
 	dnTempTrap "${tmp_dir}"
-	local m2v="${tmp_dir}/${file_base}.m2v"
-	local ac3="${tmp_dir}/${file_base}.ac3"
-	local in_base="${tmp_dir}/${file_base}"
+	local m2v
+	m2v="${tmp_dir}/${file_base}.m2v"
+	local ac3
+	ac3="${tmp_dir}/${file_base}.ac3"
+	local in_base
+	in_base="${tmp_dir}/${file_base}"
 	# convert to intermediate formats
 	dnInfon "Extracting video stream from vob... "
 	dnExtractM2vFromVob "${in_file}" "${m2v}"
@@ -923,12 +991,12 @@ dnRemuxVob () {
 	local msg="Renaming input file '${in_file_basename}' to"
 	msg="${msg} '${renamed_to_basename}'... "
 	dnInfon "${msg}"
-	mv "${in_file}" "${renamed_to}" &> /dev/null
+	mv "${in_file}" "${renamed_to}" &>/dev/null
 	dnCritRep ${?} "Unable to rename input VOB file"
 	out_file="${in_file}"
 	# remux
 	dnInfon "Re-multiplexing video and audio streams... "
-	dnConvertM2vAc3ToMpg "${in_base}" "${out_file}" &> /dev/null
+	dnConvertM2vAc3ToMpg "${in_base}" "${out_file}" &>/dev/null
 	dnCritRep ${?} "Unable to re-multiplex"
 	# clean up
 	dnTempKill "${tmp_dir}"
@@ -956,23 +1024,30 @@ dnRemuxVob () {
 # fn_tag dnPlayDvd param dvd_name multipart no
 # fn_tag dnPlayDvd param dvd_name type string
 # fn_tag dnPlayDvd param dvd_name note Used in feedback if present
-dnPlayDvd () {
+dnPlayDvd() {
 	# set and check variables
-	local player_name="${1}" device="$( dnNormalisePath "${2}" )"
-	local dvd_name="${3:-""}" retval= cmd=
-	local msg="Playing dvd${dvd_name:+ '${dvd_name}'}..."
+	local player_name
+	player_name="${1}"
+	local device
+	device="$(dnNormalisePath "${2}")"
+	local dvd_name
+	dvd_name="${3:-""}"
+	local msg
+	msg="Playing dvd ${dvd_name:+${dvd_name}}..."
+	local retval
+	local cmd
 	# check for valid player
-	if ! dnValidDvdPlayer "${player_name}" ; then
+	if ! dnValidDvdPlayer "${player_name}"; then
 		dnError "Invalid player '${player_name}'"
 		return 1
 	fi
 	# set play command
 	# <player> <params> <prefix><device> <suffix>
-	cmd="$( dnDvdPlayerBin "${player_name}" )"
-	cmd="${cmd} $( dnDvdPlayerParameters "${player_name}" )"
-	cmd="${cmd} $( dnDvdPlayerDevicePrefix "${player_name}" )"
+	cmd="$(dnDvdPlayerBin "${player_name}")"
+	cmd="${cmd} $(dnDvdPlayerParameters "${player_name}")"
+	cmd="${cmd} $(dnDvdPlayerDevicePrefix "${player_name}")"
 	cmd="${cmd}${device}"
-	cmd="${cmd} $( dnDvdPlayerDeviceSuffix "${player_name}" )"
+	cmd="${cmd} $(dnDvdPlayerDeviceSuffix "${player_name}")"
 	dnInfo "${msg}"
 	echo "==========================================="
 	${cmd}
@@ -994,11 +1069,11 @@ dnPlayDvd () {
 # fn_tag dnValidDvdPlayer param player required yes
 # fn_tag dnValidDvdPlayer param player multipart no
 # fn_tag dnValidDvdPlayer param player type string
-dnValidDvdPlayer () {
-	local i= player="${1}" retval=1
-	for (( i=0 ; i<${#dn_dvd_player_names[*]} ; i++ )) ; do
-		if [ "$( dnLowercase "${dn_dvd_player_names[${i}]}" )" \
-				 = "$( dnLowercase "${player}" )" ] ; then
+dnValidDvdPlayer() {
+	local i=0 player="${1}" retval=1
+	for ((i = 0; i < ${#dn_dvd_player_names[*]}; i++)); do
+		if [ "$(dnLowercase "${dn_dvd_player_names[${i}]}")" \
+			= "$(dnLowercase "${player}")" ]; then
 			which "${dn_dvd_player_bins[${i}]}" &>/dev/null && retval=0
 			break
 		fi
@@ -1017,11 +1092,11 @@ dnValidDvdPlayer () {
 # fn_tag dnDvdPlayerBin param player required yes
 # fn_tag dnDvdPlayerBin param player multipart no
 # fn_tag dnDvdPlayerBin param player type string
-dnDvdPlayerBin () {
-	local i= player="${1}" bin=
-	for (( i=0 ; i<${#dn_dvd_player_names[*]} ; i++ )) ; do
-		if [ "$( dnLowercase "${dn_dvd_player_names[${i}]}" )" \
-				 = "$( dnLowercase "${player}" )" ] ; then
+dnDvdPlayerBin() {
+	local i=0 player="${1}" bin=''
+	for ((i = 0; i < ${#dn_dvd_player_names[*]}; i++)); do
+		if [ "$(dnLowercase "${dn_dvd_player_names[${i}]}")" \
+			= "$(dnLowercase "${player}")" ]; then
 			bin="${dn_dvd_player_bins[${i}]}"
 			break
 		fi
@@ -1041,11 +1116,11 @@ dnDvdPlayerBin () {
 # fn_tag dnDvdPlayerParameters param player required yes
 # fn_tag dnDvdPlayerParameters param player multipart no
 # fn_tag dnDvdPlayerParameters param player type string
-dnDvdPlayerParameters () {
-	local i= player="${1}" params=
-	for (( i=0 ; i<${#dn_dvd_player_names[*]} ; i++ )) ; do
-		if [ "$( dnLowercase "${dn_dvd_player_names[${i}]}" )" \
-				 = "$( dnLowercase "${player}" )" ] ; then
+dnDvdPlayerParameters() {
+	local i=0 player="${1}" params=
+	for ((i = 0; i < ${#dn_dvd_player_names[*]}; i++)); do
+		if [ "$(dnLowercase "${dn_dvd_player_names[${i}]}")" \
+			= "$(dnLowercase "${player}")" ]; then
 			params="${dn_dvd_player_params[${i}]}"
 			break
 		fi
@@ -1065,11 +1140,11 @@ dnDvdPlayerParameters () {
 # fn_tag dnDvdPlayerDevicePrefix param player required yes
 # fn_tag dnDvdPlayerDevicePrefix param player multipart no
 # fn_tag dnDvdPlayerDevicePrefix param player type string
-dnDvdPlayerDevicePrefix () {
-	local i= player="${1}" prefix=
-	for (( i=0 ; i<${#dn_dvd_player_names[*]} ; i++ )) ; do
-		if [ "$( dnLowercase "${dn_dvd_player_names[${i}]}" )" \
-				 = "$( dnLowercase "${player}" )" ] ; then
+dnDvdPlayerDevicePrefix() {
+	local i=0 player="${1}" prefix=''
+	for ((i = 0; i < ${#dn_dvd_player_names[*]}; i++)); do
+		if [ "$(dnLowercase "${dn_dvd_player_names[${i}]}")" \
+			= "$(dnLowercase "${player}")" ]; then
 			prefix="${dn_dvd_player_device_prefixes[${i}]}"
 			break
 		fi
@@ -1089,11 +1164,11 @@ dnDvdPlayerDevicePrefix () {
 # fn_tag dnDvdPlayerDeviceSuffix param player required yes
 # fn_tag dnDvdPlayerDeviceSuffix param player multipart no
 # fn_tag dnDvdPlayerDeviceSuffix param player type string
-dnDvdPlayerDeviceSuffix () {
-	local i= player="${1}" suffix=
-	for (( i=0 ; i<${#dn_dvd_player_names[*]} ; i++ )) ; do
-		if [ "$( dnLowercase "${dn_dvd_player_names[${i}]}" )" \
-				 = "$( dnLowercase "${player}" )" ] ; then
+dnDvdPlayerDeviceSuffix() {
+	local i=0 player="${1}" suffix=''
+	for ((i = 0; i < ${#dn_dvd_player_names[*]}; i++)); do
+		if [ "$(dnLowercase "${dn_dvd_player_names[${i}]}")" \
+			= "$(dnLowercase "${player}")" ]; then
 			suffix="${dn_dvd_player_device_suffixes[${i}]}"
 			break
 		fi
