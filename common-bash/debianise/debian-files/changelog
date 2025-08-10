@@ -1,3 +1,15 @@
+libdncommon-bash (6.4-1) UNRELEASED; urgency=low
+
+  * fix: spelling mistake in dnTempTrap help text
+
+ -- David Nebauer <david@nebauer.org>  Sun, 10 Aug 2025 12:29:14 +0930
+
+libdncommon-bash (6.3-1) UNRELEASED; urgency=low
+
+  * fix: extraneous spaces in dn-bashcom-funcdata
+
+ -- David Nebauer <david@nebauer.org>  Sun, 10 Aug 2025 12:22:02 +0930
+
 libdncommon-bash (6.2-1) UNRELEASED; urgency=low
 
   * Test to ensure library can build itself

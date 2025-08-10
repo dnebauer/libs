@@ -39,8 +39,8 @@ use version; our $VERSION = qv('0.1');    # }}}1
   # Options
 
   # name_filter (-f) {{{1
-  option ' name_filter ' => (
-    is            => ' rw ',
+  option 'name_filter' => (
+    is            => 'rw',
     format        => 's',
     required      => $TRUE,
     short         => 'f',

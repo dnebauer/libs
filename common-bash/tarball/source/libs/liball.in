@@ -7309,7 +7309,7 @@ dnTempKill() {
 # fn_tag dnTempTrap prints NIL
 # fn_tag dnTempTrap returns Whether file/dir path supplied to function (Boolean)
 # fn_tag dnTempTrap note Adds file/dir path to array 'dn_temp_file_dirs'
-# fn_tag dnTempTrap note Resets trap command to delete cNILths in array when signal trapped
+# fn_tag dnTempTrap note Resets trap command to delete paths in array when signal trapped
 # fn_tag dnTempTrap usage local tmp_dir
 # fn_tag dnTempTrap usage tmp_dir="$( dnTempDir )" || dnEndScript 1 "Can't make temp file"
 # fn_tag dnTempTrap usage dnTempTrap "${tmp_dir}"
