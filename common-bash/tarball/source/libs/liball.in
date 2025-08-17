@@ -1210,7 +1210,7 @@ dnColourToRGB() {
 # fn_tag dnConcatArrayItems param elements required yes
 # fn_tag dnConcatArrayItems param elements multipart yes
 # fn_tag dnConcatArrayItems param elements type string
-function dnConcatArrayItems() {
+dnConcatArrayItems() {
 	local delimiter first_item
 	delimiter="${1:-}"
 	shift
@@ -2650,7 +2650,8 @@ dnEndScriptPrompt() {
 # fn_tag dnEndScriptStderr note First prints any messages passed as parameters
 # fn_tag dnEndScriptStderr note Next prints success or failure message unless suppressed
 # fn_tag dnEndScriptStderr note Then prints stack trace if requested
-# fn_tag dnEndScriptStderr note Finally prints exit message
+# fn_tag dnEndScriptStderr note Then prints exit message
+# fn_tag dnEndScriptStderr note Finally exits with appropriate error status
 # fn_tag dnEndScriptStderr option t purpose Causes stack trace to be printed by 'dnStackTrace'
 # fn_tag dnEndScriptStderr option t required no
 # fn_tag dnEndScriptStderr option t multiple no
