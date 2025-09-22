@@ -18,12 +18,19 @@ use Types::Standard;
 
 with qw(Role::Utils::Dn);
 
-const my $TRUE             => 1;
-const my $FALSE            => 0;
-const my $APOS_COMMA_SPACE => q{', };
-const my $COMMA_SPACE      => q{, };
-const my $SPACE            => q{ };
-const my $SINGLE_QUOTE     => q{'};     # }}}1
+const my $TRUE            => 1;
+const my $FALSE           => 0;
+const my $COMMA           => q{,};
+const my $LUA_TABLE_CLOSE => q[}];
+const my $LUA_TABLE_OPEN  => q[{ ];
+const my $SPACE           => q{ };
+const my $STR_ERROR       => q{error};
+const my $VIM_DICT_CLOSE  => $LUA_TABLE_CLOSE;
+const my $VIM_DICT_OPEN   => $LUA_TABLE_OPEN;
+const my $VIM_LIST_CLOSE  => q{]};
+const my $VIM_LIST_OPEN   => q{[ };
+
+# }}}1
 
 # attributes
 
@@ -93,7 +100,7 @@ has '_options_list' => (
   documentation => 'Options',
 );
 
-sub option ($self, $flag) {    ## no critic (RequireInterpolationOfMetachars)
+sub option ($self, $flag) {
   if (not $flag) { return; }    ## no critic (EmptyReturn)
   my @matches     = $self->_filter_options(sub { $_->flag eq $flag });
   my $match_count = @matches;
@@ -122,7 +129,7 @@ has '_param_list' => (
   documentation => 'Parameters',
 );
 
-sub param ($self, $name) {    ## no critic (RequireInterpolationOfMetachars)
+sub param ($self, $name) {
   if (not $name) { return; }    ## no critic (EmptyReturn)
   my @matches     = $self->_filter_params(sub { $_->name eq $name });
   my $match_count = @matches;
@@ -160,8 +167,7 @@ sub param ($self, $name) {    ## no critic (RequireInterpolationOfMetachars)
 #           [...]
 #           << options >>
 #           << params >>
-sub display_function_screen ($self, $name)
-{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+sub display_function_screen ($self, $name) {
   my @fn;
 
   # name
@@ -173,7 +179,7 @@ sub display_function_screen ($self, $name)
   }
   else {    # no 'purpose' attribute
     push @fn,
-        $self->vim_printify('error', q{  Error: No 'purpose' attribute});
+        $self->vim_printify($STR_ERROR, q{  Error: No 'purpose' attribute});
   }
 
   # prints
@@ -181,10 +187,8 @@ sub display_function_screen ($self, $name)
     push @fn, ' Prints: ' . $self->prints;
   }
   else {    # no 'prints' attribute
-    push @fn, $self->vim_printify(
-      'error',    ## no critic (ProhibitDuplicateLiteral)
-      q{  Error: No 'prints' attribute},
-    );
+    push @fn,
+        $self->vim_printify($STR_ERROR, q{  Error: No 'prints' attribute},);
   }
 
   # returns
@@ -241,8 +245,7 @@ sub display_function_screen ($self, $name)
 # params: $flag - option flag [required]
 # prints: nil
 # return: Dn::CommonBash::Function::Option object
-sub new_option ($self, $flag)
-{    ## no critic (RequireInterpolationOfMetachars, ProhibitDuplicateLiteral)
+sub new_option ($self, $flag) {
   if (not $flag) { confess q{No option flag provided}; }
   return Dn::CommonBash::Function::Option->new(flag => $flag);
 }
@@ -253,89 +256,149 @@ sub new_option ($self, $flag)
 # params: $name - param name [required]
 # prints: nil
 # return: Dn::CommonBash::Function::Param object
-sub new_param ($self, $name)
-{    ## no critic (RequireInterpolationOfMetachars ProhibitDuplicateLiteral)
+sub new_param ($self, $name) {
   if (not $name) { confess q{No parameter name provided}; }
   return Dn::CommonBash::Function::Param->new(name => $name);
 }
 
-# write_function_loader()    {{{1
+# write_nvim_function_loader()    {{{1
+#
+# does:   generate rhs of lua assignment statement for function loader
+# params: nil
+# prints: nil
+# return: scalar string
+sub write_nvim_function_loader ($self) {
+  my $fn = $LUA_TABLE_OPEN;
+
+  # purpose
+  if ($self->purpose) {
+    my $purpose_value = $self->string_entitise($self->purpose);
+    $fn .= qq(["purpose"] = "$purpose_value", );
+  }
+
+  # prints
+  if ($self->prints) {
+    my $prints_value = $self->string_entitise($self->prints);
+    $fn .= qq(["prints"] = "$prints_value", );
+  }
+
+  # returns
+  if ($self->returns) {
+    my $returns_value = $self->string_entitise($self->returns);
+    $fn .= qq(["returns"] = "$returns_value", );
+  }
+
+  # notes
+  if ($self->_has_notes) {
+    $fn .= qq(["notes"] = $LUA_TABLE_OPEN );
+    foreach my $note ($self->_notes) {
+      my $note_value = $self->string_entitise($note);
+      $fn .= qq("$note_value", );
+    }
+    $fn .= $LUA_TABLE_CLOSE . $COMMA . $SPACE;
+  }
+
+  # usage
+  if ($self->_has_usages) {
+    $fn .= qq(["usage"] = $LUA_TABLE_OPEN );
+    foreach my $usage ($self->_usages) {
+      my $usage_value = $self->string_entitise($usage);
+      $fn .= qq("$usage_value", );
+    }
+    $fn .= $LUA_TABLE_CLOSE . $COMMA . $SPACE;
+  }
+
+  # options
+  if ($self->_has_options) {
+    $fn .= qq(["options"] = $LUA_TABLE_OPEN );
+    foreach my $option ($self->_options) {
+      my $option_value = $option->write_nvim_option_loader();
+      $fn .= qq($option_value, );
+    }
+    $fn .= $LUA_TABLE_CLOSE . $COMMA . $SPACE;
+  }
+
+  # parameters
+  if ($self->_has_params) {
+    $fn .= qq(["params"] = $LUA_TABLE_OPEN );
+    foreach my $param ($self->_params) {
+      my $param_value = $param->write_nvim_param_loader();
+      $fn .= qq($param_value, );
+    }
+    $fn .= $LUA_TABLE_CLOSE . $COMMA . $SPACE;
+  }
+  $fn .= $LUA_TABLE_CLOSE;
+  return $fn;
+}    # }}}1
+
+# write_vim_function_loader()    {{{1
 #
 # does:   generate vim 'let' command for loader
 # params: nil
 # prints: nil
 # return: scalar string
-# note:   designed to be called by Dn::CommonBash::Function->write_loader
-sub write_function_loader ($self)
-{    ## no critic (RequireInterpolationOfMetachars)
-  my $fn = '{ ';
+# note:   designed to be called as Dn::CommonBash::Function->write_vim_function_loader
+sub write_vim_function_loader ($self) {
+  my $fn = $VIM_DICT_OPEN;
 
   # purpose
   if ($self->purpose) {
-    $fn
-        .= q{'purpose': '}
-        . $self->string_entitise($self->purpose)
-        . $APOS_COMMA_SPACE;
+    my $purpose_value = $self->string_entitise($self->purpose);
+    $fn .= "'purpose': '$purpose_value', ";
   }
 
   # prints
   if ($self->prints) {
-    $fn
-        .= q{'prints': '}
-        . $self->string_entitise($self->prints)
-        . $APOS_COMMA_SPACE;
+    my $prints_value = $self->string_entitise($self->prints);
+    $fn .= "'prints': '$prints_value',";
   }
 
   # returns
   if ($self->returns) {
-    $fn
-        .= q{'returns': '}
-        . $self->string_entitise($self->returns)
-        . $APOS_COMMA_SPACE;
+    my $returns_value = $self->string_entitise($self->returns);
+    $fn .= "'returns': '$returns_value'";
   }
 
   # notes
   if ($self->_has_notes) {
-    $fn .= q{'notes': [ };
+    $fn .= qq{'notes': $VIM_LIST_OPEN };
     foreach my $note ($self->_notes) {
-      $fn
-          .= $SINGLE_QUOTE
-          . $self->string_entitise($note)
-          . $APOS_COMMA_SPACE;
+      my $note_value = $self->string_entitise($note);
+      $fn .= "'$note_value', ";
     }
-    $fn .= '], ';
+    $fn .= $VIM_LIST_CLOSE . $COMMA . $SPACE;
   }
 
   # usage
   if ($self->_has_usages) {
-    $fn .= q{'usage': [ };
-    foreach my $note ($self->_notes) {
-      $fn
-          .= $SINGLE_QUOTE
-          . $self->string_entitise($note)
-          . $APOS_COMMA_SPACE;
+    $fn .= qq{'usage': $VIM_LIST_OPEN };
+    foreach my $usage ($self->_usages) {
+      my $usage_value = $self->string_entitise($usage);
+      $fn .= "'$usage_value', ";
     }
-    $fn .= '], ';    ## no critic (ProhibitDuplicateLiteral)
+    $fn .= $VIM_LIST_CLOSE . $COMMA . $SPACE;
   }
 
   # options
   if ($self->_has_options) {
-    $fn .= q{'options': [ };
+    $fn .= qq{'options': $VIM_LIST_OPEN };
     foreach my $option ($self->_options) {
-      $fn .= $option->write_option_loader() . $COMMA_SPACE;
+      my $content = $option->write_vim_option_loader();
+      $fn .= "'$content', ";
     }
-    $fn .= '], ';    ## no critic (ProhibitDuplicateLiteral)
+    $fn .= $VIM_LIST_CLOSE . $COMMA . $SPACE;
   }
 
   # parameters
   if ($self->_has_params) {
-    $fn .= q{'params': [ };
+    $fn .= qq{'params': $VIM_LIST_OPEN };
     foreach my $param ($self->_params) {
-      $fn .= $param->write_param_loader() . $COMMA_SPACE;
+      my $content = $param->write_vim_param_loader();
+      $fn .= "$content, ";
     }
-    $fn .= '], ';    ## no critic (ProhibitDuplicateLiteral)
+    $fn .= $VIM_LIST_CLOSE . $COMMA . $SPACE;
   }
-  $fn .= '}';
+  $fn .= $VIM_DICT_CLOSE;
   return $fn;
 }    # }}}1
 
@@ -706,12 +769,11 @@ Nil if parameter provided.
 
 Current attribute value if no parameter provided.
 
-=head2 write_function_loader()
+=head2 write_nvim_function_loader()
 
 =head3 Purpose
 
-Generate vim C<let> command for loader.
-Designed to be called by the C<write_loader> method.
+Generate right hand side of lua assignment statement for function loader.
 
 =head3 Parameters
 
@@ -724,6 +786,26 @@ Nil.
 =head3 Returns
 
 Scalar string.
+
+=head2 write_vim_function_loader()
+
+=head3 Purpose
+
+Generate vim C<let> command for loader.
+Designed to be called by the C<write_vim_function_loader> method.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Print
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
 
 =head1 DIAGNOSTICS
 

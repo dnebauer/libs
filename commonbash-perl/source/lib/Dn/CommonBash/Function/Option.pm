@@ -16,11 +16,19 @@ use Types::Standard;
 
 with qw(Role::Utils::Dn);
 
-const my $TRUE             => 1;
-const my $FALSE            => 0;
-const my $APOS_COMMA_SPACE => q{', };
-const my $COMMA_SPACE      => q{, };
-const my $SINGLE_QUOTE     => q{'};     # }}}1
+const my $TRUE            => 1;
+const my $FALSE           => 0;
+const my $COMMA           => q{,};
+const my $LUA_TABLE_CLOSE => q[}];
+const my $LUA_TABLE_OPEN  => q[{ ];
+const my $SINGLE_QUOTE    => q{'};
+const my $SPACE           => q{ };
+const my $STR_ERROR       => q{error};
+const my $STR_REQUIRED    => q{required};
+const my $VIM_DICT_CLOSE  => $LUA_TABLE_CLOSE;
+const my $VIM_DICT_OPEN   => $LUA_TABLE_OPEN;
+const my $VIM_LIST_CLOSE  => q{], };
+const my $VIM_LIST_OPEN   => q{[};               # }}}1
 
 # attributes
 
@@ -39,7 +47,7 @@ has 'purpose' => (
 );
 
 # required    {{{1
-has 'required' => (
+has $STR_REQUIRED => (
   is            => 'rw',
   isa           => Dn::CommonBash::Types::Boolean,
   documentation => 'Whether option is required or optional',
@@ -100,6 +108,16 @@ has '_notes_list' => (
 
 # methods
 
+# _lua_boolise(value)    {{{1
+#
+# does:   convert vim bool (0,1) to lua bool (true,false)
+# params: value - vim bool [integer, required]
+# prints: nil
+# return: string - either 'true' or 'false'
+sub _lua_boolise ($self, $value) {
+  return ($value == 1) ? 'true' : 'false';
+}
+
 # display_option_screen()    {{{1
 #
 # does:   provide formatted version of option for screen display
@@ -121,8 +139,7 @@ has '_notes_list' => (
 #               Note: See doctor if symptoms persist
 #             Values: 'race', 'the', 'night'
 #            Default: 'race'
-sub display_option_screen ($self)
-{    ## no critic (RequireInterpolationOfMetachars)
+sub display_option_screen ($self) {
   my $line;      # each line of display
   my @option;    # display output
   my @errors;    # errors
@@ -142,11 +159,12 @@ sub display_option_screen ($self)
   my $is_required;
   if ($self->required) {
     $is_required = $self->value_boolise($self->required);
-    $line .= ($is_required)
-        ? 'required'    ## no critic (ProhibitDuplicateLiteral)
+    $line
+        .= ($is_required)
+        ? $STR_REQUIRED
         : 'optional';
   }
-  else {                # no 'required' attribute
+  else {    # no 'required' attribute
     push @errors, q{  Error: No 'required' attribute};
   }
 
@@ -156,14 +174,14 @@ sub display_option_screen ($self)
     $line .= ($is_multiple) ? ', multiple' : q{};
     $line .= ']';
   }
-  else {                # no 'multiple' attribute
+  else {    # no 'multiple' attribute
     push @errors, q{  Error: No 'multiple' attribute};
   }
 
   # have now completed first line
   push @option, $line;
   foreach my $error (@errors) {
-    push @option, $self->vim_printify('error', $_);
+    push @option, $self->vim_printify($STR_ERROR, $_);
   }
 
   # purpose
@@ -171,10 +189,8 @@ sub display_option_screen ($self)
     push @option, '    Use: ' . $self->purpose;
   }
   else {    # no 'purpose' attribute
-    push @option, $self->vim_printify(
-      'error',    ## no critic (ProhibitDuplicateLiteral)
-      q{  Error: No 'purpose' attribute},
-    );
+    push @option,
+        $self->vim_printify($STR_ERROR, q{  Error: No 'purpose' attribute},);
   }
 
   # notes
@@ -189,7 +205,7 @@ sub display_option_screen ($self)
     my $vals = ' Values: ';
     my @quoted_values =
         map { $SINGLE_QUOTE . $_ . $SINGLE_QUOTE } $self->values;
-    $vals .= join $COMMA_SPACE, @quoted_values;
+    $vals .= join q{, }, @quoted_values;
     push @option, $vals;
   }
 
@@ -214,88 +230,143 @@ sub display_option_screen ($self)
   return @option;
 }
 
-# write_option_loader()    {{{1
+# write_nvim_option_loader()    {{{1
+#
+# does:   generate portion of nvim (lua) command for loader
+# params: nil
+# prints: nil
+# return: scalar string
+sub write_nvim_option_loader ($self) {
+  my $option = $LUA_TABLE_OPEN;
+
+  # flag
+  if ($self->flag) {
+    my $flag_value = $self->string_entitise($self->flag());
+    $option .= qq(["flag"] = "$flag_value", );
+  }
+
+  # purpose
+  if ($self->purpose) {
+    my $purpose_value = $self->string_entitise($self->purpose());
+    $option .= qq(["purpose"] = "$purpose_value", );
+  }
+
+  # required: is integer so unquoted
+  if ($self->required) {
+    my $required_value =
+        $self->_lua_boolise($self->value_boolise($self->required));
+    $option .= qq(["required"] = $required_value, );
+  }
+
+  # multiple: is integer so unquoted
+  if ($self->multiple) {
+    my $multiple_value =
+        $self->_lua_boolise($self->value_boolise($self->multiple));
+    $option .= qq(["multiple"] = $multiple_value, );
+  }
+
+  # type
+  if ($self->type) {
+    my $type_value = $self->string_entitise($self->type());
+    $option .= qq(["type"] = "$type_value", );
+  }
+
+  # values
+  if ($self->_has_values) {
+    $option .= qq(["values"] = $LUA_TABLE_OPEN );
+    foreach my $value ($self->values) {
+      my $value_value = $self->string_entitise($value);
+      $option .= qq("$value_value", );
+    }
+    $option .= $LUA_TABLE_CLOSE . $COMMA . $SPACE;
+  }
+
+  # default
+  if ($self->default) {
+    my $default_value = $self->string_entitise($self->default);
+    $option .= qq(["default"] = "$default_value", );
+  }
+
+  # notes
+  if ($self->_has_notes) {
+    $option .= qq(["notes"] = $LUA_TABLE_OPEN );
+    foreach my $note ($self->notes) {
+      my $note_content = $self->string_entitise($note);
+      $option .= qq("$note_content", );
+    }
+    $option .= $LUA_TABLE_CLOSE . $COMMA . $SPACE;
+  }
+  $option .= $LUA_TABLE_CLOSE;
+
+  # return option loader
+  return $option;
+}
+
+# write_vim_option_loader()    {{{1
 #
 # does:   generate portion of vim 'let' command for loader
 # params: nil
 # prints: nil
 # return: scalar string
-sub write_option_loader ($self)
-{    ## no critic (RequireInterpolationOfMetachars)
-  my $option = '{ ';
+sub write_vim_option_loader ($self) {
+  my $option = $VIM_DICT_OPEN;
 
   # flag
   if ($self->flag) {
-    $option
-        .= q{'flag': '}
-        . $self->string_entitise($self->flag())
-        . $APOS_COMMA_SPACE;
+    my $flag_value = $self->string_entitise($self->flag());
+    $option .= qq('flag': '$flag_value', );
   }
 
   # purpose
   if ($self->purpose) {
-    $option
-        .= q{'purpose': '}
-        . $self->string_entitise($self->purpose())
-        . $APOS_COMMA_SPACE;
+    my $purpose_value = $self->string_entitise($self->purpose());
+    $option .= qq('purpose': '$purpose_value', );
   }
 
   # required: is integer so unquoted
   if ($self->required) {
-    $option
-        .= q{'required': }
-        . $self->value_boolise($self->required)
-        . $COMMA_SPACE;
+    my $required_value = $self->value_boolise($self->required);
+    $option .= qq('required': $required_value, );
   }
 
   # multiple: is integer so unquoted
   if ($self->multiple) {
-    $option
-        .= q{'multiple': }
-        . $self->value_boolise($self->multiple)
-        . $COMMA_SPACE;
+    my $multiple_value = $self->value_boolise($self->multiple);
+    $option .= qq('multiple': $multiple_value, );
   }
 
   # type
   if ($self->type) {
-    $option
-        .= q{'type': '}
-        . $self->string_entitise($self->type())
-        . $APOS_COMMA_SPACE;
+    my $type_value = $self->string_entitise($self->type());
+    $option .= qq('type': '$type_value', );
   }
 
   # values
   if ($self->_has_values) {
-    $option .= q{'values': [ };
+    $option .= qq('values': $VIM_LIST_OPEN );
     foreach my $value ($self->values) {
-      $option
-          .= $SINGLE_QUOTE
-          . $self->string_entitise($value)
-          . $APOS_COMMA_SPACE;
+      my $value_value = $self->string_entitise($value);
+      $option .= qq('$value_value', );
     }
-    $option .= '], ';
+    $option .= $VIM_LIST_CLOSE;
   }
 
   # default
   if ($self->default) {
-    $option
-        .= q{'default': '}
-        . $self->string_entitise($self->default)
-        . $APOS_COMMA_SPACE;
+    my $default_value = $self->string_entitise($self->default);
+    $option .= qq('default': '$default_value', );
   }
 
   # notes
   if ($self->_has_notes) {
-    $option .= q{'notes': [ };
+    $option .= qq('notes': $VIM_LIST_OPEN );
     foreach my $note ($self->notes) {
-      $option
-          .= $SINGLE_QUOTE
-          . $self->string_entitise($note)
-          . $APOS_COMMA_SPACE;
+      my $note_content = $self->string_entitise($note);
+      $option .= qq('$note_content', );
     }
-    $option .= '], ';    ## no critic (ProhibitDuplicateLiteral)
+    $option .= $VIM_LIST_CLOSE;
   }
-  $option .= '}';
+  $option .= $VIM_DICT_CLOSE;
 
   # return option loader
   return $option;
@@ -628,13 +699,34 @@ Nil.
 
 List of option values.
 
-=head2 write_option_loader()
+=head2 write_nvim_option_loader()
+
+=head3 Purpose
+
+Generate portion of nvim (lua) command for loader.
+
+Designed to be called by the C<write_nvim_function_loader> from
+L<Dn::CommonBash::Function>.
+
+=head3 Parameters
+
+Nil.
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Scalar string.
+
+=head2 write_vim_option_loader()
 
 =head3 Purpose
 
 Generate portion of vim 'let' command for loader.
 
-Designed to be called by the C<write_function_loader> from
+Designed to be called by the C<write_vim_function_loader> from
 L<Dn::CommonBash::Function>.
 
 =head3 Parameters

@@ -20,17 +20,20 @@ use Types::Standard;
 
 with qw(Role::Utils::Dn);
 
-const my $TRUE         => 1;
-const my $FALSE        => 0;
-const my $FOR_READING  => q{<};
-const my $FOR_WRITING  => q{>};
-const my $NUMBER_TWO   => 2;
-const my $NUMBER_THREE => 3;
-const my $NUMBER_FOUR  => 4;
-const my $NUMBER_FIVE  => 5;
-const my $NUMBER_SIX   => 6;
-const my $SPACE        => q{ };
-const my $VIM_VARIABLE => q{dnLibCommonBash};
+const my $TRUE            => 1;
+const my $FALSE           => 0;
+const my $EXT_IN          => q{.in};
+const my $FOR_READING     => q{<};
+const my $FOR_WRITING     => q{>};
+const my $NUMBER_TWO      => 2;
+const my $NUMBER_THREE    => 3;
+const my $NUMBER_FOUR     => 4;
+const my $NUMBER_FIVE     => 5;
+const my $NUMBER_SIX      => 6;
+const my $SPACE           => q{ };
+const my $STR_EXTRACT_ERR => q{Unable to extract function data from};
+const my $STR_WROTE_DATA  => q{wrote data on };
+const my $VIM_VARIABLE    => q{dnLibCommonBash};
 
 # }}}1
 
@@ -73,17 +76,16 @@ has '_function_data' => (
 #         '@pkglib_dir@' or '@pkglibexec_dir@' -- if it does the filepath is
 #         processed specially: the placeholder is replaced by the path from the
 #         library master file and the extension '.in' is added
-sub _handle_pkglib_dir ($self, $filepath, $master)
-{    ## no critic (RequireInterpolationOfMetachars)
+sub _handle_pkglib_dir ($self, $filepath, $master) {
   if ($filepath =~ /\@pkglib_dir\@/xsm) {
     my $master_path = $self->dir_name($master);
     $filepath =~ s/\@pkglib_dir\@/$master_path/xsm;
-    $filepath .= q{.in};
+    $filepath .= $EXT_IN;
   }
   elsif ($filepath =~ /\@pkglibexec_dir\@/xsm) {
     my $master_path = $self->dir_name($master);
     $filepath =~ s/\@pkglibexec_dir\@/$master_path/xsm;
-    $filepath .= q{.in};    ## no critic (ProhibitDuplicateLiteral)
+    $filepath .= $EXT_IN;
   }
   return $filepath;
 }
@@ -98,8 +100,7 @@ sub _handle_pkglib_dir ($self, $filepath, $master)
 #         to master list, then parse file for more sourced files
 #         (assumes format like: 'source /path/to/libfile  # comment');
 #         if sourced files found, add to @found_files to process in turn
-sub _library_files ($self, $master)
-{    ## no critic (RequireInterpolationOfMetachars)
+sub _library_files ($self, $master) {
   if (not $master) { confess q{No master library file provided}; }
   if (not -r $master) {
     confess qq[Invalid master library file '$master' provided];
@@ -148,8 +149,7 @@ sub _library_files ($self, $master)
 # params: $master - root file in libdncommon-bash (filepath, required]
 # prints: feedback
 # return: boolean
-sub _load_from_library ($self, $master)
-{ ## no critic (RequireInterpolationOfMetachars ProhibitExcessComplexity ProhibitDuplicateLiteral)
+sub _load_from_library ($self, $master) {    ## no critic (RequireInterpolationOfMetachars ProhibitExcessComplexity)
   if (not $master) { confess q{Library master file not set}; }
   my %fns;
   my @lines;
@@ -273,8 +273,7 @@ sub _load_from_library ($self, $master)
 # return: boolean
 # note:   data store is assumed to have been created
 #         with the 'write_store' method
-sub _load_from_store ($self, $store)
-{    ## no critic (RequireInterpolationOfMetachars)
+sub _load_from_store ($self, $store) {
 
   # check storage file
   if (not $store) { confess q{No storage filepath provided}; }
@@ -304,8 +303,7 @@ sub _load_from_store ($self, $store)
 #                  required if functions have not been loaded
 # prints: nil
 # return: list of display lines
-sub display_function_details ($self, $name, $store)
-{    ## no critic (RequireInterpolationOfMetachars)
+sub display_function_details ($self, $name, $store) {
 
   # must have function name
   if (not $name) {
@@ -315,13 +313,13 @@ sub display_function_details ($self, $name, $store)
   # ensure function data is loaded
   if (not $self->_has_functions) {
     if (not($self->_load_from_store($store))) {
-      confess qq{Unable to load from store '$store'};
+      confess qq(Unable to load from store '$store');
     }
   }
 
   # must have details on that function
   if (not($self->_has_function($name))) {
-    confess qq{Cannot find details of function '$name'};
+    confess qq(Cannot find details of function '$name');
   }
 
   # display details
@@ -330,11 +328,11 @@ sub display_function_details ($self, $name, $store)
       return @display;
     }
     else {
-      confess qq{Unable to get display details for function '$name'};
+      confess qq(Unable to get display details for function '$name');
     }
   }
   else {
-    confess qq{Unable to retrieve details for function '$name'};
+    confess qq(Unable to retrieve details for function '$name');
   }
 }
 
@@ -346,8 +344,7 @@ sub display_function_details ($self, $name, $store)
 #                   required if functions have not been loaded
 # prints: nil
 # return: scalar string
-sub select_function ($self, $filter, $store)
-{    ## no critic (RequireInterpolationOfMetachars)
+sub select_function ($self, $filter, $store) {
   if (not $self->_has_functions) {
     $self->_load_from_store($store);
   }
@@ -391,8 +388,7 @@ sub select_function ($self, $filter, $store)
 #                   [required if function data not loaded]
 # prints: nil
 # return: nil
-sub write_dictionary ($self, $dict, $master)
-{    ## no critic (RequireInterpolationOfMetachars)
+sub write_dictionary ($self, $dict, $master) {
 
   # need output filename and data to write to it
   if (not $dict) {
@@ -400,7 +396,7 @@ sub write_dictionary ($self, $dict, $master)
   }
   if (not $self->_has_functions) {
     if (not($self->_load_from_library($master))) {
-      confess qq{Unable to extract function data from '$master'};
+      confess $STR_EXTRACT_ERR . "'$master'";
     }
   }
 
@@ -408,7 +404,7 @@ sub write_dictionary ($self, $dict, $master)
   my $dict_dir = $self->dir_name($dict);
   if ($dict_dir) {
     if (not($self->dir_make($dict_dir))) {
-      confess qq{Unable to make directory '$dict_dir'};
+      confess qq(Unable to make directory '$dict_dir');
     }
   }
 
@@ -418,7 +414,7 @@ sub write_dictionary ($self, $dict, $master)
   open $fh, $FOR_WRITING, $dict
       or croak "Unable to open $dict for writing: $OS_ERROR";
   foreach my $function_name (@function_names) {
-    print {$fh} "$function_name\n" or confess qq{Couldn't write '$dict'};
+    print {$fh} "$function_name\n" or confess qq(Couldn't write '$dict');
   }
   close $fh;
 
@@ -430,7 +426,78 @@ sub write_dictionary ($self, $dict, $master)
   return;
 }
 
-# write_loader($loader, [$master])    {{{1
+# write_nvim_loader($nvim_loader, [$master])    {{{1
+#
+# does:   generate nvim (lua) loader file
+# params: $loader - loader filepath [required]
+#         $master - filepath of root file of dncommon-bash library
+#                   [required if function data not loaded]
+# prints: nil
+# return: nil
+sub write_nvim_loader ($self, $nvim_loader, $master) {
+
+  # need output filename and data to write to it
+  if (not $nvim_loader) {
+    confess q{No nvim loader filepath provided};
+  }
+  if (not $self->_has_functions) {
+    if (not($self->_load_from_library($master))) {
+      confess $STR_EXTRACT_ERR . "'$master'";
+    }
+  }
+
+  # ensure loader path exists
+  my $nvim_loader_dir = $self->dir_name($nvim_loader);
+  if ($nvim_loader_dir) {
+    if (not($self->dir_make($nvim_loader_dir))) {
+      confess qq(Unable to make directory '$nvim_loader_dir');
+    }
+  }
+
+  # generate output
+  my $generator = sprintf '-- [Generated by %s on %s]', $self->script_name(),
+      $self->date_current_iso();
+  my @data;
+  push @data, q{-- Nvim loader file};
+  push @data, $SPACE;
+  push @data, q{-- Loads function data from libdncommon-bash};
+  push @data, q{-- into an associative array.};
+  push @data, q{};
+  push @data, $generator;
+  push @data, q{};
+  push @data, q{-- -------------------------------------------};
+  push @data, q{};
+  push @data, qq[local $VIM_VARIABLE = {}];
+  push @data, q{};
+
+  # main output here
+  foreach my $func_name ($self->_function_names) {
+    my $function = $self->_function($func_name);
+    push @data, sprintf '%s["%s"] = %s', $VIM_VARIABLE, $func_name,
+        $function->write_nvim_function_loader();
+  }
+
+  # write output
+  my $fh;
+  open $fh, $FOR_WRITING, $nvim_loader
+      or croak "Unable to open nvim $nvim_loader for writing: $OS_ERROR";
+  foreach my $nvim_loader_line (@data) {
+    print {$fh} qq($nvim_loader_line\n)
+        or confess qq(Unable to write file '$nvim_loader');
+  }
+  close $fh;
+
+  # provide feedback
+  my $msg =
+        $STR_WROTE_DATA
+      . $self->_function_count()
+      . q{ functions to nvim loader file};
+  say $msg or croak;
+
+  return;
+}
+
+# write_vim_loader($loader, [$master])    {{{1
 #
 # does:   generate vim loader file
 # params: $loader - loader filepath [required]
@@ -438,72 +505,65 @@ sub write_dictionary ($self, $dict, $master)
 #                   [required if function data not loaded]
 # prints: nil
 # return: nil
-# note:   designed to be called by Dn::CommonBash::Function->write_loader
-sub write_loader ($self, $loader, $master)
-{    ## no critic (RequireInterpolationOfMetachars)
+# note:   designed to be called by Dn::CommonBash::Function->write_vim_loader
+sub write_vim_loader ($self, $vim_loader, $master) {
 
   # need output filename and data to write to it
-  if (not $loader) {
-    confess q{No loader filepath provided};
+  if (not $vim_loader) {
+    confess q{No vim loader filepath provided};
   }
   if (not $self->_has_functions) {
     if (not($self->_load_from_library($master))) {
-      ## no critic (ProhibitDuplicateLiteral)
-      confess qq{Unable to extract function data from '$master'};
-      ## use critic
+      confess $STR_EXTRACT_ERR . "'$master'";
     }
   }
 
   # ensure loader path exists
-  my $loader_dir = $self->dir_name($loader);
-  if ($loader_dir) {
-    if (not($self->dir_make($loader_dir))) {
-      confess qq{Unable to make directory '$loader_dir'};
+  my $vim_loader_dir = $self->dir_name($vim_loader);
+  if ($vim_loader_dir) {
+    if (not($self->dir_make($vim_loader_dir))) {
+      confess qq(Unable to make directory '$vim_loader_dir');
     }
   }
 
   # generate output
+  my $generator = sprintf '" [Generated by %s on %s]', $self->script_name(),
+      $self->date_current_iso();
   my @data;
   push @data, q{" Vim loader file};
   push @data, $SPACE;
   push @data, q{" Loads function data from libdncommon-bash};
   push @data, q{" into an associative array.};
   push @data, q{};
-  push @data,
-        q{" [Generated by }
-      . $self->script_name() . q{ on }
-      . $self->date_current_iso() . q{]};
+  push @data, $generator;
   push @data, q{};
   push @data, q{" -------------------------------------------};
   push @data, q{};
-  push @data, q[let ] . $VIM_VARIABLE . q[ = {}];
+  push @data, qq(let $VIM_VARIABLE = {});
   push @data, q{};
 
   # main output here
   foreach my $func_name ($self->_function_names) {
     my $function = $self->_function($func_name);
-    push @data, q{let }    ## no critic (ProhibitDuplicateLiteral)
-        . $VIM_VARIABLE . q{['}
-        . $func_name
-        . q{'] = }
-        . $function->write_function_loader();
+    push @data, sprintf q{let %s['%s'] = %s}, $VIM_VARIABLE, $func_name,
+        $function->write_vim_function_loader();
   }
 
   # write output
   my $fh;
-  open $fh, $FOR_WRITING, $loader
-      or croak "Unable to open $loader for writing: $OS_ERROR";
-  foreach my $line (@data) {
-    print {$fh} qq{$line\n}
-        or confess qq{Unable to write file '$loader'};
+  open $fh, $FOR_WRITING, $vim_loader
+      or croak "Unable to open $vim_loader for writing: $OS_ERROR";
+  foreach my $vim_loader_line (@data) {
+    print {$fh} qq($vim_loader_line\n)
+        or confess qq(Unable to write file '$vim_loader');
   }
   close $fh;
 
   # provide feedback
   my $msg =
-        q{wrote data on }
+        $STR_WROTE_DATA
       . $self->_function_count()
-      . q{ functions to loader file};
+      . q{ functions to vim loader file};
   say $msg or croak;
 
   return;
@@ -518,8 +578,7 @@ sub write_loader ($self, $loader, $master)
 #                   [required if function data not loaded]
 # prints: feedback
 # return: nil
-sub write_store ($self, $store, $master)
-{    ## no critic (RequireInterpolationOfMetachars)
+sub write_store ($self, $store, $master) {
 
   # need output filename and data to write to it
   if (not $store) {
@@ -527,9 +586,7 @@ sub write_store ($self, $store, $master)
   }
   if (not $self->_has_functions) {
     if (not($self->_load_from_library($master))) {
-      ## no critic (ProhibitDuplicateLiteral)
-      confess qq{Unable to extract function data from '$master'};
-      ## use critic
+      confess $STR_EXTRACT_ERR . "'$master'";
     }
   }
 
@@ -540,7 +597,7 @@ sub write_store ($self, $store, $master)
   my $storage_dir = $self->dir_name($store);
   if ($storage_dir) {
     if (not($self->dir_make($storage_dir))) {
-      confess qq{Unable to make directory '$storage_dir'};
+      confess qq(Unable to make directory '$storage_dir');
     }
   }
 
@@ -548,8 +605,10 @@ sub write_store ($self, $store, $master)
   $self->data_store($functions, $store);
 
   # provide feedback
-  my $msg = q{wrote data on }    ## no critic (ProhibitDuplicateLiteral)
-      . $self->_function_count() . q{ functions to storage file};
+  my $msg =
+        $STR_WROTE_DATA
+      . $self->_function_count()
+      . q{ functions to storage file};
   say $msg or croak;
 
   return;
@@ -717,12 +776,46 @@ Nil.
 
 Nil.
 
-=head2 write_loader($loader)
+=head2 write_nvim_loader($loader)
+
+=head3 Purpose
+
+Generate nvim (lua) loader file.
+
+=head3 Parameters
+
+=over
+
+=item $loader
+
+Loader filepath.
+
+Required.
+
+=item master
+
+Location of root file in the dncommon-bash library.
+
+Required if function data has not previously been extracted from dncommon-bash.
+If function data has been loaded this parameter is not required, and if present
+is ignored.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+Nil.
+
+=head2 write_vim_loader($loader)
 
 =head3 Purpose
 
 Generate vim loader file. Designed to be called by
-S<Dn::CommonBash::Function-E<gt>write_loader>.
+S<Dn::CommonBash::Function-E<gt>write_vim_loader>.
 
 =head3 Parameters
 

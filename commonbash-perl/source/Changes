@@ -1,5 +1,8 @@
 Revision history for Dn-CommonBash
 
+5.40  2025-09-22
+        - Add nvim/lua support
+
 5.30  2024-04-23
         - Fix perlcritic warnings
         - Remove dependency on Function::Parameters
