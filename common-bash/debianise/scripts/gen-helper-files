@@ -23,7 +23,7 @@ use version; our $VERSION = qv('0.1');    # }}}1
 
   # Options
 
-  # master     (-m) {{{1
+  # master      (-m) {{{1
   option 'master' => (
     is            => 'rw',
     format        => $OPT_S,
@@ -32,7 +32,7 @@ use version; our $VERSION = qv('0.1');    # }}}1
     documentation => 'Root file in dncommon-bash library',
   );
 
-  # dictionary (-d) {{{1
+  # dictionary  (-d) {{{1
   option 'dictionary' => (
     is            => 'rw',
     format        => $OPT_S,
@@ -41,16 +41,25 @@ use version; our $VERSION = qv('0.1');    # }}}1
     documentation => 'Vim dictionary file to be written',
   );
 
-  # loader     (-l) {{{1
-  option 'loader' => (
+  # nvim loader (-n) {{{1
+  option 'nvim_loader' => (
     is            => 'rw',
     format        => $OPT_S,
     required      => $TRUE,
-    short         => 'l',
+    short         => 'n',
+    documentation => 'Nvim (lua) loader script to be written',
+  );
+
+  # vim loader  (-v) {{{1
+  option 'vim_loader' => (
+    is            => 'rw',
+    format        => $OPT_S,
+    required      => $TRUE,
+    short         => 'v',
     documentation => 'Vim loader script to be written',
   );
 
-  # store      (-s) {{{1
+  # store       (-s) {{{1
   option 'store' => (
     is            => 'rw',
     format        => $OPT_S,
@@ -69,7 +78,8 @@ use version; our $VERSION = qv('0.1');    # }}}1
   # return: nil
   sub run ($self) {
     $cb->write_dictionary($self->dictionary, $self->master);
-    $cb->write_loader($self->loader, $self->master);
+    $cb->write_vim_loader($self->vim_loader, $self->master);
+    $cb->write_nvim_loader($self->nvim_loader, $self->master);
     $cb->write_store($self->store, $self->master);
     return $TRUE;
   }    # }}}1
@@ -90,14 +100,14 @@ gen-helper-files - create build files for dncommon-bash library
 
 =head1 USAGE
 
-B<gen-helper-files> I<-m> master I<-d> dictionary I<-l> loader I<-s> store
+B<gen-helper-files> I<-m> master I<-d> dictionary I<-l> vim_loader I<-s> store
 
 B<gen-helper-files -h>
 
 =head1 DESCRIPTION
 
 This script takes as input the master file in the libdncommon-bash library. It
-then creates three files:
+then creates four files:
 
 =over 4
 
@@ -108,10 +118,17 @@ then creates three files:
 Used by Vim in handling the dncommon-bash library. This is a simple sorted list
 of functions used as a dictionary file.
 
-=item loader script
+=item nvim loader script
 
-Used by Vim in handling the dncommon-bash library. This is a script which, when
-run, loads a vim data structure with function information that can be used by Vim.
+Used by Nvim in handling the dncommon-bash library. This is a lua script which,
+when run, loads a vim data structure with function information that can be used
+by Nvim.
+
+=item vim loader script
+
+Used by Vim in handling the dncommon-bash library. This is a viml script which,
+when run, loads a vim data structure with function information that can be used
+by Vim.
 
 =item store
 
@@ -140,7 +157,13 @@ Vim dictionary file to be written.
 
 Required. Filepath.
 
-=head2 --loader -l
+=head2 --nvim_loader -n
+
+Nvim (lua) loader script to be written.
+
+Required. Filepath.
+
+=head2 --vim_loader -v
 
 Vim loader script to be written.
 

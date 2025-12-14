@@ -1,3 +1,47 @@
+libdncommon-bash (6.9-1) UNRELEASED; urgency=low
+
+  * complete "function-tag"-related functions
+
+ -- David Nebauer <david@nebauer.org>  Sun, 14 Dec 2025 22:29:34 +0930
+
+libdncommon-bash (6.8-1) UNRELEASED; urgency=low
+
+  * fix: don't pattern match on spaces or dashes
+
+ -- David Nebauer <david@nebauer.org>  Mon, 17 Nov 2025 01:19:08 +0930
+
+libdncommon-bash (6.7-3) UNRELEASED; urgency=low
+
+  * fix: maintainer scripts call nvim without ui
+
+ -- David Nebauer <david@nebauer.org>  Sun, 16 Nov 2025 23:42:39 +0930
+
+libdncommon-bash (6.7-2) UNRELEASED; urgency=low
+
+  * regenerate helptags after install or removal
+
+ -- David Nebauer <david@nebauer.org>  Sun, 16 Nov 2025 23:18:11 +0930
+
+libdncommon-bash (6.7-1) UNRELEASED; urgency=low
+
+  * fix directory location of nvim plugin
+
+ -- David Nebauer <david@nebauer.org>  Sun, 16 Nov 2025 14:43:01 +0930
+
+libdncommon-bash (6.6-1) UNRELEASED; urgency=low
+
+  * add lua/nvim version of plugin
+
+ -- David Nebauer <david@nebauer.org>  Mon, 22 Sep 2025 07:01:44 +0930
+
+libdncommon-bash (6.5-1) UNRELEASED; urgency=low
+
+  * reconfigure all previous functions into 'libmain'
+  * new ini parser library put into 'libini'
+  * use 'liball' to load both 'libmain' and 'libini'
+
+ -- David Nebauer <david@nebauer.org>  Sun, 24 Aug 2025 21:30:54 +0930
+
 libdncommon-bash (6.4-1) UNRELEASED; urgency=low
 
   * fix: spelling mistake in dnTempTrap help text

@@ -1,0 +1,126 @@
+*libdncommon-bash.txt*  For Neovim version 0.10  Last change: 2025 August 30
+
+==============================================================================
+Table of Contents                                               *dn_sh.contents*
+
+Introduction ····················································· |dn_sh.intro|
+Dependencies ···················································· |dn_sh.depend|
+Features ······················································ |dn_sh.features|
+Functions ···················································· |dn_sh.functions|
+Mappings ······················································ |dn_sh.mappings|
+Commands ······················································ |dn_sh.commands|
+
+==============================================================================
+Introduction                                                       *dn_sh.intro*
+
+An auxiliary shell filetype plugin providing some useful features based on
+the dncommon-bash library.
+
+The dncommon-bash library is a varied collection of bash functions written
+by the author over time for his own use and later gathered together into a
+library. More information on the dncommon-bash library can be obtained from
+the library's man page (try 'man libdncommon-bash').
+
+This plugin aims to make it easier to use these functions when editing shell
+scripts.
+
+==============================================================================
+Dependencies                                                      *dn_sh.depend*
+
+This ftplugin  depends on the dn-utils plugin
+(https://github.com/dnebauer/dn-utils.nvim).
+
+==============================================================================
+Features                                                        *dn_sh.features*
+
+The major features of this ftplugin are support for:
+• displaying help text for dncommon-bash functions
+• inserting calls to dncommon-bash functions
+• keyword completion for dncommon-bash function names
+• additional support for dncommon-bash library files.
+
+Library files ~
+
+Library files containing function definitions contain the header line:
+>
+  Suite: libdncommon-bash
+<
+When one of these files is being edited a function and mapping provide
+support for adding specialised function tags. These function tags are used
+to build data structures that, in turn, are used for displaying function
+help and inserting function calls.
+
+Keyword completion ~
+
+A dictionary of libdncommon-bash function names is added to the buffer-local
+'dictionary' option. See |i_CTRL-X_CTRL-K| for keystrokes used to select
+dictionary keywords.
+
+The standard dictionary file at /usr/share/dict/words is removed from the
+option.
+
+==============================================================================
+Functions                                                      *dn_sh.functions*
+
+dn_sh.display_fn_help()                                  *dn_sh.display_fn_help*
+    Display function information for the dncommon-bash library function name
+    under the cursor. It has to be a full and correct function name -- there is
+    no facility to select from partial matches. (It is assumed the user selected
+    the function name from the plugin dictionary.)
+    This function is mapped by default to '<LocalLeader>hf', usually '\hf'.
+
+    Returns: ~
+        (nil)  No return value
+
+
+dn_sh.insert_fn_call()                                    *dn_sh.insert_fn_call*
+    Insert a call to one of the dncommon-bash library functions. It enables the
+    user to select the function from a list. It then cycles through the function
+    options and parameters enabling the user to supply option and parameter
+    values. If the user does not supply a required parameter or option value a
+    placeholder is inserted instead.
+    The function is mapped by default to '<LocalLeader>if', usually '\if'.
+
+    Returns: ~
+        (nil)  No return value
+
+
+dn_sh.add_fn_tags()                                          *dn_sh.add_fn_tags*
+    This function is only defined when the file being edited is a function
+    definition file in the libdncommon-bash library. It aids the author in
+    generating tag lines for individual functions. These specially formatted
+    tag lines provide information used by library build tools in a number of
+    ways, including constructing the library data store, dictionary and loader
+    files.
+    The function is mapped by default to '<LocalLeader>aft', usually '\aft'.
+
+    Returns: ~
+        (nil)  No return value
+
+
+==============================================================================
+Mappings                                                        *dn_sh.mappings*
+
+                                                              *dn_sh.<Leader>hf*
+This mapping calls the function |dn_sh.display_fn_help| in modes
+"n" and "i".
+
+                                                              *dn_sh.<Leader>if*
+This mapping calls the function |dn_sh.insert_fn_call| in modes
+"n" and "i".
+
+                                                             *dn_sh.<Leader>aft*
+This mapping is only available when the file being edited is a function
+definition file in the libdncommon-bash library. It calls the function
+|dn_sh.add_fn_tags| in modes "n" and "i".
+
+==============================================================================
+Commands                                                        *dn_sh.commands*
+
+                                                         *dn_sh.SUDisplayFnHelp*
+Calls function |dn_sh.display_fn_help| to display function help.
+
+                                                    *dn_sh.SUInsertFunctionCall*
+Calls function |dn_sh.insert_fn_call| to display function help.
+
+vim:tw=78:ts=8:noet:ft=help:norl:

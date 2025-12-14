@@ -5,7 +5,7 @@
 # Process this file with autoconf to produce a configure script
 AC_PREREQ([2.71])
 AC_INIT([Library of bash functions],
-        [6.4],
+        [6.9],
         [david@nebauer.org],
         [libdncommon-bash],
 )
@@ -175,6 +175,24 @@ AC_SUBST(vim_libdncb)
 vim_reg="${prefix}/share/vim/registry"
 AC_SUBST(vim_reg)
 
+# nvim_doc
+# - nvim help files
+# - default value in built deb package: /usr/share/nvim/site/doc
+nvim_doc="${prefix}/share/nvim/site/doc"
+AC_SUBST(nvim_doc)
+
+# nvim_require
+# - directory to search when lua file is 'required'
+# - default value in built deb package: /usr/share/nvim/site/lua
+nvim_require="${prefix}/share/nvim/site/lua"
+AC_SUBST(nvim_require)
+
+# nvim_ftplugin_sh
+# - directory to search for 'sh' ftplugin files
+# - default value in built deb package: /usr/share/nvim/site/ftplugin/sh
+nvim_ftplugin_sh="${prefix}/share/nvim/site/ftplugin/sh"
+AC_SUBST(nvim_ftplugin_sh)
+
 # --------------------------------------------------------------------
 
 # Create files
@@ -187,15 +205,20 @@ AC_CONFIG_FILES([
   vim/Makefile
 
   libs/liball
+  libs/libmain
+  libs/libini
 
   man/libdncommon-bash.1
 
   vim/funcdict
+  vim/funcload.lua
   vim/funcload.vim
   vim/libdncommon-bash-shell-ftplugin.txt
   vim/libdncommon-bash.yaml
   vim/libfile-functions.vim
   vim/sh_libdncommon-bash.vim
+  vim/libdncommon-bash.lua
+  vim/libdncommon-bash.txt
 
   misc/alert-tone-3-pulses.wav
   misc/dramatic_chord.wav

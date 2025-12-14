@@ -6,12 +6,12 @@
 set -e
 
 # summary of how this script can be called:
-#        * <prerm> `remove'
-#        * <old-prerm> `upgrade' <new-version>
-#        * <new-prerm> `failed-upgrade' <old-version>
-#        * <conflictor's-prerm> `remove' `in-favour' <package> <new-version>
-#        * <deconfigured's-prerm> `deconfigure' `in-favour'
-#          <package-being-installed> <version> `removing'
+#        * <prerm> 'remove'
+#        * <old-prerm> 'upgrade' <new-version>
+#        * <new-prerm> 'failed-upgrade' <old-version>
+#        * <conflictor's-prerm> 'remove' 'in-favour' <package> <new-version>
+#        * <deconfigured's-prerm> 'deconfigure' 'in-favour'
+#          <package-being-installed> <version> 'removing'
 #          <conflicting-package> <version>
 # for details, see http://www.debian.org/doc/debian-policy/ or
 # the debian-policy package
@@ -39,21 +39,21 @@ which vim-addons &>/dev/null || manager_available='false'
 #           2 - whether addon is enabled [boolean: 'true'|'false']
 #           3 - whether vim-addons manager is available
 #   prints: feedback
-#   return: nil
+#:lua vim.print(vim.fn.stdpath("config")):lua vim.print(vim.fn.stdpath("config"))   return: nil
 removeAddon() {
-	local addon="${1}" enabled="${2}" manager_available="${3}"
-	if [ "${manager_available}" = 'true' ]; then # use vim-addons
-		if [ "${enabled}" = 'true' ]; then
-			echo "Info: removing ${addon} addon system-wide..."
-			vim-addons -w remove "${addon}"
-		fi
-	else # can't locate vim-addons
-		echo "Info: vim addon manager 'vim-addons' is not available"
-		echo "Warn: unable to remove '${addon}' addon system-wide"
-		echo -n "Info: vim-addons is provided by"
-		echo " debian package 'vim-addon-manager'"
-		echo "Info: after installation check man page for vim-addons"
-	fi
+  local addon="${1}" enabled="${2}" manager_available="${3}"
+  if [ "${manager_available}" = 'true' ]; then # use vim-addons
+    if [ "${enabled}" = 'true' ]; then
+      echo "Info: removing ${addon} addon system-wide..."
+      vim-addons -w remove "${addon}"
+    fi
+  else # can't locate vim-addons
+    echo "Info: vim addon manager 'vim-addons' is not available"
+    echo "Warn: unable to remove '${addon}' addon system-wide"
+    echo -n "Info: vim-addons is provided by"
+    echo " debian package 'vim-addon-manager'"
+    echo "Info: after installation check man page for vim-addons"
+  fi
 }
 
 # MAIN
@@ -62,17 +62,17 @@ removeAddon() {
 case "${1}" in
 
 'remove' | 'upgrade' | 'deconfigure')
-	removeAddon "${addon}" "${enabled}" "${manager_available}"
-	;;
+  removeAddon "${addon}" "${enabled}" "${manager_available}"
+  ;;
 
 'failed-upgrade')
-	removeAddon "${addon}" "${enabled}" "${manager_available}"
-	;;
+  removeAddon "${addon}" "${enabled}" "${manager_available}"
+  ;;
 
 *)
-	echo "prerm called with unknown argument \`$1'" >&2
-	exit 1
-	;;
+  echo "prerm called with unknown argument '$1'" >&2
+  exit 1
+  ;;
 
 esac
 

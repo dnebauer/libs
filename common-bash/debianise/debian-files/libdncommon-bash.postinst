@@ -6,6 +6,18 @@
 set -e
 . /usr/share/debconf/confmodule # use debconf
 
+# Summary of how this script can be called:
+#        * <postinst> 'configure' <most-recently-configured-version>
+#        * <old-postinst> 'abort-upgrade' <new version>
+#        * <conflictor's-postinst> 'abort-remove' 'in-favour' <package>
+#          <new-version>
+#        * <postinst> 'abort-remove'
+#        * <deconfigured's-postinst> 'abort-deconfigure' 'in-favour'
+#          <failed-install-package> <version> 'removing'
+#          <conflicting-package> <version>
+# for details, see https://www.debian.org/doc/debian-policy/ or
+# the debian-policy package.
+
 # VARIABLES
 
 # Package and addon names
@@ -30,19 +42,27 @@ which vim-addons &>/dev/null || manager_available='false'
 #   prints: feedback
 #   return: nil
 installAddon() {
-	local addon="${1}" enable="${2}" manager_available="${3}"
-	if [ "${manager_available}" = 'true' ]; then # use vim-addons
-		if [ "${enable}" = 'true' ]; then
-			echo "Info: installing ${addon} addon system-wide..."
-			vim-addons -w install "${addon}"
-		fi
-	else # can't locate vim-addons
-		echo "Info: vim addon manager 'vim-addons' is not available"
-		echo "Warn: unable to enable '${addon}' addon system-wide"
-		echo -n "Info: vim-addons is provided by"
-		echo " debian package 'vim-addon-manager'"
-		echo "Info: after installation check man page for vim-addons"
-	fi
+  local addon="${1}" enable="${2}" manager_available="${3}"
+  if [ "${manager_available}" = 'true' ]; then # use vim-addons
+    if [ "${enable}" = 'true' ]; then
+      echo "Info: installing ${addon} addon system-wide..."
+      vim-addons -w install "${addon}"
+    fi
+  else # can't locate vim-addons
+    echo "Info: vim addon manager 'vim-addons' is not available"
+    echo "Warn: unable to enable '${addon}' addon system-wide"
+    echo -n "Info: vim-addons is provided by"
+    echo " debian package 'vim-addon-manager'"
+    echo "Info: after installation check man page for vim-addons"
+  fi
+}
+# Update help tags
+#   params: nil
+#   prints: feedback
+#   return: nil
+updateHelpTags() {
+  echo 'Info: updating help tags...'
+  nvim -es -c 'helptags ALL' -c 'quit'
 }
 
 # MAIN
@@ -51,19 +71,20 @@ installAddon() {
 case "${1}" in
 
 'configure')
-	installAddon "${addon}" "${enable}" "${manager_available}"
-	;;
+  installAddon "${addon}" "${enable}" "${manager_available}"
+  updateHelpTags
+  ;;
 
-'abort-upgrade' | 'abort-remove' | 'abort-deconfigure' | 'reconfigure') ;;
+'abort-upgrade' | 'abort-remove' | 'abort-deconfigure') ;;
 
 *)
-	if test -z "${1}"; then
-		echo "postinst called with no argument" >&2
-	else
-		echo "postinst called with unknown argument '${1}'" >&2
-	fi
-	exit 1
-	;;
+  if test -z "${1}"; then
+    echo "postinst called with no argument" >&2
+  else
+    echo "postinst called with unknown argument '${1}'" >&2
+  fi
+  exit 1
+  ;;
 
 esac
 

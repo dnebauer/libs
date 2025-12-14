@@ -1,0 +1,1844 @@
+-- DOCUMENTATION
+
+---@brief [[
+---*libdncommon-bash.txt*  For Neovim version 0.10  Last change: 2025 August 30
+---@brief ]]
+
+---@toc dn_sh.contents
+
+---@mod dn_sh.intro Introduction
+---@brief [[
+---An auxiliary shell filetype plugin providing some useful features based on
+---the dncommon-bash library.
+---
+---The dncommon-bash library is a varied collection of bash functions written
+---by the author over time for his own use and later gathered together into a
+---library. More information on the dncommon-bash library can be obtained from
+---the library's man page (try 'man libdncommon-bash').
+---
+---This plugin aims to make it easier to use these functions when editing shell
+---scripts.
+---@brief ]]
+
+---@mod dn_sh.depend Dependencies
+---@brief [[
+---This ftplugin  depends on the dn-utils plugin
+---(https://github.com/dnebauer/dn-utils.nvim).
+---@brief ]]
+
+---@mod dn_sh.features Features
+---@brief [[
+---The major features of this ftplugin are support for:
+---• displaying help text for dncommon-bash functions
+---• inserting calls to dncommon-bash functions
+---• keyword completion for dncommon-bash function names
+---• additional support for dncommon-bash library files.
+---
+---Library files ~
+---
+---Library files containing function definitions contain the header line:
+--->
+---  Suite: libdncommon-bash
+---<
+---When one of these files is being edited a function and mapping provide
+---support for adding specialised function tags. These function tags are used
+---to build data structures that, in turn, are used for displaying function
+---help and inserting function calls.
+---
+---Keyword completion ~
+---
+---A |compl-dictionary| of libdncommon-bash function names is added to the
+---buffer-local 'dictionary' option. See |i_CTRL-X_CTRL-K| for keystrokes used
+---to select dictionary keywords.
+---
+---The standard dictionary file at /usr/share/dict/words is removed from the
+---option.
+---@brief ]]
+
+local dn_sh = {}
+
+-- PRIVATE VARIABLES
+
+-- only load module once
+if vim.g.dn_sh_loaded then
+	return
+end
+vim.g.dn_sh_loaded = true
+
+-- whether editing a library file
+-- • relies on library files containing the header line
+--   'Suite: libdncommon-bash'
+local editing_library_file = vim.tbl_count(vim.tbl_filter(function(line)
+	return line:lower():match("suite:%slibdncommon%gbash")
+end, vim.api.nvim_buf_get_lines(0, 0, 9, false))) ~= 0
+
+-- display width
+-- • trial and error showed this is width of dialog display generated
+--   by the Noice plugin on my system
+local display_width = 65
+
+-- MODULES
+
+-- dn-utils
+local util = require("dn-utils")
+
+-- localise standard library functions
+local sf = string.format
+
+-- PRIVATE FUNCTIONS
+
+-- forward declarations
+local _all_fn_names
+local _check_lib_data
+local _chunkify_list_info
+local _chunkify_scalar_info
+local _get_fn_name
+local _get_fn
+local _option_help
+local _param_help
+local _warning
+local _fn_matches
+
+-- _all_fn_names()
+
+---@private
+---Get sorted list of all function names
+---@return table|nil _ function names (nil on failure)
+function _all_fn_names()
+	-- check library data
+	if not _check_lib_data() then
+		return
+	end
+	-- get function names
+	local fns = vim.tbl_keys(vim.api.nvim_buf_get_var(0, "dnLibCommonBash"))
+	-- sort list
+	table.sort(fns)
+	-- return list
+	return fns
+end
+
+-- _check_lib_data()
+
+---@private
+---Checks whether variable b:dnLibCommonBash exists and contains data.
+---Displays warning message if this is not the case, so any calling function
+---does not need to notify the user, but can simply exit if this function
+---fails.
+---@return boolean _ Whether variable b:dnLibCommonBash exists and contains
+---data.
+function _check_lib_data()
+	-- variable must exist
+	local ok, var = pcall(vim.api.nvim_buf_get_var, 0, "dnLibCommonBash")
+	if not ok then
+		util.warning("dnCommonBash library data not loaded")
+		return false
+	end
+	-- variable must be a table
+	if type(var) ~= "table" then
+		util.warning("dnLibCommonBash should be a table but is a " .. type(var))
+		return false
+	end
+	-- variable must contain data
+	if next(var) == nil then
+		util.warning("dnCommonBash library data not loaded")
+		return false
+	end
+	-- variable passed all tests
+	return true
+end
+
+-- _chunkify_list_info(prefix, list, indent, prior_chunks)
+
+---@private
+---Takes prefix and a list of output lines and for each output line
+---returns "<pad>prefix: line" with the "prefix: " part left-padded
+---with spaces to size "indent". The left-padded string is then
+---wrapped at the length indicated by the script variable
+---"display_width" and given a hanging indent of "indent" width.
+---
+---It is assumed a series of chunks is being built for |nvim_echo()|.
+---This function takes the chunks assembled to date as the parameter
+---"prior_chunks", appends each line in the final wrapped output as
+---a fresh chunk, and the expanded chunks returned. The chunks are
+---not assigned any highlighting.
+---@param prefix string Prefix string to appear before colon
+---@param list table List of output lines
+---@param indent integer Size of hanging indent
+---@param prior_chunks table Previously assembled output chunks
+---@return table _ Expanded output chunks
+function _chunkify_list_info(prefix, list, indent, prior_chunks)
+	if list and type(list) == "table" and vim.tbl_count(list) ~= 0 then
+		for _, value in ipairs(list) do
+			prior_chunks = _chunkify_scalar_info(prefix, value, indent, prior_chunks)
+		end
+	end
+	return prior_chunks
+end
+
+-- _chunkify_scalar_info(prefix, suffix, indent, prior_chunks)
+
+---@private
+---Takes prefix and suffix and returns "<pad>prefix: suffix"
+---with the "prefix: " part left-padded with spaces to size "indent".
+---The left-padded line is then wrapped at the length indicated by
+---the script variable "display_width" and given a hanging indent of
+---"indent" width.
+---
+---It is assumed a series of chunks is being built for |nvim_echo()|.
+---This function takes the chunks assembled to date as the parameter
+---"prior_chunks", appends each line in the final wrapped output as
+---a fresh chunk, and the expanded chunks returned. The chunks are
+---not assigned any highlighting.
+---@param prefix string Prefix string to appear before colon
+---@param suffix string Remainder of output line
+---@param indent integer Size of hanging indent
+---@param prior_chunks table Previously assembled output chunks
+---@return table _ Expanded output chunks
+function _chunkify_scalar_info(prefix, suffix, indent, prior_chunks)
+	local wrap_width = display_width - indent
+	local format = "%" .. indent .. "s"
+	local indent_string = string.format(format, "")
+	prefix = prefix .. ": "
+	local lines = util.split(util.wrap(suffix, { width = wrap_width }), "\n")
+	local first = table.remove(lines, 1)
+	first = string.format(format, prefix) .. first
+	table.insert(prior_chunks, { first .. "\n" })
+	for _, line in ipairs(lines) do
+		table.insert(prior_chunks, { indent_string .. line .. "\n" })
+	end
+	return prior_chunks
+end
+
+-- _fn_matches()
+
+---@private
+---Get function names matching search term (case-insensitive).
+---@param term string Search term (plain string, no regex)
+---@param complete boolean|nil Whether to match on full function name
+---@return table|nil _ Matching function names (nil on failure)
+function _fn_matches(term, complete)
+	-- get function names
+	local fns = _all_fn_names()
+	assert(type(fns) == "table", "Require table, got " .. type(fns))
+	-- match type (complete or partial)
+	local matches
+	if complete then
+		matches = vim.tbl_filter(function(v)
+			return v:lower() == term:lower()
+		end, fns)
+	else
+		matches = vim.tbl_filter(function(v)
+			return v:lower():match(term:lower())
+		end, fns)
+	end
+	-- return matches
+	return matches
+end
+
+-- _get_fn(caller, [fn_name])
+
+---Get function object by matching on fragment under cursor or entered by user.
+---Uses |expand()| which can select the next word in front of the cursor if
+---the cursor is on a space.
+---Calling functions are "display_fn_help" and "insert_fn_call".
+---When the calling function is "display_fn_help" matching first occurs on the
+---fragment under the cursor. If no fragment is retrieved matching is then done
+---on a fragment entered by the user.
+---When the calling function is "insert_fn_call" matching is done only on a
+---fragment entered by the user. (No attempt is made to match on the fragment
+---under the cursor.)
+---@param caller string Name of calling function
+---@param fn_name string|nil Name of matched function
+---@return table|nil _ No return value
+function _get_fn(caller, fn_name)
+	-- check library data
+	if not _check_lib_data() then
+		return
+	end
+	-- variables
+	local lib = vim.api.nvim_buf_get_var(0, "dnLibCommonBash")
+	if not lib or type(lib) ~= "table" or vim.tbl_count(lib) == 0 then
+		_warning("dnCommonBash library data not loaded")
+		return
+	end
+
+	-- get name of function to insert
+	if not fn_name then
+		_get_fn_name(caller)
+		return
+	end
+	if fn_name and fn_name:len() == 0 then
+		_warning("No function name selected")
+		return
+	end
+
+	-- get function object
+	local lib_fn = lib[fn_name]
+	if lib_fn and type(lib_fn) == "table" and vim.tbl_count(lib_fn) ~= 0 then
+		dn_sh[caller](lib_fn)
+		return
+	else
+		_warning("dnCommonBash library has no data on function: " .. fn_name)
+		return
+	end
+end
+
+-- _get_fn_name(caller)
+
+---@private
+---Get function name by matching on fragment under cursor or entered by user.
+---Uses |expand()| which can select the next word in front of the cursor if
+---the cursor is on a space.
+---Calling functions are "display_fn_help" and "insert_fn_call".
+---When the calling function is "display_fn_help" matching first occurs on the
+---fragment under the cursor. If no fragment is retrieved matching is then done
+---on a fragment entered by the user.
+---When the calling function is "insert_fn_call" matching is done only on a
+---fragment entered by the user. (No attempt is made to match on the fragment
+---under the cursor.)
+---@param caller string Name of calling function
+---@param fragment string|nil Fragment of function name:
+---  * "string" = search fragment
+---  * ""       = expand() failed with error
+---  * "*"      = user did not enter a search fragment when prompted
+---@return string|nil _ Selected function name (nil on failure)
+function _get_fn_name(caller, fragment)
+	-- variables
+	local prompt
+	-- look for search fragment under cursor
+	if not fragment and caller and caller == "display_fn_help" then
+		local ok, cword = pcall(vim.fn.expand, "<cword>")
+		assert(type(cword) == "string")
+		if ok then
+			_get_fn_name(caller, cword)
+			return
+		else
+			-- expand() failed, probably an E348 ("No string under cursor") error
+			_get_fn_name(caller, "")
+			return
+		end
+	end
+	-- deal with case where cword retrieval failed
+	-- (so need to input fragment)
+	fragment = fragment or ""
+	if type(fragment) == "string" and fragment:len() == 0 then
+		prompt = "Enter part of the function name"
+		vim.ui.input({ prompt = prompt }, function(input)
+			if input and input:len() ~= 0 then
+				_get_fn_name(caller, input)
+				return
+			else
+				util.warning("With no partial name, all functions will be displayed")
+				_get_fn_name(caller, "*")
+				return
+			end
+		end)
+		return
+	end
+	-- get list of functions to match against
+	local fns
+	if fragment then
+		if fragment == "*" then
+			-- no cword and user did not enter fragment so match = all function names
+			fns = _all_fn_names()
+			if not (fns and type(fns) == "table") then
+				util.warning("Retrieval of function names failed")
+				return
+			end
+		else
+			-- either cword retrieved a fragment
+			-- or cword retrieval failed and user entered a fragment
+			fns = _fn_matches(fragment)
+			if not (fns and type(fns) == "table") then
+				util.warning("Match of function names against '" .. fragment .. "' failed")
+				return
+			end
+		end
+	end
+	-- handle cases where no selection is needed
+	local match_count = vim.tbl_count(fns)
+	if match_count == 0 then
+		-- assume non-empty fragment string
+		-- (else 'fns' would contain all function names)
+		util.warning("No function matches '" .. fragment .. "'")
+		return
+	end
+	if match_count == 1 then
+		_get_fn(caller, fns[1])
+		return
+	end
+	-- need to select from list of filtered function names
+	prompt = "Select function"
+	vim.ui.select(fns, { prompt = prompt }, function(choice)
+		if choice then
+			_get_fn(caller, choice)
+			return
+		else
+			util.warning("No function selected")
+			return
+		end
+	end)
+end
+
+-- _option_help(option, indent, prior_chunks)
+
+---@private
+---assembles display output for a single function option.
+---the general form of the output is:
+---
+--->
+--- option: -x <type> [required, multiple]
+---    use: option purpose
+--- values: val1, val2, val3, val4, val5, val6,
+---         val7, val8, val9
+---default: val_default
+---   note: a note
+---   note: another note
+---<
+---
+---where "required" may be replaced by "optional" and
+---", multiple" is omitted for singular options, and the "values",
+---"default" and "note" lines are omitted if the corresponding
+---option data is undefined.
+---
+---the "indent" determines the amount of left-padding for the
+---"prefix: " string and the hanging indent for wrapped lines. the
+---example above uses an indent of 9. output is wrapped at the width
+---defined by script variable "display_width".
+---
+---it is assumed a series of chunks is being built for |nvim_echo()|.
+---this function takes the chunks assembled to date as the parameter
+---"prior_chunks", appends each line in the final wrapped output as
+---a fresh chunk, and the expanded chunks returned. the chunks are
+---not assigned any highlighting.
+---@param option table option to create help for
+---@param indent integer size of hanging indent
+---@param prior_chunks table previously assembled output chunks
+---@return table _ expanded output chunks
+function _option_help(option, indent, prior_chunks)
+	-- variables
+	local format = "%" .. indent .. "s"
+	local style_heading = "floattitle"
+	-- add option header line
+	table.insert(prior_chunks, { string.format(format, "option: ") })
+	table.insert(prior_chunks, { "-" .. option.flag, style_heading })
+	table.insert(prior_chunks, { sf(" <%s> ", option.type) })
+	local required = option.required and "required" or "optional"
+	local multiple = option.multiple and ", multiple" or ""
+	table.insert(prior_chunks, { "[" .. required .. multiple .. "]" .. "\n" })
+	-- add purpose
+	prior_chunks = _chunkify_scalar_info("use", option.purpose, indent, prior_chunks)
+	-- add values
+	if option.values and type(option.values) == "table" and vim.tbl_count(option.values) ~= 0 then
+		local values = table.concat(option.values, ", ")
+		prior_chunks = _chunkify_scalar_info("values", values, indent, prior_chunks)
+	end
+	-- add default
+	if option.default then
+		prior_chunks = _chunkify_scalar_info("default", option.default, indent, prior_chunks)
+	end
+	-- add notes
+	prior_chunks = _chunkify_list_info("note", option.notes, indent, prior_chunks)
+	-- return result
+	return prior_chunks
+end
+
+-- _param_help(idx, param, indent, prior_chunks)
+
+---@private
+---Assembles display output for a single function parameter.
+---The general form of the output is:
+---
+--->
+---PARAM 1: name <type> [required, multipart]
+---    Use: Param purpose
+--- Values: val1, val2, val3, val4, val5, val6,
+---         val7, val8, val9
+---Default: val_default
+---   Note: A note
+---   Note: Another note
+---<
+---
+---where "required" may be replaced by "optional" and
+---", multipart" is omitted for singular params, and the "Values",
+---"Default" and "Note" lines are omitted if the corresponding
+---param data is undefined.
+---
+---The "indent" determines the amount of left-padding for the
+---"Prefix: " string and the hanging indent for wrapped lines. The
+---example above uses an indent of 9. Output is wrapped at the width
+---defined by script variable "display_width".
+---
+---It is assumed a series of chunks is being built for |nvim_echo()|.
+---This function takes the chunks assembled to date as the parameter
+---"prior_chunks", appends each line in the final wrapped output as
+---a fresh chunk, and the expanded chunks returned. The chunks are
+---not assigned any highlighting.
+---@param idx integer Index of parameter to create help for
+---@param param table Parameter to create help for
+---@param indent integer Size of hanging indent
+---@param prior_chunks table Previously assembled output chunks
+---@return table _ Expanded output chunks
+function _param_help(idx, param, indent, prior_chunks)
+	-- variables
+	local format = "%" .. indent .. "s"
+	local style_heading = "FloatTitle"
+	-- add param header line
+	table.insert(prior_chunks, { string.format(format, "PARAM " .. idx .. ": ") })
+	table.insert(prior_chunks, { param.name, style_heading })
+	table.insert(prior_chunks, { sf(" <%s> ", param.type) })
+	local required = param.required and "required" or "optional"
+	local multipart = param.multipart and ", multipart" or ""
+	table.insert(prior_chunks, { "[" .. required .. multipart .. "]" .. "\n" })
+	-- purpose
+	prior_chunks = _chunkify_scalar_info("Use", param.purpose, indent, prior_chunks)
+	-- values
+	if param.values and type(param.values) == "table" and vim.tbl_count(param.values) ~= 0 then
+		local values = table.concat(param.values, ", ")
+		prior_chunks = _chunkify_scalar_info("Values", values, indent, prior_chunks)
+	end
+	-- default
+	if param.default then
+		prior_chunks = _chunkify_scalar_info("Default", param.default, indent, prior_chunks)
+	end
+	-- notes
+	prior_chunks = _chunkify_list_info("Note", param.notes, indent, prior_chunks)
+	-- return result
+	return prior_chunks
+end
+
+-- _warning(...)
+
+---@private
+---Display warning message(s).
+---@param ... string Messages to display
+---@return nil _ No return value
+function _warning(...)
+	local chunks = {}
+	for _, msg in ipairs({ ... }) do
+		local wrapped = util.wrap(msg, { width = display_width })
+		table.insert(chunks, { wrapped, "WarningMsg" })
+	end
+	vim.api.nvim_echo(chunks, false, {})
+end
+
+-- PUBLIC FUNCTIONS
+
+---@mod dn_sh.functions Functions
+
+-- display_fn_help([lib_fn])
+
+---Display information for a dncommon-bash library function. The function to
+---display information for is chosen by the user from a list of function names
+---matching the fragment under the cursor or, if no such fragment can be
+---retrieved, from a fragment entered by the user.
+---If there is only one match for a name fragment then the selection process is
+---skipped, noting that complete dncommon-bash library function names can be
+---inserted from the |compl-dictionary|.
+---This function is mapped by default to '<LocalLeader>hf', usually '\hf'.
+---@param lib_fn table|nil Function object from dnLibCommonBash
+---@return nil _ No return value
+function dn_sh.display_fn_help(lib_fn)
+	-- handle param
+	-- • get library function if not present
+	-- • '_get_fn' checks for library variables
+	-- • '_get_fn' displays warning message if function retrieval fails
+	if not lib_fn then
+		_get_fn("display_fn_help")
+		return
+	end
+
+	-- variables
+	local indent = 9
+	local style_title = "Title"
+	local chunks = {}
+
+	-- add basic function data
+	local title = sf("*** Function = %s ***\n", lib_fn.name)
+	table.insert(chunks, { title, style_title })
+	chunks = _chunkify_scalar_info("Use", lib_fn.purpose, indent, chunks)
+	chunks = _chunkify_scalar_info("Prints", lib_fn.prints, indent, chunks)
+	chunks = _chunkify_scalar_info("Returns", lib_fn.returns, indent, chunks)
+	chunks = _chunkify_list_info("Usage", lib_fn.usages, indent, chunks)
+	chunks = _chunkify_list_info("Note", lib_fn.notes, indent, chunks)
+
+	-- add option data
+	if lib_fn.options then
+		for _, option in ipairs(lib_fn.options) do
+			chunks = _option_help(option, indent, chunks)
+		end
+	end
+
+	-- add param data
+	if lib_fn.params then
+		for idx, param in ipairs(lib_fn.params) do
+			chunks = _param_help(idx, param, indent, chunks)
+		end
+	end
+
+	-- display assembled output
+	vim.api.nvim_echo(chunks, false, {})
+end
+
+-- insert_fn_call([lib_fn])
+
+---Insert a call to one of the dncommon-bash library functions.
+---The user selects the function from a list and then enters values for options
+---and parameters. Values must be entered for required options and parameters
+---while optional options and parameters can be skipped.
+---The function is mapped by default to '<LocalLeader>if', usually '\if'.
+---@param lib_fn table|nil Function object from dnLibCommonBash
+---@return nil _ No return value
+function dn_sh.insert_fn_call(lib_fn)
+	-- handle param
+	-- • get library function if not present
+	-- • '_get_fn' checks for library variables
+	-- • '_get_fn' displays warning message if function retrieval fails
+	if not lib_fn then
+		_get_fn("insert_fn_call")
+		return
+	end
+
+	-- variables
+	local help_indent = 9
+
+	-- pre-declare local functions
+	local _fn_call_display_option_info
+	local _fn_call_option_prompt_prefix
+	local _fn_call_options_status
+	local _fn_call_enter_options
+	local _fn_call_get_option_value
+	local _fn_call_display_param_info
+	local _fn_call_param_prompt_prefix
+	local _fn_call_enter_params
+	local _fn_call_get_param_value
+	local _fn_call_process_param_value_selection
+	local _fn_call_insert
+
+	-- display option information
+	_fn_call_display_option_info = function(option)
+		local chunks = _option_help(option, help_indent, {})
+		vim.api.nvim_echo(chunks, false, {})
+	end
+
+	-- assemble prompt prefix for entering option value
+	_fn_call_option_prompt_prefix = function(option)
+		local prompt = "-" .. option.flag
+		if option.type and option.type ~= "none" then
+			prompt = prompt .. " (" .. option.type .. ")"
+		end
+		if option.required then
+			prompt = prompt .. " [*"
+		else
+			prompt = prompt .. " [?"
+		end
+		if option.multiple then
+			prompt = prompt .. "+]"
+		else
+			prompt = prompt .. "1]"
+		end
+		if option.default then
+			prompt = prompt .. " (default=" .. option.default .. ")"
+		else
+			prompt = prompt .. " (no default)"
+		end
+		return prompt
+	end
+
+	-- get function status
+	_fn_call_options_status = function(fn)
+		-- return table of tables:
+		-- {
+		--   ["selectable"] = { <option>[, ...]},
+		--   ["menu_items"] = { <item>[, ...]},
+		--     ["selected"] = { <flag>[, ...]},
+		--     ["required"] = { <flag>[, ...]},
+		--          ["all"] = { <flag>[, ...]},
+		-- }
+		-- where:
+		-- • selectable = not selected [options]
+		--                - corresponds to "menu_items"
+		-- • menu_items = menu items of selectable options [items]
+		--                - corresponds to "selectable"
+		--                - each item has format "prefix purpose"
+		--                - prefix is right padded to 3 chars with spaces
+		--                - prefix = flag..('*' if required)..('+' if multiple)
+		-- •   selected = previously added by user [flags]
+		-- •   required = not selected and required [flags]
+		-- •        all = all possible function flags [flags]
+		local status = { ["selectable"] = {}, ["menu_items"] = {}, ["selected"] = {}, ["all"] = {} }
+		if not (lib_fn.options and vim.tbl_count(lib_fn.options) ~= 0) then
+			return status
+		end
+		-- get all function option flags
+		status.all = vim.tbl_map(function(option)
+			return option.flag
+		end, lib_fn.options)
+		table.sort(status.all)
+		-- get selected option flags
+		status.selected = vim.tbl_keys(fn.options)
+		table.sort(status.selected)
+		-- get selectable options
+		status.selectable = vim.tbl_filter(function(option)
+			if vim.tbl_contains(status.selected, option.flag) then
+				if option.multiple then
+					local values_selected = fn.options[option.flag]
+					local values_all = option.values
+					local values_available = vim.tbl_filter(function(value)
+						return not vim.tbl_contains(values_selected, value)
+					end, values_all)
+					return (vim.tbl_count(values_available) > 0)
+				else
+					return false
+				end
+			else
+				return true
+			end
+		end, lib_fn.options)
+		table.sort(status.selectable, function(a, b)
+			return (a.flag < b.flag)
+		end)
+		-- get selectable menu items
+		status.menu_items = vim.tbl_map(function(option)
+			local menu_item = option.flag
+			local spacer = " "
+			if option.required then
+				menu_item = menu_item .. "*"
+			else
+				spacer = spacer .. " "
+			end
+			if option.multiple then
+				menu_item = menu_item .. "+"
+			else
+				spacer = spacer .. " "
+			end
+			menu_item = menu_item .. spacer .. option.purpose
+			return menu_item
+		end, status.selectable)
+		table.sort(status.menu_items)
+		-- get required option flags
+		local required_options = vim.tbl_filter(function(option)
+			return (not vim.tbl_contains(status.selected, option.flag)) and option.required
+		end, fn.options)
+		status.required = vim.tbl_map(function(option)
+			return option.flag
+		end, required_options)
+		return status
+	end
+
+	-- enter options
+	-- • structure:
+	--   fn = {
+	--          options = {
+	--                      ["x"] = { value[, ...]},
+	--                      ... ,
+	--          },
+	--   }
+	_fn_call_enter_options = function(fn)
+		-- no 'fn' param on initial call
+		fn = fn or {}
+		fn.options = fn.options or {}
+		-- function must have options defined
+		if not (lib_fn.options and vim.tbl_count(lib_fn.options) ~= 0) then
+			_fn_call_enter_params(fn)
+			return
+		end
+		-- must be selectable options remaining
+		local status = _fn_call_options_status(fn)
+		if vim.tbl_count(status.selectable) == 0 then
+			_fn_call_enter_params(fn)
+			return
+		end
+		-- select option to add
+		local prompt = "Select option:"
+		vim.ui.select(status.menu_items, { prompt = prompt }, function(_, pick)
+			-- since the 'status.menu_items' and 'status.selectable' lists have
+			-- corresponding entries, the index of the chosen 'menu_item' is used to
+			-- retrieve the corresponding 'selectable' option
+			if pick then
+				local option = status.selectable[pick]
+				_fn_call_display_option_info(option)
+				_fn_call_get_option_value(fn, option)
+			else
+				-- check all required options are selected
+				if vim.tbl_count(status.required) ~= 0 then
+					local msg = "Not all required options have been selected - missing: "
+						.. table.concat(
+							vim.tbl_map(function(v)
+								return "-" .. v
+							end, status.required),
+							", "
+						)
+					_warning(msg)
+					_fn_call_enter_options(fn)
+					return
+				else
+					_fn_call_enter_params(fn)
+					return
+				end
+			end
+		end)
+	end
+
+	-- enter/select option value(s)
+	_fn_call_get_option_value = function(fn, option, ignore_default)
+		ignore_default = ignore_default or false
+		local prompt
+		local flag = option.flag
+		fn.options[flag] = fn.options[flag] or {}
+		local option_type = option.type
+		-- option may have no value
+		if option_type:lower() == "none" then
+			_fn_call_enter_options(fn)
+			return
+		end
+		-- check whether option selection is complete
+		local selected = fn.options[flag]
+		if (not option.multiple) and vim.tbl_count(selected) ~= 0 then
+			_fn_call_enter_options(fn)
+			return
+		end
+		local available = {}
+		local has_values = option.values and type(option.values) == "table" and vim.tbl_count(option.values) ~= 0
+		if has_values then
+			available = vim.tbl_filter(function(val)
+				return not vim.tbl_contains(selected, val)
+			end, option.values)
+			if vim.tbl_count(available) == 0 then
+				_fn_call_enter_options(fn)
+				return
+			end
+		end
+		-- okay, not done with selection, so let's do that
+		local try_default = option.default and not ignore_default and not vim.tbl_contains(selected, option.default)
+		if try_default then
+			prompt = "Accept default option value: '" .. option.default .. "'?"
+			vim.ui.select({ "Yes", "No" }, { prompt = prompt }, function(choice)
+				if choice and choice == "Yes" then
+					table.insert(fn.options[flag], option.default)
+				end
+				_fn_call_get_option_value(fn, option, true)
+			end)
+			return
+		end
+		if has_values then
+			prompt = _fn_call_option_prompt_prefix(option) .. " - select value:"
+			vim.ui.select(available, { prompt = prompt }, function(val)
+				if val and val:len() ~= 0 then
+					table.insert(fn.options[flag], val)
+				end
+				if vim.tbl_count(fn.options[flag]) ~= 0 then
+					_fn_call_enter_options(fn)
+				else
+					_warning("Option value is required")
+					_fn_call_get_option_value(fn, option)
+				end
+			end)
+			return
+		else
+			prompt = _fn_call_option_prompt_prefix(option) .. " - enter value:"
+			vim.ui.input({ prompt = prompt }, function(input)
+				if input and input:len() ~= 0 then
+					table.insert(fn.options[flag], input)
+				else
+					table.insert(fn.options[flag], "")
+				end
+				_fn_call_get_option_value(fn, option)
+			end)
+			return
+		end
+	end
+
+	-- display param information
+	function _fn_call_display_param_info(idx, param)
+		local chunks = _param_help(idx, param, help_indent, {})
+		vim.api.nvim_echo(chunks, false, {})
+	end
+
+	-- assemble prompt prefix for entering param value
+	function _fn_call_param_prompt_prefix(param)
+		local prompt = param.name
+		if param.type then
+			prompt = prompt .. " (" .. param.type .. ")"
+		end
+		if param.required then
+			prompt = prompt .. " [*"
+		else
+			prompt = prompt .. " [?"
+		end
+		if param.multipart then
+			prompt = prompt .. "+]"
+		else
+			prompt = prompt .. "1]"
+		end
+		if param.default then
+			prompt = prompt .. " (default=" .. param.default .. ")"
+		else
+			prompt = prompt .. " (no default)"
+		end
+		return prompt
+	end
+
+	-- enter parameters
+	-- • structure:
+	--   fn = {
+	--          options = {
+	--                      ["x"] = { "value1", ...]},
+	--                      ... ,
+	--          },
+	--          params = {
+	--                      ["param1"] = {
+	--                                     processed = true,
+	--                                     values = {"value1", ...},
+	--                      },
+	--                      ... ,
+	--          },
+	--   }
+	_fn_call_enter_params = function(fn)
+		-- function must have params defined
+		if not (lib_fn.params and vim.tbl_count(lib_fn.params) ~= 0) then
+			_fn_call_insert(fn)
+			return
+		end
+		-- no 'fn' params on initial call
+		if not fn.params then
+			fn.params = {}
+			for _, param in ipairs(lib_fn.params) do
+				fn.params[param.name] = { processed = false, values = {} }
+			end
+		end
+		-- cycle through params and check whether done
+		-- • done when either:
+		--     - processed all params, or
+		--     - processed all required params and
+		--       processed one optional param with no value entered/selected
+		local param_idx, param_to_process
+		for idx, param in ipairs(lib_fn.params) do
+			if fn.params[param.name].processed then
+				-- check whether we're done
+				if not param.required and vim.tbl_count(fn.params[param.name].values) == 0 then
+					break
+				end
+			else
+				param_to_process = param
+				param_idx = idx
+				break
+			end
+		end
+		if param_to_process then
+			_fn_call_display_param_info(param_idx, param_to_process)
+			_fn_call_get_param_value(fn, param_to_process)
+		else
+			_fn_call_insert(fn)
+		end
+	end
+
+	-- enter/select param value(s)
+	_fn_call_get_param_value = function(fn, param, ignore_default)
+		ignore_default = ignore_default or false
+		local name = param.name
+		local prompt
+		fn.params[name] = fn.params[name] or {}
+		fn.params[name].values = fn.params[name].values or {}
+		local selected = fn.params[name].values
+		-- need to know whether and how many available param values are available
+		-- this is for function calls and execution flow
+		local available = {}
+		local has_values = param.values and type(param.values) == "table" and vim.tbl_count(param.values) ~= 0
+		if has_values then
+			available = vim.tbl_filter(function(val)
+				return not vim.tbl_contains(selected, val)
+			end, param.values)
+		end
+		-- if default value is available, suggest using that
+		local try_default = param.default and not ignore_default and not vim.tbl_contains(selected, param.default)
+		if try_default then
+			prompt = _fn_call_param_prompt_prefix(param) .. " - accept default?"
+			vim.ui.select({ "Yes", "No" }, { prompt = prompt }, function(choice)
+				_fn_call_process_param_value_selection(fn, param, choice, true, available)
+			end)
+			return
+		end
+		-- either select or input value
+		if has_values then
+			-- select preset value
+			prompt = _fn_call_param_prompt_prefix(param) .. " - select value:"
+			vim.ui.select(available, { prompt = prompt }, function(val)
+				_fn_call_process_param_value_selection(fn, param, val, false, available)
+			end)
+			return
+		else
+			-- manually enter value
+			prompt = _fn_call_param_prompt_prefix(param) .. " - enter value:"
+			vim.ui.input({ prompt = prompt }, function(input)
+				_fn_call_process_param_value_selection(fn, param, input, false, available)
+			end)
+			return
+		end
+	end
+	--  --
+	-- process param value selection
+	_fn_call_process_param_value_selection = function(fn, param, value, default_selection, available)
+		local name = param.name
+		-- handle a default selection?
+		if default_selection then
+			if value == "Yes" then
+				table.insert(fn.params[name].values, param.default)
+				fn.params[name].processed = true
+				_fn_call_enter_params(fn)
+			else
+				_fn_call_get_param_value(fn, param, true)
+			end
+			return
+		end
+		-- handle a provided value
+		if value then
+			table.insert(fn.params[name].values, value)
+			if param.multipart then
+				-- available array was populated before user's last selection
+				-- so if it has only 1 element, assume it was just selected by user,
+				-- so an available count of 1 means none actually available,
+				-- meaning the 'true' available count in that case is 0
+				if param.values and vim.tbl_count(available) <= 1 then
+					fn.params[name].processed = true
+					_fn_call_enter_params(fn)
+				else
+					_fn_call_get_param_value(fn, param, true)
+				end
+			else -- not multipart
+				fn.params[name].processed = true
+				_fn_call_enter_params(fn)
+			end
+		else -- handle value not provided == nil == user 'aborted'
+			-- handle special case of default value
+			if param.default and vim.tbl_count(fn.params[name].values) == 0 then
+				table.insert(fn.params[name].values, param.default)
+				fn.params[name].processed = true
+				_fn_call_enter_params(fn)
+				return
+			end
+			if param.required then
+				if vim.tbl_count(fn.params[name].values) ~= 0 then
+					fn.params[name].processed = true
+					_fn_call_enter_params(fn)
+				else
+					_fn_call_get_param_value(fn, param, true)
+				end
+			else -- not required
+				fn.params[name].processed = true
+				_fn_call_enter_params(fn)
+			end
+		end
+	end
+
+	-- insert function call
+	_fn_call_insert = function(fn)
+		-- simplify params data structure
+		fn.params = fn.params or {}
+		local params_data = fn.params
+		fn.params = {}
+		local param_order = {}
+		if lib_fn.params then
+			param_order = vim.tbl_map(function(param)
+				return param.name
+			end, lib_fn.params)
+		end
+		for _, param_name in ipairs(param_order) do
+			if params_data[param_name] then
+				local data = params_data[param_name]
+				if data.values and type(data.values) == "table" and vim.tbl_count(data.values) ~= 0 then
+					-- neither vim.fn.extend or vim.tbl_extend worked properly here
+					for _, value in ipairs(data.values) do
+						table.insert(fn.params, value)
+					end
+				end
+			end
+		end
+		-- assemble function call
+		local fn_call = lib_fn.name
+		-- • options
+		if lib_fn.options and type(lib_fn.options == "table") then
+			for _, option in ipairs(lib_fn.options) do
+				local flag = option.flag
+				if fn.options[flag] then
+					if vim.tbl_count(fn.options[flag]) ~= 0 then
+						-- assume an option with value(s)
+						for _, val in ipairs(fn.options[flag]) do
+							fn_call = fn_call .. sf(" -%s '%s'", flag, val)
+						end
+					else
+						-- assume an option without value, i.e., a toggle-type option
+						fn_call = fn_call .. sf(" -%s", flag)
+					end
+				end
+			end
+		end
+		-- • parameters
+		for _, val in ipairs(fn.params) do
+			fn_call = fn_call .. sf(" '%s'", val)
+		end
+		-- insert function call
+		vim.api.nvim_put({ fn_call }, "c", false, true)
+	end
+
+	-- main script
+
+	-- start entering detail of function call
+	_fn_call_enter_options()
+end
+
+if editing_library_file then
+	-- add_fn_tags()
+
+	---This function is only defined when the file being edited is a function
+	---definition file in the libdncommon-bash library. It aids the author in
+	---generating tag lines for individual functions. These specially formatted
+	---tag lines provide information used by library build tools in a number of
+	---ways, including constructing the library data store, dictionary and loader
+	---files.
+	---The function is mapped by default to '<LocalLeader>aft', usually '\aft'.
+	---@return nil _ No return value
+	function dn_sh.add_fn_tags()
+		-- WARNING: if editing this function note that it consists of a chain of
+		--          local functions called in turn through callbacks in
+		--          |vim.ui.input()| and |vim.ui.input()| calls; this makes the
+		--          function inherently fragile and easy to break
+
+		-- pre-declare local functions
+		local _get_fn_purpose
+		local _get_fn_print
+		local _get_fn_retval
+		local _get_fn_usages
+		local _get_fn_notes
+		local _get_fn_options
+		local _available_option_flags
+		local _get_fn_option_flag
+		local _get_fn_option_purpose
+		local _get_fn_option_required
+		local _get_fn_option_multiple
+		local _get_fn_option_type
+		local _get_fn_option_values
+		local _get_fn_option_default
+		local _get_fn_option_notes
+		local _get_fn_params
+		local _param_exists
+		local _get_fn_param_name
+		local _get_fn_param_purpose
+		local _previous_param_optional
+		local _get_fn_param_required
+		local _get_fn_param_multipart
+		local _get_fn_param_type
+		local _get_fn_param_values
+		local _get_fn_param_default
+		local _get_fn_param_notes
+		local _output_tags
+
+		--[[
+  eventual format of data-capture variable 'fn':
+  {
+    name    => <string>,          -- required
+    purpose => <string>,          -- required
+    print   => <string>,          -- required
+    retval  => <string>,          -- required
+    usages  => { <string>, ... }, -- optional
+    notes   => { <string>, ... }, -- optional
+    options => { <OPTION>, ... }, -- optional
+    params  => { <PARAM>, ... }   -- optional
+  }
+  where 'OPTION' is:
+  {
+    flag     => <char>,           -- required
+    purpose  => <string>,         -- required
+    required => <boolean>,        -- required
+    multiple => <boolean>,        -- required
+    type     => <string>,         -- required {None,String,Integer,Number,Boolean,Path,Date,Time}
+    values   => { <string>, ... } -- optional
+    default  => <string>,         -- optional
+    notes    => { <string>, ... } -- optional
+  }
+  and 'PARAM' is:
+  {
+    name      => <string>,          -- required
+    purpose   => <string>,          -- required
+    required  => <boolean>,         -- required
+    multipart => <boolean>,         -- required
+    type      => <string>,          -- required {as OPTION_type without NONE}
+    values    => { <string>, ... }, -- optional
+    default   => <boolean>,         -- optional
+    notes     => { <string>, ... }  -- optional
+  }
+  --]]
+
+		-- variables used in multiple local functions
+		local prompt, default
+
+		-- get function name
+		local current_line = vim.api.nvim_get_current_line()
+		default = current_line:match("(dn%w+)%s*%(%)%s+{%s*$")
+		prompt = "Function name [required]:"
+		vim.ui.input({ prompt = prompt, default = default }, function(input)
+			if not (input and input:len() ~= 0) then
+				util.warning("Aborted: no function name provided")
+				return
+			end
+			local fn = {}
+			fn.name = input
+			_get_fn_purpose(fn)
+		end)
+
+		-- get function purpose
+		_get_fn_purpose = function(fn)
+			prompt = "Function purpose [required]:"
+			vim.ui.input({ prompt = prompt }, function(input)
+				if not (input and input:len() ~= 0) then
+					util.warning("Aborted: no function purpose provided")
+					return
+				end
+				fn.purpose = input
+				_get_fn_print(fn)
+			end)
+		end
+
+		-- get function stdout/print
+		_get_fn_print = function(fn)
+			prompt = "Function stdout [required]:"
+			default = "NIL"
+			vim.ui.input({ prompt = prompt, default = default }, function(input)
+				if not (input and input:len() ~= 0) then
+					util.warning("Aborted: no function stdout/print provided")
+					return
+				end
+				fn.print = input
+				_get_fn_retval(fn)
+			end)
+		end
+
+		-- get function retval
+		_get_fn_retval = function(fn)
+			prompt = "Function return value [required]:"
+			default = "NIL"
+			vim.ui.input({ prompt = prompt, default = default }, function(input)
+				if not (input and input:len() ~= 0) then
+					util.warning("Aborted: no function return details provided")
+					return
+				end
+				fn.retval = input
+				fn.usages = {}
+				_get_fn_usages(fn)
+			end)
+		end
+
+		-- get function usages
+		_get_fn_usages = function(fn)
+			if fn.new_usage and fn.new_usage:len() ~= 0 then
+				table.insert(fn.usages, fn.new_usage)
+				fn.new_usage = nil
+			end
+			prompt = "Function usage [optional, multiple]:"
+			vim.ui.input({ prompt = prompt }, function(input)
+				if input and input:len() ~= 0 then
+					fn.new_usage = input
+					_get_fn_usages(fn)
+				else
+					fn.notes = {}
+					_get_fn_notes(fn)
+				end
+			end)
+		end
+
+		-- get function notes
+		_get_fn_notes = function(fn)
+			if fn.new_note and fn.new_note:len() ~= 0 then
+				table.insert(fn.notes, fn.new_note)
+				fn.new_note = nil
+			end
+			prompt = "Function notes [optional, multiple]:"
+			vim.ui.input({ prompt = prompt }, function(input)
+				if input and input:len() ~= 0 then
+					fn.new_note = input
+					_get_fn_notes(fn)
+				else
+					fn.options = {}
+					_get_fn_options(fn)
+				end
+			end)
+		end
+
+		-- get function options
+		_get_fn_options = function(fn)
+			if fn.new_option and next(fn.new_option) ~= nil then
+				table.insert(fn.options, fn.new_option)
+				fn.new_option = nil
+			end
+			if next(fn.options) == nil then
+				prompt = "Add a function option?"
+			else
+				prompt = "Add another function option?"
+			end
+			vim.ui.select({ "Yes", "No" }, { prompt = prompt }, function(choice)
+				if choice and choice == "Yes" then
+					fn.new_option = {}
+					_get_fn_option_flag(fn)
+				else
+					fn.params = {}
+					_get_fn_params(fn)
+				end
+			end)
+		end
+
+		-- get available option flags
+		_available_option_flags = function(fn)
+			-- get all possible flags
+			local all_flags = {}
+			for i = 97, 122 do
+				table.insert(all_flags, vim.fn.nr2char(i))
+			end
+			-- get used flags
+			local used_flags = {}
+			for _, option in ipairs(fn.options) do
+				table.insert(used_flags, option.flag)
+			end
+			-- get available flags
+			local available_flags = {}
+			for _, flag in ipairs(all_flags) do
+				if not util.is_table_value(used_flags, flag) then
+					table.insert(available_flags, flag)
+				end
+			end
+			-- return available flags
+			return available_flags
+		end
+
+		-- get function option flag
+		_get_fn_option_flag = function(fn)
+			prompt = "Select option flag [required]:"
+			local available_flags = _available_option_flags(fn)
+			vim.ui.select(available_flags, { prompt = prompt }, function(choice)
+				if choice and choice:len() == 1 then
+					fn.new_option.flag = string.lower(choice)
+					_get_fn_option_purpose(fn)
+				else
+					fn.new_option = nil
+					util.warning("Aborting option creation")
+					_get_fn_options(fn)
+				end
+			end)
+		end
+
+		-- get option purpose
+		_get_fn_option_purpose = function(fn)
+			prompt = sf("Option '-%s' purpose [required]:", fn.new_option.flag)
+			vim.ui.input({ prompt = prompt }, function(input)
+				if input and input:len() ~= 0 then
+					fn.new_option.purpose = input
+					_get_fn_option_required(fn)
+				else
+					fn.new_option = nil
+					util.warning("Aborting option creation")
+					_get_fn_options(fn)
+				end
+			end)
+		end
+
+		-- get option required
+		_get_fn_option_required = function(fn)
+			prompt = sf("Option '-%s' is required? [required]", fn.new_option.flag)
+			vim.ui.select({ "Yes", "No" }, { prompt = prompt }, function(choice)
+				if choice then
+					fn.new_option.required = string.lower(choice)
+					_get_fn_option_multiple(fn)
+				else
+					fn.new_option = nil
+					util.warning("Aborting option creation")
+					_get_fn_options(fn)
+				end
+			end)
+		end
+
+		-- get option multiple
+		_get_fn_option_multiple = function(fn)
+			prompt = sf("Can use option '-%s' used multiple times? [required]", fn.new_option.flag)
+			vim.ui.select({ "Yes", "No" }, { prompt = prompt }, function(choice)
+				if choice then
+					fn.new_option.multiple = string.lower(choice)
+					_get_fn_option_type(fn)
+				else
+					fn.new_option = nil
+					util.warning("Aborting option creation")
+					_get_fn_options(fn)
+				end
+			end)
+		end
+
+		-- get option data type
+		_get_fn_option_type = function(fn)
+			local types = {
+				"None",
+				"String",
+				"Integer",
+				"Number",
+				"Boolean",
+				"Path",
+				"Date",
+				"Time ",
+			}
+			prompt = sf("Option '-%s' data type? [required]", fn.new_option.flag)
+			vim.ui.select(types, { prompt = prompt }, function(choice)
+				if choice then
+					fn.new_option.type = string.lower(choice)
+					fn.new_option.values = {}
+					_get_fn_option_values(fn)
+				else
+					fn.new_option = nil
+					util.warning("Aborting option creation")
+					_get_fn_options(fn)
+				end
+			end)
+		end
+
+		-- get option values
+		_get_fn_option_values = function(fn)
+			if fn.new_option.new_value and fn.new_option.new_value:len() ~= 0 then
+				table.insert(fn.new_option.values, fn.new_option.new_value)
+				fn.new_option.new_value = nil
+			end
+			prompt = sf("Option '-%s' values [optional, multiple]:", fn.new_option.flag)
+			vim.ui.input({ prompt = prompt }, function(input)
+				if input and input:len() ~= 0 then
+					if util.is_table_value(fn.new_option.values, input) then
+						util.warning(sf("Option value '%s' already exists", input))
+					else
+						fn.new_option.new_value = input
+					end
+					_get_fn_option_values(fn)
+				else
+					_get_fn_option_default(fn)
+				end
+			end)
+		end
+
+		-- get option default
+		_get_fn_option_default = function(fn)
+			if util.table_size(fn.new_option.values) > 0 then
+				-- select from existing values if present...
+				prompt = sf("Option '-%s' default value:", fn.new_option.flag)
+				vim.ui.select(fn.new_option.values, { prompt = prompt }, function(choice)
+					if choice then
+						fn.new_option.default = choice
+					end
+					fn.new_option.notes = {}
+					_get_fn_option_notes(fn)
+				end)
+			else
+				-- ...otherwise enter directly
+				prompt = sf("Option '-%s' default value:", fn.new_option.flag)
+				vim.ui.input({ prompt = prompt }, function(input)
+					if input and input:len() ~= 0 then
+						fn.new_option.default = input
+					end
+					fn.new_option.notes = {}
+					_get_fn_option_notes(fn)
+				end)
+			end
+		end
+
+		-- get option notes
+		_get_fn_option_notes = function(fn)
+			if fn.new_option.new_note and fn.new_option.new_note:len() ~= 0 then
+				table.insert(fn.new_option.notes, fn.new_option.new_note)
+				fn.new_option.new_note = nil
+			end
+			prompt = sf("Option '-%s' notes [optional, multiple]:", fn.new_option.flag)
+			vim.ui.input({ prompt = prompt }, function(input)
+				if input and input:len() ~= 0 then
+					fn.new_option.new_note = input
+					_get_fn_option_notes(fn)
+				else
+					_get_fn_options(fn)
+				end
+			end)
+		end
+
+		-- get function parameters
+		_get_fn_params = function(fn)
+			if fn.new_param and next(fn.new_param) ~= nil then
+				table.insert(fn.params, fn.new_param)
+				fn.new_param = nil
+			end
+			local param_num = vim.tbl_count(fn.params) + 1
+			prompt = sf("Add function parameter %d?", param_num)
+			vim.ui.select({ "Yes", "No" }, { prompt = prompt }, function(choice)
+				if choice and choice == "Yes" then
+					fn.new_param = {}
+					_get_fn_param_name(fn)
+				else
+					_output_tags(fn)
+				end
+			end)
+		end
+
+		-- check whether parameter name already exists
+		_param_exists = function(fn, param_name)
+			-- get existing flags
+			local existing_param_names = {}
+			for _, param in ipairs(fn.params) do
+				table.insert(existing_param_names, param.name)
+			end
+			-- test new param name
+			return util.is_table_value(existing_param_names, param_name)
+		end
+
+		-- get parameter name
+		_get_fn_param_name = function(fn)
+			local param_num = vim.tbl_count(fn.params) + 1
+			prompt = sf("Parameter %d name [required]:", param_num)
+			vim.ui.input({ prompt = prompt }, function(input)
+				if input and input:len() ~= 0 then
+					if _param_exists(fn, input) then
+						util.warning(sf("Parameter '%s' is already defined", input))
+						_get_fn_param_name(fn)
+					else
+						fn.new_param.name = input
+						_get_fn_param_purpose(fn)
+					end
+				else
+					fn.new_param = nil
+					util.warning("Aborting parameter creation")
+					_get_fn_params(fn)
+				end
+			end)
+		end
+
+		-- get parameter purpose
+		_get_fn_param_purpose = function(fn)
+			prompt = sf("Param '%s' purpose [required]:", fn.new_param.name)
+			vim.ui.input({ prompt = prompt }, function(input)
+				if input and input:len() ~= 0 then
+					fn.new_param.purpose = input
+					_get_fn_param_required(fn)
+				else
+					fn.new_param = nil
+					util.warning("Aborting parameter creation")
+					_get_fn_params(fn)
+				end
+			end)
+		end
+
+		-- whether a previous parameter is optional (not required)
+		_previous_param_optional = function(fn)
+			local has_previous_options_param = false
+			for _, param in ipairs(fn.params) do
+				if param.required == "no" then
+					has_previous_options_param = true
+				end
+			end
+			return has_previous_options_param
+		end
+
+		-- get parameter required
+		_get_fn_param_required = function(fn)
+			if _previous_param_optional(fn) then
+				util.warning("Must be optional param because previous param is optional")
+				fn.new_param.required = "no"
+				_get_fn_param_multipart(fn)
+			else
+				prompt = sf("Parameter '%s' is required? [required]", fn.new_param.name)
+				vim.ui.select({ "Yes", "No" }, { prompt = prompt }, function(choice)
+					if choice then
+						fn.new_param.required = string.lower(choice)
+						_get_fn_param_multipart(fn)
+					else
+						fn.new_param = nil
+						util.warning("Aborting parameter creation")
+						_get_fn_params(fn)
+					end
+				end)
+			end
+		end
+
+		-- get parameter multipart
+		_get_fn_param_multipart = function(fn)
+			prompt = sf("Parameter '%s' is multi-part? [required]", fn.new_param.name)
+			vim.ui.select({ "Yes", "No" }, { prompt = prompt }, function(choice)
+				if choice then
+					fn.new_param.multipart = string.lower(choice)
+					_get_fn_param_type(fn)
+				else
+					fn.new_param = nil
+					util.warning("Aborting parameter creation")
+					_get_fn_params(fn)
+				end
+			end)
+		end
+
+		-- get parameter data type
+		_get_fn_param_type = function(fn)
+			local types = {
+				"String",
+				"Integer",
+				"Number",
+				"Boolean",
+				"Path",
+				"Date",
+				"Time ",
+			}
+			prompt = sf("Parameter '%s' data type? [required]", fn.new_param.name)
+			vim.ui.select(types, { prompt = prompt }, function(choice)
+				if choice then
+					fn.new_param.type = string.lower(choice)
+					fn.new_param.values = {}
+					_get_fn_param_values(fn)
+				else
+					fn.new_param = nil
+					util.warning("Aborting parameter creation")
+					_get_fn_params(fn)
+				end
+			end)
+		end
+
+		-- get parameter values
+		_get_fn_param_values = function(fn)
+			if fn.new_param.new_value and fn.new_param.new_value:len() ~= 0 then
+				table.insert(fn.new_param.values, fn.new_param.new_value)
+				fn.new_param.new_value = nil
+			end
+			prompt = sf("Param '%s' values [optional, multiple]:", fn.new_param.name)
+			vim.ui.input({ prompt = prompt }, function(input)
+				if input and input:len() ~= 0 then
+					if util.is_table_value(fn.new_param.values, input) then
+						util.warning(sf("Parameter value '%s' already exists", input))
+					else
+						fn.new_param.new_value = input
+					end
+					_get_fn_param_values(fn)
+				else
+					_get_fn_param_default(fn)
+				end
+			end)
+		end
+
+		-- get parameter default
+		_get_fn_param_default = function(fn)
+			if util.table_size(fn.new_param.values) > 0 then
+				-- select from existing values if present...
+				prompt = sf("Parameter '%s' default value:", fn.new_param.name)
+				vim.ui.select(fn.new_param.values, { prompt = prompt }, function(choice)
+					if choice then
+						fn.new_param.default = choice
+					end
+					fn.new_param.notes = {}
+					_get_fn_param_notes(fn)
+				end)
+			else
+				-- ...otherwise enter directly
+				prompt = sf("Parameter '%s' default value:", fn.new_param.name)
+				vim.ui.input({ prompt = prompt }, function(input)
+					if input and input:len() ~= 0 then
+						fn.new_param.default = input
+					end
+					fn.new_param.notes = {}
+					_get_fn_param_notes(fn)
+				end)
+			end
+		end
+
+		-- get parameter notes
+		_get_fn_param_notes = function(fn)
+			if fn.new_param.new_note and fn.new_param.new_note:len() ~= 0 then
+				table.insert(fn.new_param.notes, fn.new_param.new_note)
+				fn.new_param.new_note = nil
+			end
+			prompt = sf("Param '%s' notes [optional, multiple]:", fn.new_param.name)
+			vim.ui.input({ prompt = prompt }, function(input)
+				if input and input:len() ~= 0 then
+					fn.new_param.new_note = input
+					_get_fn_param_notes(fn)
+				else
+					_get_fn_params(fn)
+				end
+			end)
+		end
+
+		-- output tags
+		_output_tags = function(fn)
+			-- assemble output
+			local prefix = "fn_tag"
+			local func = fn.name
+			local line = {}
+			local sep = " "
+			local output = {}
+			-- function purpose (string scalar, required)
+			line = { "#", prefix, func, "purpose", fn.purpose }
+			table.insert(output, table.concat(line, sep))
+			-- function output/print (string scalar, required)
+			line = { "#", prefix, func, "prints", fn.print }
+			table.insert(output, table.concat(line, sep))
+			-- function retval (string scalar, required)
+			line = { "#", prefix, func, "returns", fn.retval }
+			table.insert(output, table.concat(line, sep))
+			-- function usages (string array, optional)
+			if fn.usages then
+				for _, usage in ipairs(fn.usages) do
+					line = { "#", prefix, func, "usage", usage }
+					table.insert(output, table.concat(line, sep))
+				end
+			end
+			-- function notes (string array, optional)
+			if fn.notes then
+				for _, note in ipairs(fn.notes) do
+					line = { "#", prefix, func, "note", note }
+					table.insert(output, table.concat(line, sep))
+				end
+			end
+			-- function options (table array, optional)
+			if fn.options then
+				for _, option in ipairs(fn.options) do
+					local flag = option.flag
+					-- option purpose (string scalar, required)
+					line = { "#", prefix, func, "option", flag, "purpose", option.purpose }
+					table.insert(output, table.concat(line, sep))
+					-- option required (boolean scalar, required)
+					line = { "#", prefix, func, "option", flag, "required", option.required }
+					table.insert(output, table.concat(line, sep))
+					-- option multiple (boolean scalar, required)
+					line = { "#", prefix, func, "option", flag, "multiple", option.required }
+					table.insert(output, table.concat(line, sep))
+					-- option type (string scalar, required)
+					line = { "#", prefix, func, "option", flag, "purpose", option.purpose }
+					table.insert(output, table.concat(line, sep))
+					-- option values (string array, optional)
+					if option.values then
+						for _, value in ipairs(option.values) do
+							line = { "#", prefix, func, "option", flag, "value", value }
+							table.insert(output, table.concat(line, sep))
+						end
+					end
+					-- option default (string scalar, optional)
+					if option.default and option.default:len() ~= 0 then
+						line = { "#", prefix, func, "option", flag, "default", option.default }
+						table.insert(output, table.concat(line, sep))
+					end
+					-- option notes (string array, optional)
+					if option.notes then
+						for _, note in ipairs(option.notes) do
+							line = { "#", prefix, func, "option", flag, "note", note }
+							table.insert(output, table.concat(line, sep))
+						end
+					end
+				end
+			end
+			-- function params (table array, optional)
+			if fn.params then
+				for _, param in ipairs(fn.params) do
+					local name = param.name
+					-- param purpose (string scalar, required)
+					line = { "#", prefix, func, "param", name, "purpose", param.purpose }
+					table.insert(output, table.concat(line, sep))
+					-- param required (boolean scalar, required)
+					line = { "#", prefix, func, "param", name, "required", param.required }
+					table.insert(output, table.concat(line, sep))
+					-- param multipart (boolean scalar, required)
+					line = { "#", prefix, func, "param", name, "multipart", param.multipart }
+					table.insert(output, table.concat(line, sep))
+					-- param type (string scalar, required)
+					line = { "#", prefix, func, "param", name, "type", param.type }
+					table.insert(output, table.concat(line, sep))
+					-- param values (string array, optional)
+					if param.values then
+						for _, value in ipairs(param.values) do
+							line = { "#", prefix, func, "param", name, "value", value }
+							table.insert(output, table.concat(line, sep))
+						end
+					end
+					-- param default (string scalar, optional)
+					if param.default and param.default:len() ~= 0 then
+						line = { "#", prefix, func, "param", name, "default", param.default }
+						table.insert(output, table.concat(line, sep))
+					end
+					-- param notes (string array, optional)
+					if param.notes then
+						for _, note in ipairs(param.notes) do
+							line = { "#", prefix, func, "param", name, "note", note }
+							table.insert(output, table.concat(line, sep))
+						end
+					end
+				end
+			end
+			-- write tag output to buffer
+			vim.api.nvim_put(output, "l", false, true)
+		end
+	end
+end
+
+-- DICTIONARIES
+
+--vim.opt_local.dictionary:append("@vim_libdncb@/funcdict")
+vim.opt_local.dictionary:append("/home/david/data/computing/projects/libs/common-bash/tarball/build/vim/funcdict")
+vim.opt_local.dictionary:remove("/usr/share/dict/words")
+
+-- LOAD PLUGIN FILES
+
+-- library variable loader file
+--vim.cmd.luafile("@vim_libdncb@/funcload.lua")
+vim.cmd.luafile("/home/david/data/computing/projects/libs/common-bash/tarball/build/vim/funcload.lua")
+
+-- MAPPINGS
+
+---@mod dn_sh.mappings Mappings
+
+-- \hf [n,i]
+
+---@tag dn_sh.<Leader>hf
+---@brief [[
+---This mapping calls the function |dn_sh.display_fn_help| in modes
+---"n" and "i".
+---@brief ]]
+vim.keymap.set({ "n", "i" }, "<Leader>hf", dn_sh.display_fn_help, { desc = "Display function help" })
+
+-- \if [n,i]
+
+---@tag dn_sh.<Leader>if
+---@brief [[
+---This mapping calls the function |dn_sh.insert_fn_call| in modes
+---"n" and "i".
+---@brief ]]
+vim.keymap.set({ "n", "i" }, "<Leader>if", dn_sh.insert_fn_call, { desc = "Insert function call" })
+
+if editing_library_file then
+	-- \aft [n,i]
+
+	---@tag dn_sh.<Leader>aft
+	---@brief [[
+	---This mapping is only available when the file being edited is a function
+	---definition file in the libdncommon-bash library. It calls the function
+	---|dn_sh.add_fn_tags| in modes "n" and "i".
+	---@brief ]]
+	vim.keymap.set(
+		{ "n", "i" },
+		"<Leader>aft",
+		dn_sh.add_fn_tags,
+		{ desc = "Add function tags to libdbcommon-bash library function" }
+	)
+end
+
+-- COMMANDS
+
+---@mod dn_sh.commands Commands
+
+---@tag dn_sh.SUDisplayFnHelp
+---@brief [[
+---Calls function |dn_sh.display_fn_help| to display function help.
+---@brief ]]
+vim.api.nvim_create_user_command("SUDisplayFnHelp", function()
+	dn_sh.display_fn_help()
+end, { desc = "Display function help" })
+
+---@tag dn_sh.SUInsertFunctionCall
+---@brief [[
+---Calls function |dn_sh.insert_fn_call| to display function help.
+---@brief ]]
+vim.api.nvim_create_user_command("SUInsertFunctionCall", function()
+	dn_sh.insert_fn_call()
+end, { desc = "Insert function call" })
+
+return dn_sh
