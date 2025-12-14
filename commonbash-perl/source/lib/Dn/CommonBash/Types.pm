@@ -4,7 +4,7 @@ package Dn::CommonBash::Types;
 use 5.038_001;
 use strict;
 use warnings;
-use version; our $VERSION = qv('5.30');    # }}}1
+use version; our $VERSION = qv('5.40');    # }}}1
 
 # predeclare types as per Type::Tiny::Manual::Libraries manpage
 # (which is called up by the Type::Library manpage)
@@ -56,7 +56,7 @@ Dn::CommonBash::Types - data constraints for package CommonBash
 
 =head1 VERSION
 
-This documentation refers to Dn::CommonBash::Types version 5.30.
+This documentation refers to Dn::CommonBash::Types version 5.40.
 
 =head1 SYNOPSIS
 

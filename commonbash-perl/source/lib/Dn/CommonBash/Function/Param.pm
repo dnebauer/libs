@@ -6,7 +6,7 @@ use strictures 2;
 use 5.006;
 use 5.038_001;
 use namespace::clean;
-use version; our $VERSION = qv('5.30');
+use version; our $VERSION = qv('5.40');
 
 use Test::NeedsDisplay;    # must be first listed
 use Const::Fast;
@@ -388,7 +388,7 @@ Dn::CommonBash::Function::Param - dncommon-bash library function parameter
 
 =head1 VERSION
 
-This documentation refers to Dn::CommonBash::Function::Param version 5.30.
+This documentation refers to Dn::CommonBash::Function::Param version 5.40.
 
 =head1 SYNOPSIS
 

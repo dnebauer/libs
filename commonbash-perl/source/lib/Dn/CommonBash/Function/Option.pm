@@ -5,7 +5,7 @@ use Moo;
 use strictures 2;
 use 5.038_001;
 use namespace::clean;
-use version; our $VERSION = qv('5.30');
+use version; our $VERSION = qv('5.40');
 
 use Test::NeedsDisplay;    # must be first listed module
 use Const::Fast;
@@ -148,7 +148,7 @@ sub display_option_screen ($self) {
 
   # type
   if ($self->type && $self->type !~ /none/xsmi) {    # has value
-    $line .= q{\<} . $self->type . q{>"};
+    $line .= q{ "<} . $self->type . q{>"};
   }
   else {                                             # has no value
     push @errors, q{  Error: No 'type' attribute};
@@ -386,7 +386,7 @@ Dn::CommonBash::Function::Option - dncommon-bash library function option
 
 =head1 VERSION
 
-This documentation is for Dn::CommonBash::Function::Option version 5.30.
+This documentation is for Dn::CommonBash::Function::Option version 5.40.
 
 =head1 SYNOPSIS
 

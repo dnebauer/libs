@@ -5,7 +5,7 @@ use Moo;
 use strictures 2;
 use 5.038_001;
 use namespace::clean;
-use version; our $VERSION = qv('5.30');
+use version; our $VERSION = qv('5.40');
 
 use Test::NeedsDisplay;    # needs to be the first listed module
 use Carp qw(confess);
@@ -264,11 +264,13 @@ sub new_param ($self, $name) {
 # write_nvim_function_loader()    {{{1
 #
 # does:   generate rhs of lua assignment statement for function loader
-# params: nil
+# params: name - name of function [string, required]
 # prints: nil
 # return: scalar string
-sub write_nvim_function_loader ($self) {
+sub write_nvim_function_loader ($self, $name) {
   my $fn = $LUA_TABLE_OPEN;
+
+  $fn .= qq(["name"] = "$name", );
 
   # purpose
   if ($self->purpose) {
@@ -414,7 +416,7 @@ Dn::CommonBash::Function - a bash function
 
 =head1 VERSION
 
-This documentation is for Dn::CommonBash::Function version 5.30.
+This documentation is for Dn::CommonBash::Function version 5.40.
 
 =head1 SYNOPSIS
 

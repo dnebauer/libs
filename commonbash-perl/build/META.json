@@ -64,7 +64,7 @@
       }
    },
    "release_status" : "stable",
-   "version" : "v5.30",
+   "version" : "v5.40",
    "x_contributors" : [
       "David Nebauer <david@nebauer.org>"
    ],

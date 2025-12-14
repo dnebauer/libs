@@ -1,3 +1,9 @@
+libdn-commonbash-perl (5.40-1) unstable; urgency=low
+
+  * Add nvim/lua support
+
+ -- David Nebauer <davidnebauer@hotkey.net.au>  Tue, 23 Sep 2025 00:20:53 +0930
+
 libdn-commonbash-perl (5.30-1) unstable; urgency=low
 
   * Remove dependency on Function::Parameters
