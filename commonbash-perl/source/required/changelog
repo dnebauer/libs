@@ -1,3 +1,9 @@
+libdn-commonbash-perl (5.50-1) unstable; urgency=low
+
+  * Remove vim support
+
+ -- David Nebauer <davidnebauer@hotkey.net.au>  Mon, 15 Dec 2025 22:21:49 +0930
+
 libdn-commonbash-perl (5.40-1) unstable; urgency=low
 
   * Add nvim/lua support

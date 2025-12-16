@@ -24,13 +24,7 @@ const my $COMMA           => q{,};
 const my $LUA_TABLE_CLOSE => q[}];
 const my $LUA_TABLE_OPEN  => q[{ ];
 const my $SPACE           => q{ };
-const my $STR_ERROR       => q{error};
-const my $VIM_DICT_CLOSE  => $LUA_TABLE_CLOSE;
-const my $VIM_DICT_OPEN   => $LUA_TABLE_OPEN;
-const my $VIM_LIST_CLOSE  => q{]};
-const my $VIM_LIST_OPEN   => q{[ };
-
-# }}}1
+const my $STR_ERROR       => q{error};    # }}}1
 
 # attributes
 
@@ -330,77 +324,6 @@ sub write_nvim_function_loader ($self, $name) {
     $fn .= $LUA_TABLE_CLOSE . $COMMA . $SPACE;
   }
   $fn .= $LUA_TABLE_CLOSE;
-  return $fn;
-}    # }}}1
-
-# write_vim_function_loader()    {{{1
-#
-# does:   generate vim 'let' command for loader
-# params: nil
-# prints: nil
-# return: scalar string
-# note:   designed to be called as Dn::CommonBash::Function->write_vim_function_loader
-sub write_vim_function_loader ($self) {
-  my $fn = $VIM_DICT_OPEN;
-
-  # purpose
-  if ($self->purpose) {
-    my $purpose_value = $self->string_entitise($self->purpose);
-    $fn .= "'purpose': '$purpose_value', ";
-  }
-
-  # prints
-  if ($self->prints) {
-    my $prints_value = $self->string_entitise($self->prints);
-    $fn .= "'prints': '$prints_value',";
-  }
-
-  # returns
-  if ($self->returns) {
-    my $returns_value = $self->string_entitise($self->returns);
-    $fn .= "'returns': '$returns_value'";
-  }
-
-  # notes
-  if ($self->_has_notes) {
-    $fn .= qq{'notes': $VIM_LIST_OPEN };
-    foreach my $note ($self->_notes) {
-      my $note_value = $self->string_entitise($note);
-      $fn .= "'$note_value', ";
-    }
-    $fn .= $VIM_LIST_CLOSE . $COMMA . $SPACE;
-  }
-
-  # usage
-  if ($self->_has_usages) {
-    $fn .= qq{'usage': $VIM_LIST_OPEN };
-    foreach my $usage ($self->_usages) {
-      my $usage_value = $self->string_entitise($usage);
-      $fn .= "'$usage_value', ";
-    }
-    $fn .= $VIM_LIST_CLOSE . $COMMA . $SPACE;
-  }
-
-  # options
-  if ($self->_has_options) {
-    $fn .= qq{'options': $VIM_LIST_OPEN };
-    foreach my $option ($self->_options) {
-      my $content = $option->write_vim_option_loader();
-      $fn .= "'$content', ";
-    }
-    $fn .= $VIM_LIST_CLOSE . $COMMA . $SPACE;
-  }
-
-  # parameters
-  if ($self->_has_params) {
-    $fn .= qq{'params': $VIM_LIST_OPEN };
-    foreach my $param ($self->_params) {
-      my $content = $param->write_vim_param_loader();
-      $fn .= "$content, ";
-    }
-    $fn .= $VIM_LIST_CLOSE . $COMMA . $SPACE;
-  }
-  $fn .= $VIM_DICT_CLOSE;
   return $fn;
 }    # }}}1
 
@@ -788,26 +711,6 @@ Nil.
 =head3 Returns
 
 Scalar string.
-
-=head2 write_vim_function_loader()
-
-=head3 Purpose
-
-Generate vim C<let> command for loader.
-Designed to be called by the C<write_vim_function_loader> method.
-
-=head3 Parameters
-
-Nil.
-
-=head3 Print
-
-Nil.
-
-=head3 Returns
-
-Scalar string.
-
 
 =head1 DIAGNOSTICS
 

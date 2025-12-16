@@ -136,34 +136,6 @@ Nil.
 
 Nil.
 
-## write\_vim\_loader($loader)
-
-### Purpose
-
-Generate vim loader file.
-
-### Parameters
-
-- $loader
-
-    Loader filepath.
-
-    Required.
-
-- master
-
-    Location of root file in the dncommon-bash library.
-
-    Required if function data has not previously been extracted from dncommon-bash. If function data has been loaded this parameter is not required, and if present is ignored.
-
-### Prints
-
-Nil.
-
-### Returns
-
-Nil.
-
 ## write\_store($store)
 
 ### Purpose

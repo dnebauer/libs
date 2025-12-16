@@ -50,15 +50,6 @@ use version; our $VERSION = qv('0.1');    # }}}1
     documentation => 'Nvim (lua) loader script to be written',
   );
 
-  # vim loader  (-v) {{{1
-  option 'vim_loader' => (
-    is            => 'rw',
-    format        => $OPT_S,
-    required      => $TRUE,
-    short         => 'v',
-    documentation => 'Vim loader script to be written',
-  );
-
   # store       (-s) {{{1
   option 'store' => (
     is            => 'rw',
@@ -78,7 +69,6 @@ use version; our $VERSION = qv('0.1');    # }}}1
   # return: nil
   sub run ($self) {
     $cb->write_dictionary($self->dictionary, $self->master);
-    $cb->write_vim_loader($self->vim_loader, $self->master);
     $cb->write_nvim_loader($self->nvim_loader, $self->master);
     $cb->write_store($self->store, $self->master);
     return $TRUE;
@@ -100,14 +90,14 @@ gen-helper-files - create build files for dncommon-bash library
 
 =head1 USAGE
 
-B<gen-helper-files> I<-m> master I<-d> dictionary I<-l> vim_loader I<-s> store
+B<gen-helper-files> I<-m> master I<-d> dictionary I<-s> store I<-n> nvim_loader
 
 B<gen-helper-files -h>
 
 =head1 DESCRIPTION
 
 This script takes as input the master file in the libdncommon-bash library. It
-then creates four files:
+then creates three files:
 
 =over 4
 
@@ -123,12 +113,6 @@ of functions used as a dictionary file.
 Used by Nvim in handling the dncommon-bash library. This is a lua script which,
 when run, loads a vim data structure with function information that can be used
 by Nvim.
-
-=item vim loader script
-
-Used by Vim in handling the dncommon-bash library. This is a viml script which,
-when run, loads a vim data structure with function information that can be used
-by Vim.
 
 =item store
 
@@ -160,12 +144,6 @@ Required. Filepath.
 =head2 --nvim_loader -n
 
 Nvim (lua) loader script to be written.
-
-Required. Filepath.
-
-=head2 --vim_loader -v
-
-Vim loader script to be written.
 
 Required. Filepath.
 

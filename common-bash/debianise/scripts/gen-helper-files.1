@@ -55,7 +55,7 @@
 .\" ========================================================================
 .\"
 .IX Title "GEN-HELPER-FILES 1"
-.TH GEN-HELPER-FILES 1 2025-07-03 "perl v5.40.1" "User Contributed Perl Documentation"
+.TH GEN-HELPER-FILES 1 2025-12-16 "perl v5.40.1" "User Contributed Perl Documentation"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -64,7 +64,7 @@
 gen\-helper\-files \- create build files for dncommon\-bash library
 .SH USAGE
 .IX Header "USAGE"
-\&\fBgen-helper-files\fR \fI\-m\fR master \fI\-d\fR dictionary \fI\-l\fR loader \fI\-s\fR store
+\&\fBgen-helper-files\fR \fI\-m\fR master \fI\-d\fR dictionary \fI\-s\fR store \fI\-n\fR nvim_loader
 .PP
 \&\fBgen-helper-files \-h\fR
 .SH DESCRIPTION
@@ -76,10 +76,11 @@ then creates three files:
 .IX Item "dictionary"
 Used by Vim in handling the dncommon-bash library. This is a simple sorted list
 of functions used as a dictionary file.
-.IP "loader script" 4
-.IX Item "loader script"
-Used by Vim in handling the dncommon-bash library. This is a script which, when
-run, loads a vim data structure with function information that can be used by Vim.
+.IP "nvim loader script" 4
+.IX Item "nvim loader script"
+Used by Nvim in handling the dncommon-bash library. This is a lua script which,
+when run, loads a vim data structure with function information that can be used
+by Nvim.
 .IP store 4
 .IX Item "store"
 A perl-based persistent data store of the function data for use by perl scripts
@@ -102,9 +103,9 @@ Required. Filepath.
 Vim dictionary file to be written.
 .PP
 Required. Filepath.
-.SS "\-\-loader \-l"
-.IX Subsection "--loader -l"
-Vim loader script to be written.
+.SS "\-\-nvim_loader \-n"
+.IX Subsection "--nvim_loader -n"
+Nvim (lua) loader script to be written.
 .PP
 Required. Filepath.
 .SS "\-\-store \-s"

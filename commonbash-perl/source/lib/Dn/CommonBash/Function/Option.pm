@@ -24,11 +24,7 @@ const my $LUA_TABLE_OPEN  => q[{ ];
 const my $SINGLE_QUOTE    => q{'};
 const my $SPACE           => q{ };
 const my $STR_ERROR       => q{error};
-const my $STR_REQUIRED    => q{required};
-const my $VIM_DICT_CLOSE  => $LUA_TABLE_CLOSE;
-const my $VIM_DICT_OPEN   => $LUA_TABLE_OPEN;
-const my $VIM_LIST_CLOSE  => q{], };
-const my $VIM_LIST_OPEN   => q{[};               # }}}1
+const my $STR_REQUIRED    => q{required};    # }}}1
 
 # attributes
 
@@ -297,76 +293,6 @@ sub write_nvim_option_loader ($self) {
     $option .= $LUA_TABLE_CLOSE . $COMMA . $SPACE;
   }
   $option .= $LUA_TABLE_CLOSE;
-
-  # return option loader
-  return $option;
-}
-
-# write_vim_option_loader()    {{{1
-#
-# does:   generate portion of vim 'let' command for loader
-# params: nil
-# prints: nil
-# return: scalar string
-sub write_vim_option_loader ($self) {
-  my $option = $VIM_DICT_OPEN;
-
-  # flag
-  if ($self->flag) {
-    my $flag_value = $self->string_entitise($self->flag());
-    $option .= qq('flag': '$flag_value', );
-  }
-
-  # purpose
-  if ($self->purpose) {
-    my $purpose_value = $self->string_entitise($self->purpose());
-    $option .= qq('purpose': '$purpose_value', );
-  }
-
-  # required: is integer so unquoted
-  if ($self->required) {
-    my $required_value = $self->value_boolise($self->required);
-    $option .= qq('required': $required_value, );
-  }
-
-  # multiple: is integer so unquoted
-  if ($self->multiple) {
-    my $multiple_value = $self->value_boolise($self->multiple);
-    $option .= qq('multiple': $multiple_value, );
-  }
-
-  # type
-  if ($self->type) {
-    my $type_value = $self->string_entitise($self->type());
-    $option .= qq('type': '$type_value', );
-  }
-
-  # values
-  if ($self->_has_values) {
-    $option .= qq('values': $VIM_LIST_OPEN );
-    foreach my $value ($self->values) {
-      my $value_value = $self->string_entitise($value);
-      $option .= qq('$value_value', );
-    }
-    $option .= $VIM_LIST_CLOSE;
-  }
-
-  # default
-  if ($self->default) {
-    my $default_value = $self->string_entitise($self->default);
-    $option .= qq('default': '$default_value', );
-  }
-
-  # notes
-  if ($self->_has_notes) {
-    $option .= qq('notes': $VIM_LIST_OPEN );
-    foreach my $note ($self->notes) {
-      my $note_content = $self->string_entitise($note);
-      $option .= qq('$note_content', );
-    }
-    $option .= $VIM_LIST_CLOSE;
-  }
-  $option .= $VIM_DICT_CLOSE;
 
   # return option loader
   return $option;
@@ -706,27 +632,6 @@ List of option values.
 Generate portion of nvim (lua) command for loader.
 
 Designed to be called by the C<write_nvim_function_loader> from
-L<Dn::CommonBash::Function>.
-
-=head3 Parameters
-
-Nil.
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Scalar string.
-
-=head2 write_vim_option_loader()
-
-=head3 Purpose
-
-Generate portion of vim 'let' command for loader.
-
-Designed to be called by the C<write_vim_function_loader> from
 L<Dn::CommonBash::Function>.
 
 =head3 Parameters

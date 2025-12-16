@@ -5,7 +5,7 @@
 # Process this file with autoconf to produce a configure script
 AC_PREREQ([2.71])
 AC_INIT([Library of bash functions],
-        [6.9],
+        [7.1],
         [david@nebauer.org],
         [libdncommon-bash],
 )
@@ -151,41 +151,17 @@ AC_SUBST(pkgdoc_dir)
 man_dir="${prefix}/share/man"
 AC_SUBST(man_dir)
 
-# vim_ftplugin
-# - vim filetype plugin files
-# - default value in built deb package: /usr/share/vim/addons/ftplugin
-vim_ftplugin="${prefix}/share/vim/addons/ftplugin"
-AC_SUBST(vim_ftplugin)
-
-# vim_doc
-# - vim help files
-# - default value in built deb package: /usr/share/vim/addons/doc
-vim_doc="${prefix}/share/vim/addons/doc"
-AC_SUBST(vim_doc)
-
-# vim_libdncb
+# nvim_libdncb
 # - additional plugin files (other than ftplugin files)
-# - default value in built deb package: /usr/share/vim/addons/libdncommon-bash
-vim_libdncb="${prefix}/share/vim/addons/${PACKAGE}"
-AC_SUBST(vim_libdncb)
-
-# vim_reg
-# - vim registry directory
-# - default value in built deb package: /usr/share/vim/registry
-vim_reg="${prefix}/share/vim/registry"
-AC_SUBST(vim_reg)
+# - default value in built deb package: /usr/share/nvim/libdncommon-bash
+nvim_libdncb="${prefix}/share/nvim/${PACKAGE}"
+AC_SUBST(nvim_libdncb)
 
 # nvim_doc
 # - nvim help files
 # - default value in built deb package: /usr/share/nvim/site/doc
 nvim_doc="${prefix}/share/nvim/site/doc"
 AC_SUBST(nvim_doc)
-
-# nvim_require
-# - directory to search when lua file is 'required'
-# - default value in built deb package: /usr/share/nvim/site/lua
-nvim_require="${prefix}/share/nvim/site/lua"
-AC_SUBST(nvim_require)
 
 # nvim_ftplugin_sh
 # - directory to search for 'sh' ftplugin files
@@ -212,11 +188,6 @@ AC_CONFIG_FILES([
 
   vim/funcdict
   vim/funcload.lua
-  vim/funcload.vim
-  vim/libdncommon-bash-shell-ftplugin.txt
-  vim/libdncommon-bash.yaml
-  vim/libfile-functions.vim
-  vim/sh_libdncommon-bash.vim
   vim/libdncommon-bash.lua
   vim/libdncommon-bash.txt
 

@@ -17,7 +17,6 @@
 x_root='/home/david/data/computing/projects/libs/common-bash'
 x_funcdict="$(pwd)/vim/funcdict.in"
 x_nvimfuncload="$(pwd)/vim/funcload.lua.in"
-x_vimfuncload="$(pwd)/vim/funcload.vim.in"
 x_libmaster="$(pwd)/libs/liball.in"
 x_storage="$(pwd)/store/perlfuncdata.in"
 x_gen_script="$x_root/debianise/scripts/gen-helper-files"
@@ -29,17 +28,16 @@ x_exit_status=true
 echo 'Creating application helper files'
 echo '----------------------------------'
 ${x_gen_script} \
-	-m "${x_libmaster}" \
-	-d "${x_funcdict}" \
-	-n "${x_nvimfuncload}" \
-	-v "${x_vimfuncload}" \
-	-s "${x_storage}" ||
-	x_exit_status=false
+  -m "${x_libmaster}" \
+  -d "${x_funcdict}" \
+  -n "${x_nvimfuncload}" \
+  -s "${x_storage}" ||
+  x_exit_status=false
 echo '----------------------------------'
 
-unset x_funcdict x_vimfuncload x_libmaster x_gen_script x_storage
+unset x_funcdict x_libmaster x_gen_script x_storage
 
 if [[ $x_exit_status = false ]]; then
-	echo 'Creation of application helper files failed' 1>&2
-	exit 1
+  echo 'Creation of application helper files failed' 1>&2
+  exit 1
 fi

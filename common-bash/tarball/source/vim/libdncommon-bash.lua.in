@@ -1772,15 +1772,13 @@ end
 
 -- DICTIONARIES
 
---vim.opt_local.dictionary:append("@vim_libdncb@/funcdict")
-vim.opt_local.dictionary:append("/home/david/data/computing/projects/libs/common-bash/tarball/build/vim/funcdict")
+vim.opt_local.dictionary:append("@nvim_libdncb@/funcdict")
 vim.opt_local.dictionary:remove("/usr/share/dict/words")
 
 -- LOAD PLUGIN FILES
 
 -- library variable loader file
---vim.cmd.luafile("@vim_libdncb@/funcload.lua")
-vim.cmd.luafile("/home/david/data/computing/projects/libs/common-bash/tarball/build/vim/funcload.lua")
+vim.cmd.luafile("@nvim_libdncb@/funcload.lua")
 
 -- MAPPINGS
 

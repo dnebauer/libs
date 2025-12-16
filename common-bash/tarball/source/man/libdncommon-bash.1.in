@@ -63,6 +63,41 @@
 .\"    guns
 .\"    .IP \n+[step]
 .\"    money
+..
+
+.\" -----------------------------------------------------------------
+.\" SETUP
+.\" -----------------------------------------------------------------
+
+.\" Macro: Format URL
+.\"  usage:  .URL "http:\\www.gnu.org" "GNU Project" " of the"
+.\"  params: 1 = url
+.\"          2 = link text/name
+.\"          3 = postamble (optional)
+.\"  note:   The www.tmac macro provides a .URL macro package; this
+.\"          is a local fallback in case www.tmac is unavailable
+.\"  credit: man(7)
+.de URL
+\\$2 \(laURL: \\$1 \(ra\\$3
+..
+
+.\" Prefer .URL macro from www.tmac macro package if it is available
+.\"  note: In the conditional below the '\n' escape returns the value of
+.\"        a register, in this the '.g'
+.\"        The '.g' register is only found in GNU 'troff', and it is
+.\"        assumed that GNU troff will always include the www.tmac
+.\"        macro package
+.if \n[.g] .mso www.tmac
+
+.\" Macro: Ellipsis
+.\"  usage: .ellipsis
+.\"  note: only works at beginning of line
+.de ellipsis
+.cc ^
+...
+^cc
+..
+
 .TH "LIBDNCOMMON-BASH" "1" "2007-07-11" "" "Libdncommon-bash Manual"
 .ds self libdncommon-bash
 .SH "NAME"
@@ -87,19 +122,18 @@ is provided.
 It enables the user to display data on a selected function
 (see manpage for further information).
 .PP
-A number of vim tools are also provided.
-A vim script (@vim_libdncb@/funcload.vim) is provided that, when sourced,
+A number of nvim tools are also provided.
+A nvim script (@nvim_libdncb@/funcload.vim) is provided that, when sourced,
 loads a dictionary variable (dnLibCommonBash) with function data.
-A file (@vim_libdncb@/funcdict) containing a list of library function names
+A file (@nvim_libdncb@/funcdict) containing a list of library function names
 is provided for use as a word dictionary.
-A filetype plugin (@vim_ftplugin@/sh_libdncommon-bash.vim) for shell scripts
+A filetype plugin (@nvim_ftplugin_sh@/libdncommon-bash.lua) for shell scripts
 loading a word dictionary, dictionary variable and some useful vim functions
 and mappings.
 The plugin itself provides vim help which can be accessed via help tags
-\(aqft-sh-libdncommon-bash-ftplugin\(aq or \(aqlibdncommon-bash\(aq.
+\(aqdn_sh.contents\(aq or \(aqlibdncommon-bash\(aq.
 .SH "VARIABLES"
-The following variables are provided by the global configuration file and read
-in by the \(aq@pkglib_dir@/libvariables\(aq file
+The following variables are provided by the plugin
 (array variables are indicated by \(aq[]\(aq):
 .SS convenience variables
 .IP \[bu] 2
@@ -122,84 +156,6 @@ dn_divider
 dn_divider_top
 .IP \[bu]
 dn_divider_bottom
-.SS bash formatting: fonts
-.IP \[bu] 2
-dn_reset
-.IP \[bu]
-dn_fm_bold
-.IP \[bu]
-dn_fm_bold_off
-.IP \[bu]
-dn_fm_uline
-.IP \[bu]
-dn_fm_uline_off
-.IP \[bu]
-dn_fm_blink
-.IP \[bu]
-dn_fm_blink_off
-.IP \[bu]
-dn_fm_reverse
-.IP \[bu]
-dn_fm_reverse_off
-.IP \[bu]
-dn_fm_conceal
-.IP \[bu]
-dn_fm_conceal_off
-.SS bash formatting: foreground colour
-.IP \[bu] 2
-dn_fg_black
-.IP \[bu]
-dn_fg_lt_gray
-.IP \[bu]
-dn_fg_dk_gray
-.IP \[bu]
-dn_fg_red
-.IP \[bu]
-dn_fg_lt_red
-.IP \[bu]
-dn_fg_green
-.IP \[bu]
-dn_fg_lt_green
-.IP \[bu]
-dn_fg_brown
-.IP \[bu]
-dn_fg_yellow
-.IP \[bu]
-dn_fg_blue
-.IP \[bu]
-dn_fg_lt_blue
-.IP \[bu]
-dn_fg_purple
-.IP \[bu]
-dn_fg_lt_purple
-.IP \[bu]
-dn_fg_cyan
-.IP \[bu]
-dn_fg_lt_cyan
-.IP \[bu]
-dn_fg_white
-.SS ejectable optical drives
-.IP \[bu] 2
-dn_drive_names[]
-.IP \[bu]
-dn_drive_hotkeys[]
-.IP \[bu]
-dn_drive_paths[]
-.IP \[bu]
-dn_drive_dvd_maxs[]
-.SS dvd players
-.IP \[bu] 2
-dn_dvd_player_names[]
-.IP \[bu]
-dn_dvd_player_bins[]
-.IP \[bu]
-dn_dvd_player_params[]
-.IP \[bu]
-dn_dvd_player_device_prefixes[]
-.IP \[bu]
-dn_dvd_player_device_suffixes[]
-.IP \[bu]
-dn_dvd_player_hotkeys[]
 .SS dialogs
 .IP \[bu] 2
 dn_dlg_names[]
@@ -234,19 +190,21 @@ Perl data store of function information.
 .IP
 Tool for querying perl data store and displaying function data.
 .PP
-.I @vim_libdncb@/funcdict
+.I @nvim_libdncb@/funcdict
 .IP
 List of library function names for use as a vim word dictionary.
 .PP
-.I @vim_libdncb@/funcload.vim
+.I @nvim_libdncb@/funcload.lua
 .IP
-Vim script loading a dictionary variable with function data.
+Nvim script loading a dictionary variable with function data.
 .PP
-.I @vim_ftplugin@/sh_libdncommon-bash.vim
+.I @nvim_ftplugin_sh@/libdncommon-bash.lua
 .IP
-Vim filetype plugin for shell scripts.
+Nvim filetype plugin for shell scripts.
 .SH "AUTHOR"
-\*[self] was written by David Nebauer <david@nebauer.org>.
+\*[self] was written by
+.URL "mailto:david@nebauer.org" "David Nebauer" "."
 .PP
-This manual page was written by David Nebauer <david@nebauer.org>
+This manual page was written by
+.URL "mailto:david@nebauer.org" "David Nebauer"
 for the Debian project (but may be used by others).

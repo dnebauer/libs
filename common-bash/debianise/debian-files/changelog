@@ -1,3 +1,15 @@
+libdncommon-bash (7.1-1) UNRELEASED; urgency=low
+
+  * force flusing of build cache
+
+ -- David Nebauer <david@nebauer.org>  Tue, 16 Dec 2025 23:15:40 +0930
+
+libdncommon-bash (7.0-1) UNRELEASED; urgency=low
+
+  * remove vim support
+
+ -- David Nebauer <david@nebauer.org>  Tue, 16 Dec 2025 22:42:52 +0930
+
 libdncommon-bash (6.9-1) UNRELEASED; urgency=low
 
   * complete "function-tag"-related functions

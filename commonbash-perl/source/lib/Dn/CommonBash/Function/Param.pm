@@ -25,11 +25,7 @@ const my $LUA_TABLE_OPEN  => q[{ ];
 const my $SPACE           => q{ };
 const my $SINGLE_QUOTE    => q{'};
 const my $STR_ERROR       => q{error};
-const my $STR_REQUIRED    => q{required};
-const my $VIM_DICT_CLOSE  => $LUA_TABLE_CLOSE;
-const my $VIM_DICT_OPEN   => $LUA_TABLE_OPEN;
-const my $VIM_LIST_CLOSE  => q{]};
-const my $VIM_LIST_OPEN   => q{[ };              # }}}1
+const my $STR_REQUIRED    => q{required};    # }}}1
 
 # attributes
 
@@ -300,77 +296,6 @@ sub write_nvim_param_loader ($self) {
     $param .= $LUA_TABLE_CLOSE . $COMMA . $SPACE;
   }
   $param .= $LUA_TABLE_CLOSE;
-
-  # return param loader
-  return $param;
-}
-
-# write_vim_param_loader()    {{{1
-#
-# does:   generate portion of vim 'let' command for loader
-# params: nil
-# prints: nil
-# return: scalar string
-# note:   designed to be called by Dn::CommonBash->write_vim_function_loader
-sub write_vim_param_loader ($self) {
-  my $param = $VIM_DICT_OPEN;
-
-  # name
-  if ($self->name) {
-    my $name_value = $self->string_entitise($self->name);
-    $param .= qq('name': '$name_value', );
-  }
-
-  # purpose
-  if ($self->purpose) {
-    my $purpose_value = $self->string_entitise($self->purpose);
-    $param .= qq('purpose': '$purpose_value', );
-  }
-
-  # required: is integer so unquoted
-  if ($self->required) {
-    my $required_value = $self->value_boolise($self->required);
-    $param .= qq('required': $required_value, );
-  }
-
-  # multipart: is integer so unquoted
-  if ($self->multipart) {
-    my $multipart_value = $self->value_boolise($self->multipart);
-    $param .= qq('multipart': $multipart_value, );
-  }
-
-  # type
-  if ($self->type) {
-    my $type_value = $self->string_entitise($self->type);
-    $param .= qq('type': '$type_value', );
-  }
-
-  # values
-  if ($self->_has_values) {
-    $param .= qq('values': $VIM_LIST_OPEN );
-    foreach my $value ($self->values) {
-      my $value_value = $self->string_entitise($value);
-      $param .= qq('$value_value', );
-    }
-    $param .= $VIM_LIST_CLOSE . $COMMA . $SPACE;
-  }
-
-  # default
-  if ($self->default) {
-    my $default_value = $self->string_entitise($self->default);
-    $param .= qq ('default' : '$default_value',);
-  }
-
-  # notes
-  if ($self->_has_notes) {
-    $param .= qq('notes': $VIM_LIST_OPEN );
-    foreach my $note ($self->notes) {
-      my $note_value = $self->string_entitise($note);
-      $param .= qq('$note_value', );
-    }
-    $param .= $VIM_LIST_CLOSE . $COMMA . $SPACE;
-  }
-  $param .= $VIM_DICT_CLOSE;
 
   # return param loader
   return $param;
@@ -718,25 +643,6 @@ List of parameter values.
 
 Generate portion of nvim (lua) command for loader. Designed to be called by the
 C<write_nvim_function_loader> method of L<Dn::CommonBash>.
-
-=head3 Parameters
-
-Nil.
-
-=head3 Prints
-
-Nil.
-
-=head3 Returns
-
-Scalar string.
-
-=head2 write_vim_param_loader()
-
-=head3 Purpose
-
-Generate portion of vim 'let' command for loader. Designed to be called by the
-C<write_vim_function_loader> method of L<Dn::CommonBash>.
 
 =head3 Parameters
 

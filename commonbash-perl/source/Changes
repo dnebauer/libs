@@ -1,5 +1,8 @@
 Revision history for Dn-CommonBash
 
+5.50  2025-12-15
+        - Remove vim support
+
 5.40  2025-09-22
         - Add nvim/lua support
 
