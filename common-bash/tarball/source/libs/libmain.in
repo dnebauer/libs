@@ -307,7 +307,7 @@ declare -A dn_dlg_desktop_overrides=( # dialog preference overrides
   [KDE]=kdialog
   ["X-Generic"]=xmessage
 )
-n_query_prefix='Query: '   # semantic fragment
+dn_query_prefix='Query: '   # semantic fragment
 dn_prompt_prefix='Prompt: ' # semantic fragment
 # dividers
 dn_divider='-----------------------------------------------------------'
