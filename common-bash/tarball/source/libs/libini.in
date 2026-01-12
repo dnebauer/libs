@@ -34,10 +34,10 @@ set -o pipefail
 #                           [default=false]
 declare -A dn_ini_settings
 dn_ini_settings=(
-	[allow_empty_values]=0
-	[allow_spaces_in_names]=0
-	[debug]=1
-	[strict]=1
+  [allow_empty_values]=0
+  [allow_spaces_in_names]=0
+  [debug]=1
+  [strict]=1
 )
 
 # PRIVATE FUNCTIONS
@@ -48,43 +48,43 @@ dn_ini_settings=(
 #   prints: nil
 #   return: boolean
 __dnIniCheckFile() {
-	local file
-	file="$1"
+  local file
+  file="$1"
 
-	# check if file parameter is provided
-	if [ -z "$file" ]; then
-		__dnIniError "${FUNCNAME[0]}: File path is required"
-		return 1
-	fi
+  # check if file parameter is provided
+  if [ -z "$file" ]; then
+    __dnIniError "${FUNCNAME[0]}: File path is required"
+    return 1
+  fi
 
-	# check if file exists
-	if [ ! -f "$file" ]; then
-		__dnIniDebug "File does not exist, attempting to create: $file"
-		# create directory if it doesn't exist
-		local dir
-		dir=$(dirname "$file")
-		if [ ! -d "$dir" ]; then
-			mkdir -p "$dir" 2>/dev/null || {
-				__dnIniError "${FUNCNAME[0]}: Could not create directory: $dir"
-				return 1
-			}
-		fi
+  # check if file exists
+  if [ ! -f "$file" ]; then
+    __dnIniDebug "File does not exist, attempting to create: $file"
+    # create directory if it doesn't exist
+    local dir
+    dir=$(dirname "$file")
+    if [ ! -d "$dir" ]; then
+      mkdir -p "$dir" 2>/dev/null || {
+        __dnIniError "${FUNCNAME[0]}: Could not create directory: $dir"
+        return 1
+      }
+    fi
 
-		# create the file
-		if ! touch "$file" 2>/dev/null; then
-			__dnIniError "${FUNCNAME[0]}: Could not create file: $file"
-			return 1
-		fi
-		__dnIniDebug "File created successfully: $file"
-	fi
+    # create the file
+    if ! touch "$file" 2>/dev/null; then
+      __dnIniError "${FUNCNAME[0]}: Could not create file: $file"
+      return 1
+    fi
+    __dnIniDebug "File created successfully: $file"
+  fi
 
-	# check if file is writable
-	if [ ! -w "$file" ]; then
-		__dnIniError "${FUNCNAME[0]}: File is not writable: $file"
-		return 1
-	fi
+  # check if file is writable
+  if [ ! -w "$file" ]; then
+    __dnIniError "${FUNCNAME[0]}: File is not writable: $file"
+    return 1
+  fi
 
-	return 0
+  return 0
 }
 
 # Function: __dnIniCreateTempFile    {{{1
@@ -93,7 +93,7 @@ __dnIniCheckFile() {
 #   prints: path of created temporary file
 #   return: boolean
 __dnIniCreateTempFile() {
-	mktemp "${TMPDIR:-/tmp}/ini_XXXXXXXXXX"
+  mktemp "${TMPDIR:-/tmp}/ini_XXXXXXXXXX"
 }
 
 # Function: __dnIniDebug    {{{1
@@ -102,9 +102,9 @@ __dnIniCreateTempFile() {
 #   prints: nil
 #   return: nil
 __dnIniDebug() {
-	if __dnIniSetting 'debug'; then
-		echo "[DEBUG] $1" >&2
-	fi
+  if __dnIniSetting 'debug'; then
+    echo "[DEBUG] $1" >&2
+  fi
 }
 
 # Function: __dnIniError    {{{1
@@ -113,7 +113,7 @@ __dnIniDebug() {
 #   prints: nil
 #   return: nil
 __dnIniError() {
-	echo "[ERROR] $1" >&2
+  echo "[ERROR] $1" >&2
 }
 
 # Function: __dnIniEscapeForRegex    {{{1
@@ -122,7 +122,26 @@ __dnIniError() {
 #   prints: nil
 #   return: nil
 __dnIniEscapeForRegex() {
-	echo "$1" | sed -e 's/[]\/()$*.^|[]/\\&/g'
+  echo "$1" | sed -e 's/[]\/()$*.^|[]/\\&/g'
+}
+
+# Function: __dnIniReturnArray    {{{1
+# Used to enable returning an array from a function
+#   params: name of array variable (not the value of the array variable)
+#   prints: array definition, e.g., '("item1" "item2" "...")
+#   return: nil
+#   usage:  thisFnReturnsAnArray() {
+#   usage:    local -a arr=()
+#   usage:    arr+=('one' 'two' '...')
+#   usage:    __dnIniReturnArray arr
+#   usage:  }
+#   usage:  declare -a my_array_var
+#   usage:  eval my_array_var="$(thisFnReturnsAnArray)"
+__dnIniReturnArray() {
+  local r
+  r=$(declare -p "$1")
+  r=${r#declare\ -a\ *=}
+  echo "${r//\[[0-9]\]=/}"
 }
 
 # Function: __dnIniSetting    {{{1
@@ -138,22 +157,22 @@ __dnIniEscapeForRegex() {
 #   prints: nil
 #   return: setter: nil, getter: boolean setting value
 __dnIniSetting() {
-	case $# in
-	1) return "${dn_ini_settings[$1]}" ;;
-	2)
-		case "$2" in
-		'true') dn_ini_settings[$1]=0 ;;
-		'false') dn_ini_settings[$1]=1 ;;
-		*)
-			echo "${FUNCNAME[0]}: Bad setting value: '$2'" >/dev/sterr
-			;;
-		esac
-		;;
-	*)
-		echo "${FUNCNAME[0]}: Bad param count: $#" >/dev/stderr
-		exit 2
-		;;
-	esac
+  case $# in
+  1) return "${dn_ini_settings[$1]}" ;;
+  2)
+    case "$2" in
+    'true') dn_ini_settings[$1]=0 ;;
+    'false') dn_ini_settings[$1]=1 ;;
+    *)
+      echo "${FUNCNAME[0]}: Bad setting value: '$2'" >/dev/sterr
+      ;;
+    esac
+    ;;
+  *)
+    echo "${FUNCNAME[0]}: Bad param count: $#" >/dev/stderr
+    exit 2
+    ;;
+  esac
 }
 
 # Function: __dnIniTrim    {{{1
@@ -162,13 +181,13 @@ __dnIniSetting() {
 #   prints: nil
 #   return: nil
 __dnIniTrim() {
-	local var
-	var="$*"
-	# remove leading whitespace
-	var="${var#"${var%%[![:space:]]*}"}"
-	# remove trailing whitespace
-	var="${var%"${var##*[![:space:]]}"}"
-	echo "$var"
+  local var
+  var="$*"
+  # remove leading whitespace
+  var="${var#"${var%%[![:space:]]*}"}"
+  # remove trailing whitespace
+  var="${var%"${var##*[![:space:]]}"}"
+  echo "$var"
 }
 
 # Function: __dnIniValidateKeyName    {{{1
@@ -177,28 +196,28 @@ __dnIniTrim() {
 #   prints: error messages
 #   return: boolean
 __dnIniValidateKeyName() {
-	local key
-	key="$1"
+  local key
+  key="$1"
 
-	if [ -z "$key" ]; then
-		__dnIniError "${FUNCNAME[0]}: Key name cannot be empty"
-		return 1
-	fi
+  if [ -z "$key" ]; then
+    __dnIniError "${FUNCNAME[0]}: Key name cannot be empty"
+    return 1
+  fi
 
-	if __dnIniSetting 'strict'; then
-		# check for illegal characters in key name
-		if [[ "$key" =~ [\[\]\=] ]]; then
-			__dnIniError "${FUNCNAME[0]}: Key name contains illegal characters: $key"
-			return 1
-		fi
-	fi
+  if __dnIniSetting 'strict'; then
+    # check for illegal characters in key name
+    if [[ "$key" =~ [\[\]\=] ]]; then
+      __dnIniError "${FUNCNAME[0]}: Key name contains illegal characters: $key"
+      return 1
+    fi
+  fi
 
-	if ! __dnIniSetting 'allow_spaces_in_names' && [[ "$key" =~ [[:space:]] ]]; then
-		__dnIniError "${FUNCNAME[0]}: Key name contains spaces: $key"
-		return 1
-	fi
+  if ! __dnIniSetting 'allow_spaces_in_names' && [[ "$key" =~ [[:space:]] ]]; then
+    __dnIniError "${FUNCNAME[0]}: Key name contains spaces: $key"
+    return 1
+  fi
 
-	return 0
+  return 0
 }
 
 # Function: __dnIniValidateSectionName    {{{1
@@ -207,28 +226,28 @@ __dnIniValidateKeyName() {
 #   prints: error messages
 #   return: boolean
 __dnIniValidateSectionName() {
-	local section
-	section="$1"
+  local section
+  section="$1"
 
-	if [ -z "$section" ]; then
-		__dnIniError "${FUNCNAME[0]}: Section name cannot be empty"
-		return 1
-	fi
+  if [ -z "$section" ]; then
+    __dnIniError "${FUNCNAME[0]}: Section name cannot be empty"
+    return 1
+  fi
 
-	if __dnIniSetting 'strict'; then
-		# check for illegal characters in section name
-		if [[ "$section" =~ [\[\]\=] ]]; then
-			__dnIniError "${FUNCNAME[0]}: Section name contains illegal characters: $section"
-			return 1
-		fi
-	fi
+  if __dnIniSetting 'strict'; then
+    # check for illegal characters in section name
+    if [[ "$section" =~ [\[\]\=] ]]; then
+      __dnIniError "${FUNCNAME[0]}: Section name contains illegal characters: $section"
+      return 1
+    fi
+  fi
 
-	if ! __dnIniSetting 'allow_spaces_in_names' && [[ "$section" =~ [[:space:]] ]]; then
-		__dnIniError "${FUNCNAME[0]}: Section name contains spaces: $section"
-		return 1
-	fi
+  if ! __dnIniSetting 'allow_spaces_in_names' && [[ "$section" =~ [[:space:]] ]]; then
+    __dnIniError "${FUNCNAME[0]}: Section name contains spaces: $section"
+    return 1
+  fi
 
-	return 0
+  return 0
 }
 # }}}1
 
@@ -254,44 +273,160 @@ __dnIniValidateSectionName() {
 # fn_tag dnIniAddSection param section multipart no
 # fn_tag dnIniAddSection param section type string
 dnIniAddSection() {
-	# validate parameters
-	if [ $# -ne 2 ]; then
-		__dnIniError "${FUNCNAME[0]}: Missing required parameters"
-		return 1
-	fi
-	local file section
-	file="$1"
-	section="$2"
-	if [ -z "$file" ] || [ -z "$section" ]; then
-		__dnIniError "${FUNCNAME[0]}: Missing required parameters"
-		return 1
-	fi
+  # validate parameters
+  if [ $# -ne 2 ]; then
+    __dnIniError "${FUNCNAME[0]}: Missing required parameters"
+    return 1
+  fi
+  local file section
+  file="$1"
+  section="$2"
+  if [ -z "$file" ] || [ -z "$section" ]; then
+    __dnIniError "${FUNCNAME[0]}: Missing required parameters"
+    return 1
+  fi
 
-	# validate section name only if strict mode is enabled
-	if __dnIniSetting 'strict'; then
-		__dnIniValidateSectionName "$section" || return 1
-	fi
+  # validate section name only if strict mode is enabled
+  if __dnIniSetting 'strict'; then
+    __dnIniValidateSectionName "$section" || return 1
+  fi
 
-	# check and create file if needed
-	__dnIniCheckFile "$file" || return 1
+  # check and create file if needed
+  __dnIniCheckFile "$file" || return 1
 
-	# check if section already exists
-	if dnIniSectionExists "$file" "$section"; then
-		__dnIniDebug "Section already exists: $section"
-		return 0
-	fi
+  # check if section already exists
+  if dnIniSectionExists "$file" "$section"; then
+    __dnIniDebug "Section already exists: $section"
+    return 0
+  fi
 
-	__dnIniDebug "Adding section '$section' to file: $file"
+  __dnIniDebug "Adding section '$section' to file: $file"
 
-	# add a newline if file is not empty
-	if [ -s "$file" ]; then
-		echo "" >>"$file"
-	fi
+  # add a newline if file is not empty
+  if [ -s "$file" ]; then
+    echo "" >>"$file"
+  fi
 
-	# add the section
-	echo "[$section]" >>"$file"
+  # add the section
+  echo "[$section]" >>"$file"
 
-	return 0
+  return 0
+}
+
+# Function: dnIniFileFindAll    {{{1
+# Finds all configuration files with conventional file paths
+#   params: 1 - application/program name
+#   prints: special - see notes and usage
+#   return: special - see notes and usage
+#   notes:  uses systemd-path to find base config directories if present
+#   notes:  default base config directories are ~/.config and /etc
+#   notes:  for each config dir the dir/foo directory is also searched
+#   notes:  the dir/foo directory is searched before the dir
+#   notes:  for example, final default dir list is ~/.config/foo, ~/.config, /etc/foo, /etc
+#   notes:  the file name variants checked are foorc, foo.rc, foo.conf
+#   notes:  an array is returned, requiring non-standard script to receive it -- see usage
+#   notes:  the 2-stage declaration and assignment avoids shellcheck warning SC2154
+#   notes:  the 'eval' is required for successful capture of the array
+#   notes:  most ini library functions require a single ini file path as a parameter
+#   notes:  if dealing with multiple config files, e.g., local and system, you need to write script to handle that
+#   usage:  local -a conffiles
+#   usage:  eval conffiles="$(dnIniFileFindAll "$app_name")"
+# fn_tag dnIniFileFindAll purpose Finds all configuration files with conventional file paths
+# fn_tag dnIniFileFindAll prints Special - see notes and usage
+# fn_tag dnIniFileFindAll returns Special - see notes and usage
+# fn_tag dnIniFileFindAll usage local -a conffiles
+# fn_tag dnIniFileFindAll usage eval conffiles="$(dnIniFileFindAll "$app_name")"
+# fn_tag dnIniFileFindAll note Uses systemd-path to find base config directories if present
+# fn_tag dnIniFileFindAll note Default base config directories are ~/.config and /etc
+# fn_tag dnIniFileFindAll note For each config dir the dir/foo directory is also searched
+# fn_tag dnIniFileFindAll note The dir/foo directory is searched before the dir
+# fn_tag dnIniFileFindAll note For example, final default dir list is ~/.config/foo, ~/.config, /etc/foo, /etc
+# fn_tag dnIniFileFindAll note The file name variants checked are foorc, foo.rc, foo.conf
+# fn_tag dnIniFileFindAll note An array is returned, requiring non-standard script to receive it -- see usage
+# fn_tag dnIniFileFindAll note The 2-stage declaration and assignment avoids shellcheck warning SC2154
+# fn_tag dnIniFileFindAll note The 'eval' is required for successful capture of the array
+# fn_tag dnIniFileFindAll note Most ini library functions require a single ini file path as a parameter
+# fn_tag dnIniFileFindAll note If dealing with multiple config files, e.g., local and system, you need to write script to handle that
+# fn_tag dnIniFileFindAll param app_name purpose Base name for configuration file name
+# fn_tag dnIniFileFindAll param app_name required yes
+# fn_tag dnIniFileFindAll param app_name multipart no
+# fn_tag dnIniFileFindAll param app_name type string
+# fn_tag dnIniFileFindAll param app_name note Should not include spaces
+# fn_tag dnIniFileFindAll param app_name note Must include only legal filename characters
+dnIniFileFindAll() {
+  # handle param
+  [ -n "${1+x}" ] || dnAbort "${FUNCNAME[0]}: No basename provided"
+  local app_name
+  app_name="${1}"
+  # get list of candidate directories to check
+  local -a dirs=()
+  if command -v systemd-path &>/dev/null; then
+    local cmd_output
+    cmd_output="$(systemd-path search-configuration)"
+    mapfile -t base_dirs <<<"${cmd_output//:/$'\n'}"
+    for dir in "${base_dirs[@]}"; do
+      dirs+=("$dir/$app_name")
+      dirs+=("$dir")
+    done
+  else
+    dirs=(
+      "$HOME/.config/$app_name"
+      "$HOME/.config"
+      "/etc/$app_name"
+      "/etc"
+    )
+  fi
+  # list of candidate config file names
+  local files=(
+    "${app_name}rc"
+    "$app_name.rc"
+    "$app_name.conf"
+  )
+  # combine dirs and files to get candidate filepaths
+  local -a fps=()
+  for dir in "${dirs[@]}"; do
+    for file in "${files[@]}"; do
+      fps+=("$dir/$file")
+    done
+  done
+  # now find out which candidate filepaths exist
+  local -a conffiles=()
+  for candidate_fp in "${fps[@]}"; do
+    dnFileValid "$candidate_fp" && conffiles+=("$candidate_fp")
+  done
+  # return results
+  __dnIniReturnArray conffiles
+}
+
+# Function: dnIniFileFindFirst    {{{1
+# Searches for configuration files in conventional locations and finds the first match
+#   params: 1 - application/program name
+#   prints: filepath (empty string if no matching file found)
+#   return: boolean (whether file found)
+#   usage:  conf_file="$(dnIniFileFindFirst "$app_name")"
+# fn_tag dnIniFileFindFirst purpose Searches for configuration files in conventional locations and finds the first match
+# fn_tag dnIniFileFindFirst prints Filepath (empty string if no matching file found)
+# fn_tag dnIniFileFindFirst returns Boolean (whether matching file found)
+# fn_tag dnIniFileFindFirst usage conf_file="$(dnIniFileFindFirst "$app_name")"
+# fn_tag dnIniFileFindFirst param app_name purpose Base name of configuration file
+# fn_tag dnIniFileFindFirst param app_name required yes
+# fn_tag dnIniFileFindFirst param app_name multipart no
+# fn_tag dnIniFileFindFirst param app_name type string
+# fn_tag dnIniFileFindFirst param app_name note Should not include spaces
+# fn_tag dnIniFileFindFirst param app_name note Must include only legal filename characters
+dnIniFileFindFirst() {
+  # handle param
+  [ -n "${1+x}" ] || dnAbort "${FUNCNAME[0]}: No basename provided"
+  local app_name
+  app_name="${1}"
+  # get all matching configuration files
+  local -a conffiles
+  eval conffiles="$(dnIniFileFindAll "$app_name")"
+  local file_count=${#conffiles[@]}
+  # print first match and return boolean
+  ((file_count == 0)) && return 1 # false
+  echo "${conffiles[0]}"
+  return 0 # true
 }
 
 # Function: dnIniGetOrDefault    {{{1
@@ -325,40 +460,40 @@ dnIniAddSection() {
 # fn_tag dnIniGetOrDefault param default type string
 # fn_tag dnIniGetOrDefault param default default '' (empty string)
 dnIniGetOrDefault() {
-	# validate parameters
-	if [ $# -lt 3 ]; then
-		__dnIniError "${FUNCNAME[0]}: Missing required parameters"
-		return 1
-	fi
-	local file section key
-	file="$1"
-	section="$2"
-	key="$3"
-	shift 3
-	local default_value
-	default_value=''
-	if [ $# -gt 0 ]; then
-		default_value="$4"
-	fi
-	# validate parameters
-	if [ -z "$file" ] || [ -z "$section" ] || [ -z "$key" ]; then
-		__dnIniError "${FUNCNAME[0]}: Missing required parameters"
-		return 1
-	fi
+  # validate parameters
+  if [ $# -lt 3 ]; then
+    __dnIniError "${FUNCNAME[0]}: Missing required parameters"
+    return 1
+  fi
+  local file section key
+  file="$1"
+  section="$2"
+  key="$3"
+  shift 3
+  local default_value
+  default_value=''
+  if [ $# -gt 0 ]; then
+    default_value="$4"
+  fi
+  # validate parameters
+  if [ -z "$file" ] || [ -z "$section" ] || [ -z "$key" ]; then
+    __dnIniError "${FUNCNAME[0]}: Missing required parameters"
+    return 1
+  fi
 
-	# try to read the value
-	local value result
-	value=$(dnIniRead "$file" "$section" "$key" 2>/dev/null)
-	result=$?
+  # try to read the value
+  local value result
+  value=$(dnIniRead "$file" "$section" "$key" 2>/dev/null)
+  result=$?
 
-	# return the value or default
-	if [ $result -eq 0 ]; then
-		echo "$value"
-	else
-		echo "$default_value"
-	fi
+  # return the value or default
+  if [ $result -eq 0 ]; then
+    echo "$value"
+  else
+    echo "$default_value"
+  fi
 
-	return 0
+  return 0
 }
 
 # Function: dnIniImport    {{{1
@@ -391,64 +526,64 @@ dnIniGetOrDefault() {
 # fn_tag dnIniImport param sections type string
 # fn_tag dnIniImport param sections default all sections
 dnIniImport() {
-	# validate parameters
-	if [ $# -lt 2 ]; then
-		__dnIniError "${FUNCNAME[0]}: Missing required parameters"
-		return 1
-	fi
-	local source_file target_file
-	source_file="$1"
-	target_file="$2"
-	local -a import_sections
-	import_sections=("${@:3}")
-	if [ -z "$source_file" ] || [ -z "$target_file" ]; then
-		__dnIniError "${FUNCNAME[0]}: Missing required parameters"
-		return 1
-	fi
+  # validate parameters
+  if [ $# -lt 2 ]; then
+    __dnIniError "${FUNCNAME[0]}: Missing required parameters"
+    return 1
+  fi
+  local source_file target_file
+  source_file="$1"
+  target_file="$2"
+  local -a import_sections
+  import_sections=("${@:3}")
+  if [ -z "$source_file" ] || [ -z "$target_file" ]; then
+    __dnIniError "${FUNCNAME[0]}: Missing required parameters"
+    return 1
+  fi
 
-	# check if source file exists
-	if [ ! -f "$source_file" ]; then
-		__dnIniError "${FUNCNAME[0]}: Source file not found: $source_file"
-		return 1
-	fi
+  # check if source file exists
+  if [ ! -f "$source_file" ]; then
+    __dnIniError "${FUNCNAME[0]}: Source file not found: $source_file"
+    return 1
+  fi
 
-	# check and create target file if needed
-	__dnIniCheckFile "$target_file" || return 1
+  # check and create target file if needed
+  __dnIniCheckFile "$target_file" || return 1
 
-	__dnIniDebug "Importing from '$source_file' to '$target_file'"
+  __dnIniDebug "Importing from '$source_file' to '$target_file'"
 
-	# get sections from source file
-	local -a sections
-	sections=$(dnIniListSections "$source_file")
+  # get sections from source file
+  local -a sections
+  sections=$(dnIniListSections "$source_file")
 
-	# loop through sections
-	for section in $sections; do
-		# skip if specific sections are provided and this one is not in the list
-		if [ ${#import_sections[@]} -gt 0 ] && ! [[ ${import_sections[*]} =~ $section ]]; then
-			__dnIniDebug "Skipping section: $section"
-			continue
-		fi
+  # loop through sections
+  for section in $sections; do
+    # skip if specific sections are provided and this one is not in the list
+    if [ ${#import_sections[@]} -gt 0 ] && ! [[ ${import_sections[*]} =~ $section ]]; then
+      __dnIniDebug "Skipping section: $section"
+      continue
+    fi
 
-		__dnIniDebug "Importing section: $section"
+    __dnIniDebug "Importing section: $section"
 
-		# add the section to the target file
-		dnIniAddSection "$target_file" "$section"
+    # add the section to the target file
+    dnIniAddSection "$target_file" "$section"
 
-		# get keys in this section
-		local keys
-		keys=$(dnIniListKeys "$source_file" "$section")
+    # get keys in this section
+    local keys
+    keys=$(dnIniListKeys "$source_file" "$section")
 
-		# loop through keys
-		for key in $keys; do
-			# read the value and write it to the target file
-			local value
-			value=$(dnIniRead "$source_file" "$section" "$key")
-			dnIniWrite "$target_file" "$section" "$key" "$value"
-		done
-	done
+    # loop through keys
+    for key in $keys; do
+      # read the value and write it to the target file
+      local value
+      value=$(dnIniRead "$source_file" "$section" "$key")
+      dnIniWrite "$target_file" "$section" "$key" "$value"
+    done
+  done
 
-	__dnIniDebug "Import completed successfully"
-	return 0
+  __dnIniDebug "Import completed successfully"
+  return 0
 }
 
 # Function: dnIniKeyExists    {{{1
@@ -476,46 +611,46 @@ dnIniImport() {
 # fn_tag dnIniKeyExists param key multipart no
 # fn_tag dnIniKeyExists param key type string
 dnIniKeyExists() {
-	# validate parameters
-	if [ $# -lt 3 ]; then
-		__dnIniError "${FUNCNAME[0]}: Missing required parameters"
-		return 1
-	fi
-	local file section key
-	file="$1"
-	section="$2"
-	key="$3"
-	if [ -z "$file" ] || [ -z "$section" ] || [ -z "$key" ]; then
-		__dnIniError "${FUNCNAME[0]}: Missing required parameters"
-		return 1
-	fi
+  # validate parameters
+  if [ $# -lt 3 ]; then
+    __dnIniError "${FUNCNAME[0]}: Missing required parameters"
+    return 1
+  fi
+  local file section key
+  file="$1"
+  section="$2"
+  key="$3"
+  if [ -z "$file" ] || [ -z "$section" ] || [ -z "$key" ]; then
+    __dnIniError "${FUNCNAME[0]}: Missing required parameters"
+    return 1
+  fi
 
-	# validate section and key names only if strict mode is enabled
-	if __dnIniSetting 'strict'; then
-		__dnIniValidateSectionName "$section" || return 1
-		__dnIniValidateKeyName "$key" || return 1
-	fi
+  # validate section and key names only if strict mode is enabled
+  if __dnIniSetting 'strict'; then
+    __dnIniValidateSectionName "$section" || return 1
+    __dnIniValidateKeyName "$key" || return 1
+  fi
 
-	# check if file exists
-	if [ ! -f "$file" ]; then
-		__dnIniDebug "File not found: $file"
-		return 1
-	fi
+  # check if file exists
+  if [ ! -f "$file" ]; then
+    __dnIniDebug "File not found: $file"
+    return 1
+  fi
 
-	# first check if section exists
-	if ! dnIniSectionExists "$file" "$section"; then
-		__dnIniDebug "Section not found: $section"
-		return 1
-	fi
+  # first check if section exists
+  if ! dnIniSectionExists "$file" "$section"; then
+    __dnIniDebug "Section not found: $section"
+    return 1
+  fi
 
-	# check if key exists by trying to read it
-	if dnIniRead "$file" "$section" "$key" >/dev/null 2>&1; then
-		__dnIniDebug "Key found: $key in section: $section"
-		return 0
-	else
-		__dnIniDebug "Key not found: $key in section: $section"
-		return 1
-	fi
+  # check if key exists by trying to read it
+  if dnIniRead "$file" "$section" "$key" >/dev/null 2>&1; then
+    __dnIniDebug "Key found: $key in section: $section"
+    return 0
+  else
+    __dnIniDebug "Key not found: $key in section: $section"
+    return 1
+  fi
 }
 
 # Function: dnIniListKeys    {{{1
@@ -542,63 +677,63 @@ dnIniKeyExists() {
 # fn_tag dnIniListKeys param section type string
 # fn_tag dnIniListKeys param section note need not exist in ini file
 dnIniListKeys() {
-	# validate parameters
-	local file section
-	file="$1"
-	section="$2"
-	if [ -z "$file" ] || [ -z "$section" ]; then
-		__dnIniError "${FUNCNAME[0]}: Missing required parameters"
-		return 1
-	fi
+  # validate parameters
+  local file section
+  file="$1"
+  section="$2"
+  if [ -z "$file" ] || [ -z "$section" ]; then
+    __dnIniError "${FUNCNAME[0]}: Missing required parameters"
+    return 1
+  fi
 
-	# validate section name only if strict mode is enabled
-	if __dnIniSetting 'strict'; then
-		__dnIniValidateSectionName "$section" || return 1
-	fi
+  # validate section name only if strict mode is enabled
+  if __dnIniSetting 'strict'; then
+    __dnIniValidateSectionName "$section" || return 1
+  fi
 
-	# check if file exists
-	if [ ! -f "$file" ]; then
-		__dnIniError "${FUNCNAME[0]}: File not found: $file"
-		return 1
-	fi
+  # check if file exists
+  if [ ! -f "$file" ]; then
+    __dnIniError "${FUNCNAME[0]}: File not found: $file"
+    return 1
+  fi
 
-	# escape section for regex pattern
-	local escaped_section section_pattern in_section
-	escaped_section=$(__dnIniEscapeForRegex "$section")
-	section_pattern="^\[$escaped_section\]"
-	in_section=1
+  # escape section for regex pattern
+  local escaped_section section_pattern in_section
+  escaped_section=$(__dnIniEscapeForRegex "$section")
+  section_pattern="^\[$escaped_section\]"
+  in_section=1
 
-	__dnIniDebug "Listing keys in section '$section' in file: $file"
+  __dnIniDebug "Listing keys in section '$section' in file: $file"
 
-	while IFS= read -r line; do
-		# skip comments and empty lines
-		if [[ -z "$line" || "$line" =~ ^[[:space:]]*[#\;] ]]; then
-			continue
-		fi
+  while IFS= read -r line; do
+    # skip comments and empty lines
+    if [[ -z "$line" || "$line" =~ ^[[:space:]]*[#\;] ]]; then
+      continue
+    fi
 
-		# check for section
-		if [[ "$line" =~ $section_pattern ]]; then
-			in_section=0
-			__dnIniDebug "Found section: $section"
-			continue
-		fi
+    # check for section
+    if [[ "$line" =~ $section_pattern ]]; then
+      in_section=0
+      __dnIniDebug "Found section: $section"
+      continue
+    fi
 
-		# check if we've moved to a different section
-		if [[ $in_section -eq 0 && "$line" =~ ^\[[^]]+\] ]]; then
-			break
-		fi
+    # check if we've moved to a different section
+    if [[ $in_section -eq 0 && "$line" =~ ^\[[^]]+\] ]]; then
+      break
+    fi
 
-		# extract key name from current section
-		if [[ $in_section -eq 0 && "$line" =~ ^[[:space:]]*[^=]+= ]]; then
-			local key
-			key="${line%%=*}"
-			key=$(__dnIniTrim "$key")
-			__dnIniDebug "Found key: $key"
-			echo "$key"
-		fi
-	done <"$file"
+    # extract key name from current section
+    if [[ $in_section -eq 0 && "$line" =~ ^[[:space:]]*[^=]+= ]]; then
+      local key
+      key="${line%%=*}"
+      key=$(__dnIniTrim "$key")
+      __dnIniDebug "Found key: $key"
+      echo "$key"
+    fi
+  done <"$file"
 
-	return 0
+  return 0
 }
 
 # Function: dnIniListSections    {{{1
@@ -616,29 +751,29 @@ dnIniListKeys() {
 # fn_tag dnIniListSections param file type path
 # fn_tag dnIniListSections param file note file must exist
 dnIniListSections() {
-	# validate parameters
-	if [ $# -lt 1 ]; then
-		__dnIniError "${FUNCNAME[0]}: Missing file parameter"
-		return 1
-	fi
-	local file
-	file="$1"
-	if [ -z "$file" ]; then
-		__dnIniError "${FUNCNAME[0]}: Missing file parameter"
-		return 1
-	fi
+  # validate parameters
+  if [ $# -lt 1 ]; then
+    __dnIniError "${FUNCNAME[0]}: Missing file parameter"
+    return 1
+  fi
+  local file
+  file="$1"
+  if [ -z "$file" ]; then
+    __dnIniError "${FUNCNAME[0]}: Missing file parameter"
+    return 1
+  fi
 
-	# check if file exists
-	if [ ! -f "$file" ]; then
-		__dnIniError "${FUNCNAME[0]}: File not found: $file"
-		return 1
-	fi
+  # check if file exists
+  if [ ! -f "$file" ]; then
+    __dnIniError "${FUNCNAME[0]}: File not found: $file"
+    return 1
+  fi
 
-	__dnIniDebug "Listing sections in file: $file"
+  __dnIniDebug "Listing sections in file: $file"
 
-	# extract section names
-	grep -o '^\[[^]]*\]' "$file" 2>/dev/null | sed 's/^\[\(.*\)\]$/\1/'
-	return 0
+  # extract section names
+  grep -o '^\[[^]]*\]' "$file" 2>/dev/null | sed 's/^\[\(.*\)\]$/\1/'
+  return 0
 }
 
 # Function: dnIniRead    {{{1
@@ -669,87 +804,87 @@ dnIniListSections() {
 # fn_tag dnIniRead param key type string
 # fn_tag dnIniRead param key note key must exist
 dnIniRead() {
-	local file section key
-	file="$1"
-	section="$2"
-	key="$3"
+  local file section key
+  file="$1"
+  section="$2"
+  key="$3"
 
-	# validate parameters
-	if [ -z "$file" ] || [ -z "$section" ] || [ -z "$key" ]; then
-		__dnIniError "${FUNCNAME[0]}: Missing required parameters"
-		return 1
-	fi
+  # validate parameters
+  if [ -z "$file" ] || [ -z "$section" ] || [ -z "$key" ]; then
+    __dnIniError "${FUNCNAME[0]}: Missing required parameters"
+    return 1
+  fi
 
-	# validate section and key names only if strict mode is enabled
-	if __dnIniSetting 'strict'; then
-		__dnIniValidateSectionName "$section" || return 1
-		__dnIniValidateKeyName "$key" || return 1
-	fi
+  # validate section and key names only if strict mode is enabled
+  if __dnIniSetting 'strict'; then
+    __dnIniValidateSectionName "$section" || return 1
+    __dnIniValidateKeyName "$key" || return 1
+  fi
 
-	# check if file exists
-	if [ ! -f "$file" ]; then
-		__dnIniError "${FUNCNAME[0]}: File not found: $file"
-		return 1
-	fi
+  # check if file exists
+  if [ ! -f "$file" ]; then
+    __dnIniError "${FUNCNAME[0]}: File not found: $file"
+    return 1
+  fi
 
-	# escape section and key for regex pattern
-	local escaped_section
-	escaped_section=$(__dnIniEscapeForRegex "$section")
-	local escaped_key
-	escaped_key=$(__dnIniEscapeForRegex "$key")
+  # escape section and key for regex pattern
+  local escaped_section
+  escaped_section=$(__dnIniEscapeForRegex "$section")
+  local escaped_key
+  escaped_key=$(__dnIniEscapeForRegex "$key")
 
-	local section_pattern in_section
-	section_pattern="^\[$escaped_section\]"
-	in_section=0
+  local section_pattern in_section
+  section_pattern="^\[$escaped_section\]"
+  in_section=0
 
-	__dnIniDebug "Reading key '$key' from section '$section' in file: $file"
+  __dnIniDebug "Reading key '$key' from section '$section' in file: $file"
 
-	while IFS= read -r line; do
-		# skip comments and empty lines
-		if [[ -z "$line" || "$line" =~ ^[[:space:]]*[#\;] ]]; then
-			continue
-		fi
+  while IFS= read -r line; do
+    # skip comments and empty lines
+    if [[ -z "$line" || "$line" =~ ^[[:space:]]*[#\;] ]]; then
+      continue
+    fi
 
-		# check for section
-		if [[ "$line" =~ $section_pattern ]]; then
-			in_section=1
-			__dnIniDebug "Found section: $section"
-			continue
-		fi
+    # check for section
+    if [[ "$line" =~ $section_pattern ]]; then
+      in_section=1
+      __dnIniDebug "Found section: $section"
+      continue
+    fi
 
-		# check if we've moved to a different section
-		if [[ $in_section -eq 1 && "$line" =~ ^\[[^]]+\] ]]; then
-			__dnIniDebug "Reached end of section without finding key"
-			return 1
-		fi
+    # check if we've moved to a different section
+    if [[ $in_section -eq 1 && "$line" =~ ^\[[^]]+\] ]]; then
+      __dnIniDebug "Reached end of section without finding key"
+      return 1
+    fi
 
-		# check for key in the current section
-		if [[ $in_section -eq 1 ]]; then
-			local key_pattern
-			key_pattern="^[[:space:]]*${escaped_key}[[:space:]]*="
-			if [[ "$line" =~ $key_pattern ]]; then
-				local value
-				value="${line#*=}"
-				# trim whitespace
-				value=$(__dnIniTrim "$value")
+    # check for key in the current section
+    if [[ $in_section -eq 1 ]]; then
+      local key_pattern
+      key_pattern="^[[:space:]]*${escaped_key}[[:space:]]*="
+      if [[ "$line" =~ $key_pattern ]]; then
+        local value
+        value="${line#*=}"
+        # trim whitespace
+        value=$(__dnIniTrim "$value")
 
-				# check for quoted values
-				if [[ "$value" =~ ^\"(.*)\"$ ]]; then
-					# remove the quotes
-					value="${BASH_REMATCH[1]}"
-					# handle escaped quotes within the value
-					value="${value//\\\"/\"}"
-				fi
+        # check for quoted values
+        if [[ "$value" =~ ^\"(.*)\"$ ]]; then
+          # remove the quotes
+          value="${BASH_REMATCH[1]}"
+          # handle escaped quotes within the value
+          value="${value//\\\"/\"}"
+        fi
 
-				__dnIniDebug "Found value: $value"
-				echo "$value"
-				return 0
-			fi
-		fi
-	done <"$file"
+        __dnIniDebug "Found value: $value"
+        echo "$value"
+        return 0
+      fi
+    fi
+  done <"$file"
 
-	__dnIniDebug "Key not found: $key in section: $section"
-	return 1
+  __dnIniDebug "Key not found: $key in section: $section"
+  return 1
 }
 
 # Function: dnIniReadArray    {{{1
@@ -780,66 +915,66 @@ dnIniRead() {
 # fn_tag dnIniReadArray param key type string
 # fn_tag dnIniReadArray param key note key must exist
 dnIniReadArray() {
-	local file section key
-	file="$1"
-	section="$2"
-	key="$3"
+  local file section key
+  file="$1"
+  section="$2"
+  key="$3"
 
-	# validate parameters
-	if [ -z "$file" ] || [ -z "$section" ] || [ -z "$key" ]; then
-		__dnIniError "${FUNCNAME[0]}: Missing required parameters"
-		return 1
-	fi
+  # validate parameters
+  if [ -z "$file" ] || [ -z "$section" ] || [ -z "$key" ]; then
+    __dnIniError "${FUNCNAME[0]}: Missing required parameters"
+    return 1
+  fi
 
-	# read the value
-	local value
-	value=$(dnIniRead "$file" "$section" "$key") || return 1
+  # read the value
+  local value
+  value=$(dnIniRead "$file" "$section" "$key") || return 1
 
-	# split the array by commas
-	# we need to handle quoted values properly
-	local -a result
-	result=()
-	local in_quotes current_item
-	in_quotes=1
-	current_item=""
+  # split the array by commas
+  # we need to handle quoted values properly
+  local -a result
+  result=()
+  local in_quotes current_item
+  in_quotes=1
+  current_item=""
 
-	for ((i = 0; i < ${#value}; i++)); do
-		local char
-		char="${value:$i:1}"
+  for ((i = 0; i < ${#value}; i++)); do
+    local char
+    char="${value:$i:1}"
 
-		# handle quotes
-		if [ "$char" = '"' ]; then
-			# shellcheck disable=SC1003
-			# check if the quote is escaped
-			if [ $i -gt 0 ] && [ "${value:$((i - 1)):1}" = "\\" ]; then
-				# it's an escaped quote, keep it
-				current_item="${current_item:0:-1}$char"
-			else
-				# toggle quote state
-				in_quotes=$((1 - in_quotes))
-			fi
-		# handle comma separator
-		elif [ "$char" = ',' ] && [ $in_quotes -eq 1 ]; then
-			# end of an item
-			result+=("$(__dnIniTrim "$current_item")")
-			current_item=""
-		else
-			# add character to current item
-			current_item="$current_item$char"
-		fi
-	done
+    # handle quotes
+    if [ "$char" = '"' ]; then
+      # shellcheck disable=SC1003
+      # check if the quote is escaped
+      if [ $i -gt 0 ] && [ "${value:$((i - 1)):1}" = "\\" ]; then
+        # it's an escaped quote, keep it
+        current_item="${current_item:0:-1}$char"
+      else
+        # toggle quote state
+        in_quotes=$((1 - in_quotes))
+      fi
+    # handle comma separator
+    elif [ "$char" = ',' ] && [ $in_quotes -eq 1 ]; then
+      # end of an item
+      result+=("$(__dnIniTrim "$current_item")")
+      current_item=""
+    else
+      # add character to current item
+      current_item="$current_item$char"
+    fi
+  done
 
-	# add the last item
-	if [ -n "$current_item" ] || [ ${#result[@]} -gt 0 ]; then
-		result+=("$(__dnIniTrim "$current_item")")
-	fi
+  # add the last item
+  if [ -n "$current_item" ] || [ ${#result[@]} -gt 0 ]; then
+    result+=("$(__dnIniTrim "$current_item")")
+  fi
 
-	# output the array items, one per line
-	for item in "${result[@]}"; do
-		echo "$item"
-	done
+  # output the array items, one per line
+  for item in "${result[@]}"; do
+    echo "$item"
+  done
 
-	return 0
+  return 0
 }
 
 # Function: dnIniRemoveKey    {{{1
@@ -870,62 +1005,62 @@ dnIniReadArray() {
 # fn_tag dnIniRemoveKey param key type string
 # fn_tag dnIniRemoveKey param key note key need not exist
 dnIniRemoveKey() {
-	# validate parameters
-	if [ $# -lt 3 ]; then
-		__dnIniError "${FUNCNAME[0]}: File not found: $file"
-		return 1
-	fi
-	local file section key
-	file="$1"
-	section="$2"
-	key="$3"
-	if [ -z "$file" ] || [ -z "$section" ] || [ -z "$key" ]; then
-		__dnIniError "${FUNCNAME[0]}: File not found: $file"
-		return 1
-	fi
+  # validate parameters
+  if [ $# -lt 3 ]; then
+    __dnIniError "${FUNCNAME[0]}: File not found: $file"
+    return 1
+  fi
+  local file section key
+  file="$1"
+  section="$2"
+  key="$3"
+  if [ -z "$file" ] || [ -z "$section" ] || [ -z "$key" ]; then
+    __dnIniError "${FUNCNAME[0]}: File not found: $file"
+    return 1
+  fi
 
-	# escape section and key for regex pattern
-	local escaped_section
-	escaped_section=$(__dnIniEscapeForRegex "$section")
-	local escaped_key
-	escaped_key=$(__dnIniEscapeForRegex "$key")
+  # escape section and key for regex pattern
+  local escaped_section
+  escaped_section=$(__dnIniEscapeForRegex "$section")
+  local escaped_key
+  escaped_key=$(__dnIniEscapeForRegex "$key")
 
-	local section_pattern key_pattern in_section temp_file
-	section_pattern="^\[$escaped_section\]"
-	key_pattern="^[[:space:]]*${escaped_key}[[:space:]]*="
-	in_section=1
-	temp_file=$(__dnIniCreateTempFile)
+  local section_pattern key_pattern in_section temp_file
+  section_pattern="^\[$escaped_section\]"
+  key_pattern="^[[:space:]]*${escaped_key}[[:space:]]*="
+  in_section=1
+  temp_file=$(__dnIniCreateTempFile)
 
-	__dnIniDebug "Removing key '$key' from section '$section' in file: $file"
+  __dnIniDebug "Removing key '$key' from section '$section' in file: $file"
 
-	# process the file line by line
-	while IFS= read -r line; do
-		# check for section
-		if [[ "$line" =~ $section_pattern ]]; then
-			in_section=0
-			echo "$line" >>"$temp_file"
-			continue
-		fi
+  # process the file line by line
+  while IFS= read -r line; do
+    # check for section
+    if [[ "$line" =~ $section_pattern ]]; then
+      in_section=0
+      echo "$line" >>"$temp_file"
+      continue
+    fi
 
-		# check if we've moved to a different section
-		if [[ $in_section -eq 0 && "$line" =~ ^\[[^]]+\] ]]; then
-			in_section=1
-		fi
+    # check if we've moved to a different section
+    if [[ $in_section -eq 0 && "$line" =~ ^\[[^]]+\] ]]; then
+      in_section=1
+    fi
 
-		# skip the key to be removed
-		if [[ $in_section -eq 0 && "$line" =~ $key_pattern ]]; then
-			continue
-		fi
+    # skip the key to be removed
+    if [[ $in_section -eq 0 && "$line" =~ $key_pattern ]]; then
+      continue
+    fi
 
-		# write the line to the temp file
-		echo "$line" >>"$temp_file"
-	done <"$file"
+    # write the line to the temp file
+    echo "$line" >>"$temp_file"
+  done <"$file"
 
-	# use atomic operation to replace the original file
-	mv "$temp_file" "$file"
+  # use atomic operation to replace the original file
+  mv "$temp_file" "$file"
 
-	__dnIniDebug "Successfully removed key '$key' from section '$section'"
-	return 0
+  __dnIniDebug "Successfully removed key '$key' from section '$section'"
+  return 0
 }
 
 # Function: dnIniRemoveSection    {{{1
@@ -948,60 +1083,60 @@ dnIniRemoveKey() {
 # fn_tag dnIniRemoveSection param section type string
 # fn_tag dnIniRemoveSection param section section name must exist
 dnIniRemoveSection() {
-	local file section
-	file="$1"
-	section="$2"
+  local file section
+  file="$1"
+  section="$2"
 
-	# validate parameters
-	if [ -z "$file" ] || [ -z "$section" ]; then
-		__dnIniError "${FUNCNAME[0]}: Missing required parameters"
-		return 1
-	fi
+  # validate parameters
+  if [ -z "$file" ] || [ -z "$section" ]; then
+    __dnIniError "${FUNCNAME[0]}: Missing required parameters"
+    return 1
+  fi
 
-	# validate section name only if strict mode is enabled
-	if __dnIniSetting 'strict'; then
-		__dnIniValidateSectionName "$section" || return 1
-	fi
+  # validate section name only if strict mode is enabled
+  if __dnIniSetting 'strict'; then
+    __dnIniValidateSectionName "$section" || return 1
+  fi
 
-	# check if file exists
-	if [ ! -f "$file" ]; then
-		__dnIniError "${FUNCNAME[0]}: File not found: $file"
-		return 1
-	fi
+  # check if file exists
+  if [ ! -f "$file" ]; then
+    __dnIniError "${FUNCNAME[0]}: File not found: $file"
+    return 1
+  fi
 
-	# escape section for regex pattern
-	local escaped_section section_pattern in_section temp_file
-	escaped_section=$(__dnIniEscapeForRegex "$section")
-	section_pattern="^\[$escaped_section\]"
-	in_section=1
-	temp_file=$(__dnIniCreateTempFile)
+  # escape section for regex pattern
+  local escaped_section section_pattern in_section temp_file
+  escaped_section=$(__dnIniEscapeForRegex "$section")
+  section_pattern="^\[$escaped_section\]"
+  in_section=1
+  temp_file=$(__dnIniCreateTempFile)
 
-	__dnIniDebug "Removing section '$section' from file: $file"
+  __dnIniDebug "Removing section '$section' from file: $file"
 
-	# process the file line by line
-	while IFS= read -r line; do
-		# check for section
-		if [[ "$line" =~ $section_pattern ]]; then
-			in_section=0
-			continue
-		fi
+  # process the file line by line
+  while IFS= read -r line; do
+    # check for section
+    if [[ "$line" =~ $section_pattern ]]; then
+      in_section=0
+      continue
+    fi
 
-		# check if we've moved to a different section
-		if [[ $in_section -eq 0 && "$line" =~ ^\[[^]]+\] ]]; then
-			in_section=0
-		fi
+    # check if we've moved to a different section
+    if [[ $in_section -eq 0 && "$line" =~ ^\[[^]]+\] ]]; then
+      in_section=0
+    fi
 
-		# write the line to the temp file if not in the section to be removed
-		if [ $in_section -eq 1 ]; then
-			echo "$line" >>"$temp_file"
-		fi
-	done <"$file"
+    # write the line to the temp file if not in the section to be removed
+    if [ $in_section -eq 1 ]; then
+      echo "$line" >>"$temp_file"
+    fi
+  done <"$file"
 
-	# use atomic operation to replace the original file
-	mv "$temp_file" "$file"
+  # use atomic operation to replace the original file
+  mv "$temp_file" "$file"
 
-	__dnIniDebug "Successfully removed section '$section'"
-	return 0
+  __dnIniDebug "Successfully removed section '$section'"
+  return 0
 }
 
 # Function: dnIniSectionExists    {{{1
@@ -1025,48 +1160,48 @@ dnIniRemoveSection() {
 # fn_tag dnIniSectionExists param section multipart no
 # fn_tag dnIniSectionExists param section type string
 dnIniSectionExists() {
-	# validate parameters
-	if [ $# -lt 2 ]; then
-		__dnIniError "${FUNCNAME[0]}: Missing required parameters"
-		return 1
-	fi
-	local file section
-	file="$1"
-	section="$2"
-	if [ -z "$file" ] || [ -z "$section" ]; then
-		__dnIniError "${FUNCNAME[0]}: Missing required parameters"
-		return 1
-	fi
+  # validate parameters
+  if [ $# -lt 2 ]; then
+    __dnIniError "${FUNCNAME[0]}: Missing required parameters"
+    return 1
+  fi
+  local file section
+  file="$1"
+  section="$2"
+  if [ -z "$file" ] || [ -z "$section" ]; then
+    __dnIniError "${FUNCNAME[0]}: Missing required parameters"
+    return 1
+  fi
 
-	# validate section name only if strict mode is enabled
-	if __dnIniSetting 'strict'; then
-		__dnIniValidateSectionName "$section" || return 1
-	fi
+  # validate section name only if strict mode is enabled
+  if __dnIniSetting 'strict'; then
+    __dnIniValidateSectionName "$section" || return 1
+  fi
 
-	# check if file exists
-	if [ ! -f "$file" ]; then
-		__dnIniDebug "File not found: $file"
-		return 1
-	fi
+  # check if file exists
+  if [ ! -f "$file" ]; then
+    __dnIniDebug "File not found: $file"
+    return 1
+  fi
 
-	# escape section for regex pattern
-	local escaped_section
-	escaped_section=$(__dnIniEscapeForRegex "$section")
+  # escape section for regex pattern
+  local escaped_section
+  escaped_section=$(__dnIniEscapeForRegex "$section")
 
-	__dnIniDebug "Checking if section '$section' exists in file: $file"
+  __dnIniDebug "Checking if section '$section' exists in file: $file"
 
-	# check if section exists
-	local result
-	grep -q "^\[$escaped_section\]" "$file"
-	result=$?
+  # check if section exists
+  local result
+  grep -q "^\[$escaped_section\]" "$file"
+  result=$?
 
-	if [ $result -eq 0 ]; then
-		__dnIniDebug "Section found: $section"
-	else
-		__dnIniDebug "Section not found: $section"
-	fi
+  if [ $result -eq 0 ]; then
+    __dnIniDebug "Section found: $section"
+  else
+    __dnIniDebug "Section not found: $section"
+  fi
 
-	return $result
+  return $result
 }
 
 # Function: dnIniSettingAllowEmptyValues    {{{1
@@ -1089,8 +1224,8 @@ dnIniSectionExists() {
 # fn_tag dnIniSettingAllowEmptyValues param value value 'false'
 # fn_tag dnIniSettingAllowEmptyValues param value note the values for this parameter are text strings, not the shell built-in commands
 dnIniSettingAllowEmptyValues() {
-	__dnIniSetting 'allow_empty_values' "$@"
-	return $?
+  __dnIniSetting 'allow_empty_values' "$@"
+  return $?
 }
 
 # Function: dnIniSettingAllowSpacesInNames    {{{1
@@ -1113,8 +1248,8 @@ dnIniSettingAllowEmptyValues() {
 # fn_tag dnIniSettingAllowSpacesInNames param value value 'false'
 # fn_tag dnIniSettingAllowSpacesInNames param value note the values for this parameter are text strings, not the shell built-in commands
 dnIniSettingAllowSpacesInNames() {
-	__dnIniSetting 'allow_spaces_in_names' "$@"
-	return $?
+  __dnIniSetting 'allow_spaces_in_names' "$@"
+  return $?
 }
 
 # Function: dnIniSettingDebug    {{{1
@@ -1137,8 +1272,8 @@ dnIniSettingAllowSpacesInNames() {
 # fn_tag dnIniSettingDebug param value value 'false'
 # fn_tag dnIniSettingDebug param value note the values for this parameter are text strings, not the shell built-in commands
 dnIniSettingDebug() {
-	__dnIniSetting 'debug' "$@"
-	return $?
+  __dnIniSetting 'debug' "$@"
+  return $?
 }
 
 # Function: dnIniSettingStrict    {{{1
@@ -1161,8 +1296,8 @@ dnIniSettingDebug() {
 # fn_tag dnIniSettingStrict param value value 'false'
 # fn_tag dnIniSettingStrict param value note the values for this parameter are text strings, not the shell built-in commands
 dnIniSettingStrict() {
-	__dnIniSetting 'strict' "$@"
-	return $?
+  __dnIniSetting 'strict' "$@"
+  return $?
 }
 
 # Function: dnIniToEnv    {{{1
@@ -1196,79 +1331,79 @@ dnIniSettingStrict() {
 # fn_tag dnIniToEnv param section type string
 # fn_tag dnIniToEnv param section default all sections
 dnIniToEnv() {
-	# validate parameters
-	if [ $# -lt 1 ]; then
-		__dnIniError "${FUNCNAME[0]}: Missing file parameter"
-		return 1
-	fi
-	local file prefix section
-	file="$1"
-	prefix=''
-	if [ $# -ge 2 ]; then
-		prefix="$2"
-	fi
-	section=''
-	if [ $# -ge 3 ]; then
-		section="$3"
-	fi
-	if [ -z "$file" ]; then
-		__dnIniError "${FUNCNAME[0]}: Missing file parameter"
-		return 1
-	fi
+  # validate parameters
+  if [ $# -lt 1 ]; then
+    __dnIniError "${FUNCNAME[0]}: Missing file parameter"
+    return 1
+  fi
+  local file prefix section
+  file="$1"
+  prefix=''
+  if [ $# -ge 2 ]; then
+    prefix="$2"
+  fi
+  section=''
+  if [ $# -ge 3 ]; then
+    section="$3"
+  fi
+  if [ -z "$file" ]; then
+    __dnIniError "${FUNCNAME[0]}: Missing file parameter"
+    return 1
+  fi
 
-	# check if file exists
-	if [ ! -f "$file" ]; then
-		__dnIniError "${FUNCNAME[0]}: File not found: $file"
-		return 1
-	fi
+  # check if file exists
+  if [ ! -f "$file" ]; then
+    __dnIniError "${FUNCNAME[0]}: File not found: $file"
+    return 1
+  fi
 
-	__dnIniDebug "Exporting INI values to environment variables with prefix: $prefix"
+  __dnIniDebug "Exporting INI values to environment variables with prefix: $prefix"
 
-	# if section is specified, only export keys from that section
-	if [ -n "$section" ]; then
-		if __dnIniSetting 'strict'; then
-			__dnIniValidateSectionName "$section" || return 1
-		fi
+  # if section is specified, only export keys from that section
+  if [ -n "$section" ]; then
+    if __dnIniSetting 'strict'; then
+      __dnIniValidateSectionName "$section" || return 1
+    fi
 
-		local keys
-		keys=$(dnIniListKeys "$file" "$section")
+    local keys
+    keys=$(dnIniListKeys "$file" "$section")
 
-		for key in $keys; do
-			local value
-			value=$(dnIniRead "$file" "$section" "$key")
+    for key in $keys; do
+      local value
+      value=$(dnIniRead "$file" "$section" "$key")
 
-			# export the variable with the given prefix
-			if [ -n "$prefix" ]; then
-				export "${prefix}_${section}_${key}=${value}"
-			else
-				export "${section}_${key}=${value}"
-			fi
-		done
-	else
-		# export keys from all sections
-		local sections
-		sections=$(dnIniListSections "$file")
+      # export the variable with the given prefix
+      if [ -n "$prefix" ]; then
+        export "${prefix}_${section}_${key}=${value}"
+      else
+        export "${section}_${key}=${value}"
+      fi
+    done
+  else
+    # export keys from all sections
+    local sections
+    sections=$(dnIniListSections "$file")
 
-		for section in $sections; do
-			local keys
-			keys=$(dnIniListKeys "$file" "$section")
+    for section in $sections; do
+      local keys
+      keys=$(dnIniListKeys "$file" "$section")
 
-			for key in $keys; do
-				local value
-				value=$(dnIniRead "$file" "$section" "$key")
+      for key in $keys; do
+        local value
+        value=$(dnIniRead "$file" "$section" "$key")
 
-				# export the variable with the given prefix
-				if [ -n "$prefix" ]; then
-					export "${prefix}_${section}_${key}=${value}"
-				else
-					export "${section}_${key}=${value}"
-				fi
-			done
-		done
-	fi
+        # export the variable with the given prefix
+        if [ -n "$prefix" ]; then
+          export "${prefix}_${section}_${key}=${value}"
+        else
+          export "${section}_${key}=${value}"
+        fi
+      done
+    done
+  fi
 
-	__dnIniDebug "Environment variables set successfully"
-	return 0
+  __dnIniDebug "Environment variables set successfully"
+  return 0
 }
 
 # Function: dnIniWrite    {{{1
@@ -1304,103 +1439,103 @@ dnIniToEnv() {
 # fn_tag dnIniWrite param value type string
 # fn_tag dnIniWrite param value default empty string ('')
 dnIniWrite() {
-	# validate parameters
-	if [ $# -lt 3 ]; then
-		__dnIniError "${FUNCNAME[0]}: Missing required parameters"
-		return 1
-	fi
-	local file section key value
-	file="$1"
-	section="$2"
-	key="$3"
-	value=''
-	if [ $# -ge 4 ]; then
-		value="$4"
-	fi
-	if [ -z "$file" ] || [ -z "$section" ] || [ -z "$key" ]; then
-		__dnIniError "${FUNCNAME[0]}: Missing required parameters"
-		return 1
-	fi
+  # validate parameters
+  if [ $# -lt 3 ]; then
+    __dnIniError "${FUNCNAME[0]}: Missing required parameters"
+    return 1
+  fi
+  local file section key value
+  file="$1"
+  section="$2"
+  key="$3"
+  value=''
+  if [ $# -ge 4 ]; then
+    value="$4"
+  fi
+  if [ -z "$file" ] || [ -z "$section" ] || [ -z "$key" ]; then
+    __dnIniError "${FUNCNAME[0]}: Missing required parameters"
+    return 1
+  fi
 
-	# validate section and key names only if strict mode is enabled
-	if __dnIniSetting 'strict'; then
-		__dnIniValidateSectionName "$section" || return 1
-		__dnIniValidateKeyName "$key" || return 1
-	fi
+  # validate section and key names only if strict mode is enabled
+  if __dnIniSetting 'strict'; then
+    __dnIniValidateSectionName "$section" || return 1
+    __dnIniValidateKeyName "$key" || return 1
+  fi
 
-	# check for empty value if not allowed
-	if [ -z "$value" ] && ! __dnIniSetting 'allow_empty_values'; then
-		__dnIniError "${FUNCNAME[0]}: Empty values are not allowed"
-		return 1
-	fi
+  # check for empty value if not allowed
+  if [ -z "$value" ] && ! __dnIniSetting 'allow_empty_values'; then
+    __dnIniError "${FUNCNAME[0]}: Empty values are not allowed"
+    return 1
+  fi
 
-	# check and create file if needed
-	__dnIniCheckFile "$file" || return 1
+  # check and create file if needed
+  __dnIniCheckFile "$file" || return 1
 
-	# create section if it doesn't exist
-	dnIniAddSection "$file" "$section" || return 1
+  # create section if it doesn't exist
+  dnIniAddSection "$file" "$section" || return 1
 
-	# escape section and key for regex pattern
-	local escaped_section
-	escaped_section=$(__dnIniEscapeForRegex "$section")
-	local escaped_key
-	escaped_key=$(__dnIniEscapeForRegex "$key")
+  # escape section and key for regex pattern
+  local escaped_section
+  escaped_section=$(__dnIniEscapeForRegex "$section")
+  local escaped_key
+  escaped_key=$(__dnIniEscapeForRegex "$key")
 
-	local section_pattern key_pattern in_section found_key temp_file
-	section_pattern="^\[$escaped_section\]"
-	key_pattern="^[[:space:]]*${escaped_key}[[:space:]]*="
-	in_section=1
-	found_key=1
-	temp_file=$(__dnIniCreateTempFile)
+  local section_pattern key_pattern in_section found_key temp_file
+  section_pattern="^\[$escaped_section\]"
+  key_pattern="^[[:space:]]*${escaped_key}[[:space:]]*="
+  in_section=1
+  found_key=1
+  temp_file=$(__dnIniCreateTempFile)
 
-	__dnIniDebug "Writing key '$key' with value '$value' to section '$section' in file: $file"
+  __dnIniDebug "Writing key '$key' with value '$value' to section '$section' in file: $file"
 
-	# special handling for values with quotes or special characters
-	if __dnIniSetting 'strict' && [[ "$value" =~ [[:space:]\"\'\`\&\|\<\>\;\$] ]]; then
-		value="\"${value//\"/\\\"}\""
-		__dnIniDebug "Value contains special characters, quoting: $value"
-	fi
+  # special handling for values with quotes or special characters
+  if __dnIniSetting 'strict' && [[ "$value" =~ [[:space:]\"\'\`\&\|\<\>\;\$] ]]; then
+    value="\"${value//\"/\\\"}\""
+    __dnIniDebug "Value contains special characters, quoting: $value"
+  fi
 
-	# process the file line by line
-	while IFS= read -r line || [ -n "$line" ]; do
-		# check for section
-		if [[ "$line" =~ $section_pattern ]]; then
-			in_section=0
-			echo "$line" >>"$temp_file"
-			continue
-		fi
+  # process the file line by line
+  while IFS= read -r line || [ -n "$line" ]; do
+    # check for section
+    if [[ "$line" =~ $section_pattern ]]; then
+      in_section=0
+      echo "$line" >>"$temp_file"
+      continue
+    fi
 
-		# check if we've moved to a different section
-		if [[ $in_section -eq 0 && "$line" =~ ^\[[^]]+\] ]]; then
-			# add the key-value pair if we haven't found it yet
-			if [ $found_key -eq 1 ]; then
-				echo "$key=$value" >>"$temp_file"
-				found_key=0
-			fi
-			in_section=1
-		fi
+    # check if we've moved to a different section
+    if [[ $in_section -eq 0 && "$line" =~ ^\[[^]]+\] ]]; then
+      # add the key-value pair if we haven't found it yet
+      if [ $found_key -eq 1 ]; then
+        echo "$key=$value" >>"$temp_file"
+        found_key=0
+      fi
+      in_section=1
+    fi
 
-		# update the key if it exists in the current section
-		if [[ $in_section -eq 0 && "$line" =~ $key_pattern ]]; then
-			echo "$key=$value" >>"$temp_file"
-			found_key=0
-			continue
-		fi
+    # update the key if it exists in the current section
+    if [[ $in_section -eq 0 && "$line" =~ $key_pattern ]]; then
+      echo "$key=$value" >>"$temp_file"
+      found_key=0
+      continue
+    fi
 
-		# write the line to the temp file
-		echo "$line" >>"$temp_file"
-	done <"$file"
+    # write the line to the temp file
+    echo "$line" >>"$temp_file"
+  done <"$file"
 
-	# add the key-value pair if we're still in the section and haven't found it
-	if [ $in_section -eq 0 ] && [ $found_key -eq 1 ]; then
-		echo "$key=$value" >>"$temp_file"
-	fi
+  # add the key-value pair if we're still in the section and haven't found it
+  if [ $in_section -eq 0 ] && [ $found_key -eq 1 ]; then
+    echo "$key=$value" >>"$temp_file"
+  fi
 
-	# use atomic operation to replace the original file
-	mv "$temp_file" "$file"
+  # use atomic operation to replace the original file
+  mv "$temp_file" "$file"
 
-	__dnIniDebug "Successfully wrote key '$key' with value '$value' to section '$section'"
-	return 0
+  __dnIniDebug "Successfully wrote key '$key' with value '$value' to section '$section'"
+  return 0
 }
 
 # Function: dnIniWriteArray    {{{1
@@ -1436,46 +1571,46 @@ dnIniWrite() {
 # fn_tag dnIniWriteArray param value type string
 # fn_tag dnIniWriteArray param value default empty string ('')
 dnIniWriteArray() {
-	local file section key
-	file="$1"
-	section="$2"
-	key="$3"
-	shift 3
-	local -a array_values
-	array_values=("$@")
+  local file section key
+  file="$1"
+  section="$2"
+  key="$3"
+  shift 3
+  local -a array_values
+  array_values=("$@")
 
-	# validate parameters
-	if [ -z "$file" ] || [ -z "$section" ] || [ -z "$key" ]; then
-		__dnIniError "${FUNCNAME[0]}: Missing required parameters"
-		return 1
-	fi
+  # validate parameters
+  if [ -z "$file" ] || [ -z "$section" ] || [ -z "$key" ]; then
+    __dnIniError "${FUNCNAME[0]}: Missing required parameters"
+    return 1
+  fi
 
-	# process array values and handle quoting
-	local array_string first
-	array_string=""
-	first=0
+  # process array values and handle quoting
+  local array_string first
+  array_string=""
+  first=0
 
-	for value in "${array_values[@]}"; do
-		# add comma separator if not the first item
-		if [ $first -eq 1 ]; then
-			array_string="$array_string,"
-		else
-			first=1
-		fi
+  for value in "${array_values[@]}"; do
+    # add comma separator if not the first item
+    if [ $first -eq 1 ]; then
+      array_string="$array_string,"
+    else
+      first=1
+    fi
 
-		# quote values with spaces or special characters
-		if [[ "$value" =~ [[:space:],\"] ]]; then
-			# escape quotes
-			value="${value//\"/\\\"}"
-			array_string="$array_string\"$value\""
-		else
-			array_string="$array_string$value"
-		fi
-	done
+    # quote values with spaces or special characters
+    if [[ "$value" =~ [[:space:],\"] ]]; then
+      # escape quotes
+      value="${value//\"/\\\"}"
+      array_string="$array_string\"$value\""
+    else
+      array_string="$array_string$value"
+    fi
+  done
 
-	# write the array string to the ini file
-	dnIniWrite "$file" "$section" "$key" "$array_string"
-	return $?
+  # write the array string to the ini file
+  dnIniWrite "$file" "$section" "$key" "$array_string"
+  return $?
 }
 # }}}1
 
