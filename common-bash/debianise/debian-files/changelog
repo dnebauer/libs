@@ -1,3 +1,15 @@
+libdncommon-bash (7.3-1) UNRELEASED; urgency=low
+
+  * add functions dnIniFileFind{All,First}
+
+ -- David Nebauer <david@nebauer.org>  Tue, 06 Jan 2026 21:44:08 +0930
+
+libdncommon-bash (7.2-1) UNRELEASED; urgency=low
+
+  * fix: variable name misspelling
+
+ -- David Nebauer <david@nebauer.org>  Sun, 4 Jan 2026 14:44:37 +0930
+
 libdncommon-bash (7.1-1) UNRELEASED; urgency=low
 
   * force flusing of build cache
