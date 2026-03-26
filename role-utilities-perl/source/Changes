@@ -1,5 +1,9 @@
 Revision history for Perl module Role-Utils-Dn
 
+0.5  2026-02-15
+  * prevent '()' in pod head2 to avoid coloration
+  * remove deprecated flag for English module
+
 0.4  2024-04-10
   * Add multiple functions from Dn::Common
   * Fix Perl::Critic warnings

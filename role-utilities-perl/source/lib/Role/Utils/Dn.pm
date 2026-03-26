@@ -17,7 +17,7 @@ use Date::Simple qw(today);
 use DateTime;
 use DateTime::Format::Mail;
 use DateTime::TimeZone;
-use English qw(-no_match_vars);
+use English;
 use Env     qw($PAGER);
 use Feature::Compat::Try;
 use File::Basename;
@@ -3679,8 +3679,6 @@ sub wrap_text ($self, $strings, %options)
 
 # POD    {{{1
 
-## no critic (ProhibitDuplicateHeadings)
-
 __END__
 
 =encoding utf8
@@ -3974,7 +3972,7 @@ readable
 
 write file content to disk
 
-=item script_name()
+=item script_name( )
 
 get name of executing script
 
@@ -4050,7 +4048,7 @@ determine whether date is valid and in ISO format
 
 determine whether supplied time is valid 24 hour time
 
-=item time_now()
+=item time_now( )
 
 provide current time ('HH::MM::SS')
 
@@ -4058,7 +4056,7 @@ provide current time ('HH::MM::SS')
 
 determine timezone for offset, preferring Australian zones
 
-=item time_zone_local()
+=item time_zone_local( )
 
 get local timezone
 
