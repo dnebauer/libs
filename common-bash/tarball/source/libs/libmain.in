@@ -340,6 +340,7 @@ echo "${dn_ignore_sc2154[@]}" >/dev/null
 #                       - output array contents as a null-delimited string
 # dnConcatArrayItems    - output array contents as a delimited string
 # dnElementInArray      - determine whether element present in array
+# dnAssocArrayKeyExists - determine whether key exists in associative array
 # dnMakeUniqueArrayElement
 #                       - ensure element would be unique in array
 # dnOutputArray         - output array in form suitable for capture into
@@ -882,9 +883,9 @@ dnAlphaSortDualArrays() {
 #   assume: refdb's svn repository follows standard practice of having
 #             top level dirs 'trunk', 'branches' and 'tags'
 #   assume: internet connection
-#   use:    rep_details=( $( analyseRepository $( pwd ) ) )
-#           rep_details=( $( analyseRepository ~/sources/refdb ) )
-#           rep_details=( $( analyseRepository \
+#   use:    rep_details=( $( dnAnalyseSvnRepository $( pwd ) ) )
+#           rep_details=( $( dnAnalyseSvnRepository ~/sources/refdb ) )
+#           rep_details=( $( dnAnalyseSvnRepository \
 #               https://svn.sourceforge.net/svnroot/refdb/refdb/trunk ) )
 # fn_tag dnAnalyseSvnRepository purpose Get information about svn repository
 # fn_tag dnAnalyseSvnRepository prints Space-delimited list of repository url, revision, module, type, name
@@ -987,6 +988,35 @@ dnArrayToNullDelimitedString() {
     shift
   done
   echo "${output[*]}"
+}
+# Function: dnAssocArrayKeyExists    {{{1
+# Check whether an associative array has a specific key
+#   params: 1 - array variable name
+#           2 - array key name
+#   prints: nil
+#   return: boolean (0=exists, 1=does not exist)
+#   use:    if dnAssocArrayKeyExists 'myArray' 'myKey' ; then
+# fn_tag dnAssocArrayKeyExists purpose Check whether an associative array has a specific key
+# fn_tag dnAssocArrayKeyExists prints NIL
+# fn_tag dnAssocArrayKeyExists returns Whether associative array contains the key (Boolean)
+# fn_tag dnAssocArrayKeyExists usage if dnAssocArrayKeyExists 'my_array' "$key" ; then
+# fn_tag dnAssocArrayKeyExists param array_name purpose Name of variable holding the associative array
+# fn_tag dnAssocArrayKeyExists param array_name required yes
+# fn_tag dnAssocArrayKeyExists param array_name multipart no
+# fn_tag dnAssocArrayKeyExists param array_name type string
+# fn_tag dnAssocArrayKeyExists param array_name note This function requires the array variable NAME, not the array variable itself
+# fn_tag dnAssocArrayKeyExists param key purpose Name of key to check for
+# fn_tag dnAssocArrayKeyExists param key required yes
+# fn_tag dnAssocArrayKeyExists param key multipart no
+# fn_tag dnAssocArrayKeyExists param key type string
+dnAssocArrayKeyExists() {
+  [ -n "${2+x}" ] || dnAbort "${FUNCNAME[0]}: No key name provided"
+  [ -n "${1+x}" ] || dnAbort "${FUNCNAME[0]}: No array name provided"
+  local array_name key_name
+  array_name="${1}" key_name="${2}"
+  local -n arr="${array_name}"
+  [[ -v arr["$key_name"] ]]
+  return ${?}
 }
 # Function: dnAudibleAlert    {{{1
 # Sound audible alert
