@@ -177,7 +177,7 @@ sub display_option_screen ($self) {
   # have now completed first line
   push @option, $line;
   foreach my $error (@errors) {
-    push @option, $self->vim_printify($STR_ERROR, $_);
+    push @option, $self->vim_printify($STR_ERROR, $error);
   }
 
   # purpose
