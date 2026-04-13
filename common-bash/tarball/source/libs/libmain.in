@@ -1005,6 +1005,7 @@ dnArrayToNullDelimitedString() {
 # fn_tag dnAssocArrayKeyExists param array_name multipart no
 # fn_tag dnAssocArrayKeyExists param array_name type string
 # fn_tag dnAssocArrayKeyExists param array_name note This function requires the array variable NAME, not the array variable itself
+# fn_tag dnAssocArrayKeyExists param array_name note If NAME is not an associative array the function behaviour is undetermined
 # fn_tag dnAssocArrayKeyExists param key purpose Name of key to check for
 # fn_tag dnAssocArrayKeyExists param key required yes
 # fn_tag dnAssocArrayKeyExists param key multipart no
@@ -2009,6 +2010,138 @@ dnDirFileOnlyCount() {
   # -L = follow symbolic links
   # get and return count
   ${cmd} "${dir}" | grep -c -v "${grep}"
+  return 0
+}
+# Function: dnDirFiles    {{{1
+# Load array variable with paths of files in a directory
+#   params: 1 - array variable name [required]
+#           2 - directory name [optional] (default=current directory)
+#   options: -n, --filename - list filenames (default=list absolute paths)
+#            -r, --regular  - list regular files only (default=all)
+#            -l, --symlink  - list regular files and symlinks only (default=all)
+#   prints: errors to stderr
+#   return: 0|1 (succeeded|failed)
+#     note: array will be created for calling script if not already declared
+#     note: array variable contents are overwritten,
+#           including to empty array if no files
+# fn_tag dnDirFiles purpose Load array with paths of files in a directory
+# fn_tag dnDirFiles prints NIL
+# fn_tag dnDirFiles returns Whether operation successful (Boolean)
+# fn_tag dnDirFiles usage dnDirFiles -r -n 'my_files' "$dir_path"
+# fn_tag dnDirFiles usage [[ -v my_files[@] ]] || echo 'No files' >/dev/stderr
+# fn_tag dnDirFiles note By default gives absolute path for each detected file
+# fn_tag dnDirFiles note By default includes block/character special, regular, symlink, named pipe and socket files
+# fn_tag dnDirFiles note An array variable is created for the calling script if it is not already declared
+# fn_tag dnDirFiles note Array variable is set to empty if directory has no files
+# fn_tag dnDirFiles note Existing array contents are overwritten, including setting it to empty
+# fn_tag dnDirFiles option n purpose List file names only (default: absolute file paths)
+# fn_tag dnDirFiles option n required no
+# fn_tag dnDirFiles option n multiple no
+# fn_tag dnDirFiles option r purpose List regular files only (default: all files)
+# fn_tag dnDirFiles option r required no
+# fn_tag dnDirFiles option r multiple no
+# fn_tag dnDirFiles option l purpose List regular files and symlinks only (default: all files)
+# fn_tag dnDirFiles option l required no
+# fn_tag dnDirFiles option l multiple no
+# fn_tag dnDirFiles param array purpose Name of array variable to load
+# fn_tag dnDirFiles param array required yes
+# fn_tag dnDirFiles param array multipart no
+# fn_tag dnDirFiles param array type string
+# fn_tag dnDirFiles param dir purpose Directory to analyse
+# fn_tag dnDirFiles param dir required no
+# fn_tag dnDirFiles param dir multipart no
+# fn_tag dnDirFiles param dir type path
+# fn_tag dnDirFiles param dir default current directory
+dnDirFiles() {
+  # variable naming note
+  # • because nameref ('local -n') is used, this function must avoid
+  #   any variable name clash with the calling script
+  # • for that reason a random suffix is applied to
+  #   all variable names in this function
+  # process options
+  local filename_kvgKqXGn0W regular_kvgKqXGn0W symlink_kvgKqXGn0W
+  filename_kvgKqXGn0W=false # return filename only (default: return full path)
+  regular_kvgKqXGn0W=false  # list regular files only (default: all files)
+  symlink_kvgKqXGn0W=false  # list regular files and symlinks only (default: all files)
+  local OPTIONS_kvgKqXGn0W
+  if ! OPTIONS_kvgKqXGn0W="$(
+    getopt \
+      --options n,r,l \
+      --long filename,regular,symlink \
+      --name "${FUNCNAME[0]}" \
+      -- "$@"
+  )"; then
+    # getopt displays errors
+    exit 1
+  fi
+  eval set -- "$OPTIONS_kvgKqXGn0W"
+  while true; do
+    case "$1" in
+    -n | --filename)
+      filename_kvgKqXGn0W=true
+      shift 1
+      ;;
+    -r | --regular)
+      regular_kvgKqXGn0W=true
+      shift 1
+      ;;
+    -l | --symlink)
+      symlink_kvgKqXGn0W=true
+      shift 1
+      ;;
+    --)
+      shift
+      break
+      ;;
+    *) break ;;
+    esac
+  done
+  # process arguments
+  # • array to load with file names/paths
+  [ -n "${1+x}" ] || dnAbort "${FUNCNAME[0]}: No array name provided"
+  local -n output
+  output="$1"
+  output=()
+  # • directory
+  local dir_kvgKqXGn0W
+  dir_kvgKqXGn0W="${2:-"$(pwd)"}"
+  dir_kvgKqXGn0W="$(dnNormalisePath "${dir_kvgKqXGn0W}")"
+  if ! dnDirValid "${dir_kvgKqXGn0W}"; then
+    dnErrorStderr "Invalid directory: '$dir_kvgKqXGn0W'"
+    return 1
+  fi
+  # get list of directory files
+  local -a files_kvgKqXGn0W
+  for file_kvgKqXGn0W in "$dir_kvgKqXGn0W"/*; do
+    if [[ $symlink_kvgKqXGn0W = true ]]; then
+      if [ -f "$file_kvgKqXGn0W" ] || [ -h "$file_kvgKqXGn0W" ]; then
+        files_kvgKqXGn0W+=("$file_kvgKqXGn0W")
+      fi
+    elif [[ $regular_kvgKqXGn0W = true ]]; then
+      # -f incorrectly returns true for symlinks,
+      # so must include explicit test to exclude symlinks
+      if [ -f "$file_kvgKqXGn0W" ] && ! [ -h "$file_kvgKqXGn0W" ]; then
+        files_kvgKqXGn0W+=("$file_kvgKqXGn0W")
+      fi
+    else
+      if [ -b "$file_kvgKqXGn0W" ] || [ -c "$file_kvgKqXGn0W" ] ||
+        [ -f "$file_kvgKqXGn0W" ] || [ -h "$file_kvgKqXGn0W" ] ||
+        [ -p "$file_kvgKqXGn0W" ] || [ -S "$file_kvgKqXGn0W" ]; then
+        files_kvgKqXGn0W+=("$file_kvgKqXGn0W")
+      fi
+    fi
+  done
+  # load destination array variable
+  if [[ -v files_kvgKqXGn0W[@] ]]; then
+    for file_kvgKqXGn0W in "${files_kvgKqXGn0W[@]}"; do
+      # strip dir paths if required
+      if [[ $filename_kvgKqXGn0W = true ]]; then
+        output+=("$(dnExtractFilename "$file_kvgKqXGn0W")")
+      else
+        output+=("$file_kvgKqXGn0W")
+      fi
+    done
+  fi
   return 0
 }
 # Function: dnDirValid    {{{1
