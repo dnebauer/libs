@@ -2037,12 +2037,15 @@ dnDirFileOnlyCount() {
 # fn_tag dnDirFiles option n purpose List file names only (default: absolute file paths)
 # fn_tag dnDirFiles option n required no
 # fn_tag dnDirFiles option n multiple no
+# fn_tag dnDirFiles option n type none
 # fn_tag dnDirFiles option r purpose List regular files only (default: all files)
 # fn_tag dnDirFiles option r required no
 # fn_tag dnDirFiles option r multiple no
+# fn_tag dnDirFiles option r type none
 # fn_tag dnDirFiles option l purpose List regular files and symlinks only (default: all files)
 # fn_tag dnDirFiles option l required no
 # fn_tag dnDirFiles option l multiple no
+# fn_tag dnDirFiles option l type none
 # fn_tag dnDirFiles param array purpose Name of array variable to load
 # fn_tag dnDirFiles param array required yes
 # fn_tag dnDirFiles param array multipart no

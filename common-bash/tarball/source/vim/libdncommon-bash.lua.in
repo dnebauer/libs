@@ -1704,7 +1704,7 @@ if editing_library_file then
 					line = { "#", prefix, func, "option", flag, "multiple", option.required }
 					table.insert(output, table.concat(line, sep))
 					-- option type (string scalar, required)
-					line = { "#", prefix, func, "option", flag, "purpose", option.purpose }
+					line = { "#", prefix, func, "option", flag, "type", option.type }
 					table.insert(output, table.concat(line, sep))
 					-- option values (string array, optional)
 					if option.values then
