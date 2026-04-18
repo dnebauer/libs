@@ -1,3 +1,9 @@
+libdn-commonbash-perl (5.60-1) unstable; urgency=low
+
+  * Fix option type error messaging
+
+ -- David Nebauer <davidnebauer@hotkey.net.au>  Wed, 15 Apr 2026 06:47:14 +0930
+
 libdn-commonbash-perl (5.50-1) unstable; urgency=low
 
   * Remove vim support

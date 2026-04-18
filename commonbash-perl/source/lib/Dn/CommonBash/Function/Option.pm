@@ -143,10 +143,12 @@ sub display_option_screen ($self) {
   $line = ' OPTION: -' . $self->flag;
 
   # type
-  if ($self->type && $self->type !~ /none/xsmi) {    # has value
-    $line .= q{ "<} . $self->type . q{>"};
+  if ($self->type) {    # has type
+    if ($self->type !~ /none/xsmi) {
+      $line .= q{ "<} . $self->type . q{>"};
+    }
   }
-  else {                                             # has no value
+  else {                # has no type
     push @errors, q{  Error: No 'type' attribute};
   }
 

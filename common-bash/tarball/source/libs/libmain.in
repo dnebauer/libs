@@ -338,6 +338,7 @@ echo "${dn_ignore_sc2154[@]}" >/dev/null
 # dnAlphaSortDualArrays - sort one array based on values in another array
 # dnArrayToNullDelimitedString
 #                       - output array contents as a null-delimited string
+# dnCompareArrays       - find elements added to/removed from array
 # dnConcatArrayItems    - output array contents as a delimited string
 # dnElementInArray      - determine whether element present in array
 # dnAssocArrayKeyExists - determine whether key exists in associative array
@@ -350,6 +351,7 @@ echo "${dn_ignore_sc2154[@]}" >/dev/null
 # dnPrintArrayStderr    - displays formatted array on STDERR
 # dnSplitStringIntoArray
 #                       - split a string into an array
+# dnSubtractArray       - subtract one array from another
 # dnUseArray            - assist in passing/returning arrays from function
 
 # Control :: program control    {{{2
@@ -395,6 +397,7 @@ echo "${dn_ignore_sc2154[@]}" >/dev/null
 # dnDirFileCountXoX     - count number of files having extensions in directory
 # dnDirFileDirCount     - count file and subdirectories in a directory
 # dnDirFileOnlyCount    - counts files in a directory
+# dnDirFiles            - loads file names/path from directory into array var
 # dnDirValid            - determine whether directory exists and is readable
 # dnDirValidNoSpaces    - determine whether directory path exists, is readable
 #                         and contains no spaces
@@ -1213,6 +1216,103 @@ dnColourToRGB() {
   # return rgb and indicate success
   echo "${rgb}"
   return ${retval}
+}
+# Function: dnCompareArrays    {{{1
+# Compares two arrays to determine what items were added to or removed from
+# the first array to produce the second array
+#   params: 1 - first comparison array name [string, required]
+#           2 - second comparison array name [string, required]
+#           3 - added items array name [string, required]
+#           4 - removed items array name [string, required]
+#   prints: errors to stderr
+#   return: 0|1 (succeeded|failed)
+#    usage: dnCompareArrays 'cmp_1' 'cmp_2' 'added' 'removed'
+#           [[ -v added[@] ]] && echo 'Items added'
+#     note: params 1 and 2 are input arrays
+#     note: params 3 and 4 are result arrays
+#     note: any param array will be created in the calling script
+#           if not already declared (autovivification)
+#     note: autovivification makes sense for params 3 and 4,
+#           but not params 1 and 2
+#     note: params 3 and 4 array variable contents are overwritten,
+#           including to empty arrays if no items added or removed
+# fn_tag dnCompareArrays purpose Compares two arrays to determine what items were added to or removed from the first array to produce the second array
+# fn_tag dnCompareArrays prints NIL
+# fn_tag dnCompareArrays returns Whether operation succeeds (Boolean)
+# fn_tag dnCompareArrays usage dnCompareArrays 'cmp_1' 'cmp_2' 'added' 'removed'
+# fn_tag dnCompareArrays usage [[ -v added[@] ]] && echo 'Items added'
+# fn_tag dnCompareArrays note Parameters 1 and 2 are input arrays
+# fn_tag dnCompareArrays note Parameters 3 and 4 are result arrays
+# fn_tag dnCompareArrays note Any parameter array will be created in the calling script if not already declared (autovivification)
+# fn_tag dnCompareArrays note Autovivification makes sense for parameters 3 and 4, but not parameters 1 and 2
+# fn_tag dnCompareArrays note Parameters 3 and 4 array variable contents are overwritten, including to empty arrays if no items added or removed
+# fn_tag dnCompareArrays param array_1 purpose Name of variable holding the first comparison array
+# fn_tag dnCompareArrays param array_1 required yes
+# fn_tag dnCompareArrays param array_1 multipart no
+# fn_tag dnCompareArrays param array_1 type string
+# fn_tag dnCompareArrays param array_2 purpose Name of variable holding the second comparison
+# fn_tag dnCompareArrays param array_2 required yes
+# fn_tag dnCompareArrays param array_2 multipart no
+# fn_tag dnCompareArrays param array_2 type string
+# fn_tag dnCompareArrays param added purpose Name of variable to hold array of elements added to array_1 to produce array_2
+# fn_tag dnCompareArrays param added required yes
+# fn_tag dnCompareArrays param added multipart no
+# fn_tag dnCompareArrays param added type string
+# fn_tag dnCompareArrays param removed purpose Name of variable to hold array of elements removed from array_1 to produce array_2
+# fn_tag dnCompareArrays param removed required yes
+# fn_tag dnCompareArrays param removed multipart no
+# fn_tag dnCompareArrays param removed type string
+dnCompareArrays() {
+  # variable naming note
+  # • because nameref ('local -n') is used, this function must avoid
+  #   any variable name clash with the calling script
+  # • for that reason a random suffix is applied to
+  #   all variable names in this function
+  # process arguments
+  # • need four array names
+  [ -n "${1+x}" ] ||
+    dnAbort "${FUNCNAME[0]}: Missing params 1-4"
+  [ -n "${2+x}" ] ||
+    dnAbort "${FUNCNAME[0]}: Missing params 2-4"
+  [ -n "${3+x}" ] ||
+    dnAbort "${FUNCNAME[0]}: Missing params 3 and 4"
+  [ -n "${4+x}" ] ||
+    dnAbort "${FUNCNAME[0]}: Missing param 4"
+  # • comparison arrays
+  local -n array_1_yTCTjXu5ZJ array_2_yTCTjXu5ZJ
+  array_1_yTCTjXu5ZJ="$1"
+  array_2_yTCTjXu5ZJ="$2"
+  # • result arrays
+  local -n added_yTCTjXu5ZJ
+  added_yTCTjXu5ZJ="$3"
+  added_yTCTjXu5ZJ=()
+  local -n removed_yTCTjXu5ZJ
+  removed_yTCTjXu5ZJ="$4"
+  removed_yTCTjXu5ZJ=()
+  # handle edge cases where one or more comparison arrays are empty
+  if ! [[ -v array_1_yTCTjXu5ZJ[@] ]] && ! [[ -v array_2_yTCTjXu5ZJ[@] ]]; then
+    return "$dn_true"
+  fi
+  if ! [[ -v array_1_yTCTjXu5ZJ[@] ]]; then
+    added_yTCTjXu5ZJ=("${array_2_yTCTjXu5ZJ[@]}")
+    return "$dn_true"
+  fi
+  if ! [[ -v array_2_yTCTjXu5ZJ[@] ]]; then
+    removed_yTCTjXu5ZJ=("${array_1_yTCTjXu5ZJ[@]}")
+    return "$dn_true"
+  fi
+  # compare arrays
+  for item in "${array_1_yTCTjXu5ZJ[@]}"; do
+    if ! dnElementInArray "$item" "${array_2_yTCTjXu5ZJ[@]}"; then
+      removed_yTCTjXu5ZJ+=("$item")
+    fi
+  done
+  for item in "${array_2_yTCTjXu5ZJ[@]}"; do
+    if ! dnElementInArray "$item" "${array_1_yTCTjXu5ZJ[@]}"; then
+      added_yTCTjXu5ZJ+=("$item")
+    fi
+  done
+  return "$dn_true"
 }
 # Function: dnConcatArrayItems    {{{1
 # Join all array items using a delimiter.
@@ -7354,6 +7454,81 @@ dnStripQuotes() {
 # fn_tag dnStripWhitespace param string multipart no
 # fn_tag dnStripWhitespace param string type string
 dnStripWhitespace() { echo "${1//[[:space:]]/}"; }
+# Function: dnSubtractArray    {{{1
+# Subtract elements in second array from the first array where present,
+# and return the remaining elements from the first array
+#   params: 1 - base array name [string, required]
+#           2 - subtraction array name [string, required]
+#           3 - result array name [string, required]
+#   prints: errors to stderr
+#   return: 0|1 (succeeded|failed)
+#    usage: dnSubtractArray 'base' 'subtract' 'remaining'
+#           [[ -v remaining[@] ]] || echo 'No items left'
+#     note: params 1 and 2 are input arrays
+#     note: param 3 is the result array
+#     note: any param array will be created in the calling script
+#           if not already declared (autovivification)
+#     note: autovivification makes sense for param 3,
+#           but not params 1 and 2
+#     note: param 3 array variable contents are overwritten,
+#           including to an empty array if no items remain after subtraction
+# fn_tag dnSubtractArray purpose Subtract elements in second array from the first array where present, and return the remaining elements from the first array
+# fn_tag dnSubtractArray prints NIL
+# fn_tag dnSubtractArray returns Whether operation succeeds (Boolean)
+# fn_tag dnSubtractArray usage dnSubtractArray 'base' 'subtract' 'remaining'
+# fn_tag dnSubtractArray usage [[ -v remaining[@] ]] || echo 'No items left'
+# fn_tag dnSubtractArray note Parameters 1 and 2 are input arrays
+# fn_tag dnSubtractArray note Parameter 3 is the result array
+# fn_tag dnSubtractArray note Any parameter array will be created in the calling script if not already declared (autovivification)
+# fn_tag dnSubtractArray note Autovivification makes sense for parameter 3, but not parameters 1 and 2
+# fn_tag dnSubtractArray note Parameter 3 array variable contents are overwritten, including to an empty array if no items remain after subtraction
+# fn_tag dnSubtractArray param base purpose Name of variable holding the base array
+# fn_tag dnSubtractArray param base required yes
+# fn_tag dnSubtractArray param base multipart no
+# fn_tag dnSubtractArray param base type string
+# fn_tag dnSubtractArray param subtract purpose Name of variable holding the subtraction array
+# fn_tag dnSubtractArray param subtract required yes
+# fn_tag dnSubtractArray param subtract multipart no
+# fn_tag dnSubtractArray param subtract type string
+# fn_tag dnSubtractArray param result purpose Name of variable holding elements of base array not in the subtraction array
+# fn_tag dnSubtractArray param result required yes
+# fn_tag dnSubtractArray param result multipart no
+# fn_tag dnSubtractArray param result type string
+dnSubtractArray() {
+  # variable naming note
+  # • because nameref ('local -n') is used, this function must avoid
+  #   any variable name clash with the calling script
+  # • for that reason a random suffix is applied to
+  #   all variable names in this function
+  # process arguments
+  # • need three array names
+  [ -n "${1+x}" ] ||
+    dnAbort "${FUNCNAME[0]}: Missing params 1-3"
+  [ -n "${2+x}" ] ||
+    dnAbort "${FUNCNAME[0]}: Missing params 2 and 3"
+  [ -n "${3+x}" ] ||
+    dnAbort "${FUNCNAME[0]}: Missing param 3"
+  # • comparison arrays
+  local -n array_1_h8vtFmbfw8 array_2_h8vtFmbfw8
+  array_1_h8vtFmbfw8="$1"
+  array_2_h8vtFmbfw8="$2"
+  # • result array
+  local -n remain_h8vtFmbfw8
+  remain_h8vtFmbfw8="$3"
+  remain_h8vtFmbfw8=()
+  # handle edge cases where one or more comparison arrays are empty
+  if ! [[ -v array_1_h8vtFmbfw8[@] ]] || ! [[ -v array_2_h8vtFmbfw8[@] ]]; then
+    remain_h8vtFmbfw8=("${array_1_h8vtFmbfw8[@]}")
+    return "$dn_true"
+  fi
+  # subtract array
+  for item in "${array_1_h8vtFmbfw8[@]}"; do
+    if ! dnElementInArray "$item" "${array_2_h8vtFmbfw8[@]}"; then
+      remain_h8vtFmbfw8+=("$item")
+    fi
+  done
+  return "$dn_true"
+}
 # Function: dnTempDir    {{{1
 # Create temporary dir
 #   params: nil

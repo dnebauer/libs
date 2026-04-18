@@ -1,5 +1,8 @@
 Revision history for Dn-CommonBash
 
+5.60  2026-04-15
+        - Fix option type error messaging
+
 5.50  2025-12-15
         - Remove vim support
 
