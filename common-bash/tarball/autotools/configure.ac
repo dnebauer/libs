@@ -5,7 +5,7 @@
 # Process this file with autoconf to produce a configure script
 AC_PREREQ([2.71])
 AC_INIT([Library of bash functions],
-        [7.10],
+        [7.11],
         [david@nebauer.org],
         [libdncommon-bash],
 )

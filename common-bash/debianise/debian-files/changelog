@@ -1,3 +1,9 @@
+libdncommon-bash (7.11-1) UNRELEASED; urgency=low
+
+  * add dnSortArray function
+
+ -- David Nebauer <david@nebauer.org>  Sun, 19 Apr 2026 23:58:28 +0930
+
 libdncommon-bash (7.10-1) UNRELEASED; urgency=low
 
   * add dnSubtractArray function

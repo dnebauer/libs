@@ -349,6 +349,7 @@ echo "${dn_ignore_sc2154[@]}" >/dev/null
 # dnPositionInArray     - determine index of first matching array element
 # dnPrintArray          - displays formatted array on STDOUT
 # dnPrintArrayStderr    - displays formatted array on STDERR
+# dnSortArray           - sort array (optionally numeric and/or reverse sort)
 # dnSplitStringIntoArray
 #                       - split a string into an array
 # dnSubtractArray       - subtract one array from another
@@ -477,7 +478,7 @@ echo "${dn_ignore_sc2154[@]}" >/dev/null
 #                       - get information about svn repository
 # dnDisplayFilesGitRepoStatus
 #                       - display status of directory files with regard to
-#                                               local git repo
+#                         local git repo
 # dnFilesAvailable      - checks list of files to determine whether all
 #                         are available
 # dnFormatSvnRepDetails - format svn repository details
@@ -6901,6 +6902,123 @@ dnShowIFS() {
   done
   # display value of variable IFS
   echo -n "${IFS}" | od --format=a --format=o1 --format=c
+}
+# Function: dnSortArray    {{{1
+# Sort an array
+#   params: 1 - input array variable name [required]
+#           2 - output array variable name [required]
+#   options: -n, --numeric - numeric sort (default=dictionary sort)
+#            -r, --reverse - reverse result of sort
+#   prints: errors to stderr
+#   return: 0|1 (succeeded|failed)
+#    usage: dnSortArray 'unsorted' 'sorted'
+#     note: param 1 is the input array
+#     note: param 2 is the output array
+#     note: any param array will be created in the calling script
+#           if not already declared (autovivification)
+#     note: autovivification makes sense for param 2,
+#           but not param 1
+#     note: param 2 array variable contents are overwritten,
+#           including to an empty array if no items remain after subtraction
+# fn_tag dnSortArray purpose Sort an array
+# fn_tag dnSortArray prints Error messages on failure
+# fn_tag dnSortArray returns Whether succeeded (Boolean)
+# fn_tag dnSortArray usage dnSortArray 'unsorted' 'sorted'
+# fn_tag dnSortArray note Parameter 1 is the input array
+# fn_tag dnSortArray note Parameter 2 is the output array
+# fn_tag dnSortArray note Any parameter array will be created in the calling script if not already declared (autovivification)
+# fn_tag dnSortArray note Autovivification makes sense for parameter 2, but not parameter 1
+# fn_tag dnSortArray note Parameter 2 array variable contents are overwritten, including to an empty array if no items remain after subtraction
+# fn_tag dnSortArray option n purpose Perform numeric sort (default is lexical sort)
+# fn_tag dnSortArray option n required no
+# fn_tag dnSortArray option n multiple no
+# fn_tag dnSortArray option n type none
+# fn_tag dnSortArray option r purpose Reverse the result of the sort
+# fn_tag dnSortArray option r required no
+# fn_tag dnSortArray option r multiple no
+# fn_tag dnSortArray option r type none
+# fn_tag dnSortArray param input purpose Input array variable name
+# fn_tag dnSortArray param input required yes
+# fn_tag dnSortArray param input multipart no
+# fn_tag dnSortArray param input type string
+# fn_tag dnSortArray param output purpose Output array variable name
+# fn_tag dnSortArray param output required yes
+# fn_tag dnSortArray param output multipart no
+# fn_tag dnSortArray param output type string
+dnSortArray() {
+  # variable naming note
+  # • because nameref ('local -n') is used, this function must avoid
+  #   any variable name clash with the calling script
+  # • for that reason a random suffix is applied to
+  #   all variable names in this function
+  # process options
+  local numeric_sort reverse_sort
+  numeric_sort=false
+  reverse_sort=false
+  local OPTIONS
+  if ! OPTIONS="$(
+    getopt \
+      --options n,r \
+      --long numeric,reverse \
+      --name "${FUNCNAME[0]}" \
+      -- "$@"
+  )"; then
+    # getopt displays errors
+    exit 1
+  fi
+  eval set -- "$OPTIONS"
+  while true; do
+    case "$1" in
+    -n | --numeric)
+      numeric_sort=true
+      shift 1
+      ;;
+    -r | --reverse)
+      reverse_sort=true
+      shift 1
+      ;;
+    --)
+      shift
+      break
+      ;;
+    *) break ;;
+    esac
+  done
+  # process arguments
+  # • input array
+  [ -n "${1+x}" ] || dnAbort "${FUNCNAME[0]}: No input array name provided"
+  local -n input_hSeI9gG7JC
+  input_hSeI9gG7JC="$1"
+  # • output array
+  [ -n "${2+x}" ] || dnAbort "${FUNCNAME[0]}: No output array name provided"
+  local -n output_hSeI9gG7JC
+  output_hSeI9gG7JC="$2"
+  output_hSeI9gG7JC=()
+  # transfer array content to single multi-line string variable
+  local input_string=''
+  local input_array_size=${#input_hSeI9gG7JC[@]}
+  if ((input_array_size == 0)); then
+    return
+  elif ((input_array_size == 1)); then
+    input_string="${input_hSeI9gG7JC[0]}"
+  else
+    input_string="${input_hSeI9gG7JC[0]}"
+    for element in "${input_hSeI9gG7JC[@]:1}"; do
+      input_string+=$'\n'"$element"
+    done
+  fi
+  # sort into output string
+  cmd=('sort')
+  [[ $numeric_sort = true ]] && cmd+=(' --sort=numeric')
+  [[ $reverse_sort = true ]] && cmd+=(' --reverse')
+  # cmd array must be unquoted to work but sc does not like unquoted arrays
+  # shellcheck disable=SC2068,SC2090
+  if ! cmd_output="$(${cmd[@]} <<<"$input_string")"; then
+    dnAbort "${FUNCNAME[0]}: sort command failed"
+  fi
+  # sc confused by nameref and thinks output_hSeI9gG7JC is not used
+  # shellcheck disable=SC2034
+  mapfile -t output_hSeI9gG7JC <<<"$cmd_output"
 }
 # Function: dnSplitStringIntoArray    {{{1
 # Utility array splitting string into an array
