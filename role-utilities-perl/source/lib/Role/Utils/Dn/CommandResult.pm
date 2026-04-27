@@ -1,9 +1,10 @@
 package Role::Utils::Dn::CommandResult;
 
+# modules/constants    {{{1
 use Moo;
 use strictures 2;
 use 5.038_001;
-use version; our $VERSION = qv('0.4');
+use version; our $VERSION = qv('0.8');
 use namespace::clean;
 
 use Const::Fast;
@@ -13,8 +14,11 @@ use Types::Standard;
 const my $TRUE     => 1;
 const my $ARRAY    => 'Array';
 const my $ELEMENTS => 'elements';
-const my $COUNT    => 'count';
+const my $COUNT    => 'count';      # }}}1
 
+# attributes
+
+# success    {{{1
 has 'success' => (
   is            => 'ro',
   isa           => Types::Standard::Bool,
@@ -22,6 +26,7 @@ has 'success' => (
   documentation => 'Whether command succeeded',
 );
 
+# error    {{{1
 has 'error' => (
   is            => 'ro',
   isa           => Types::Standard::Str,
@@ -29,6 +34,7 @@ has 'error' => (
   documentation => 'Error message if command failed',
 );
 
+# has_full, full    {{{1
 has 'full_output' => (
   is            => 'ro',
   isa           => Types::Standard::ArrayRef [Types::Standard::Str],
@@ -38,6 +44,7 @@ has 'full_output' => (
   documentation => 'Full output (stdout and stderr)',
 );
 
+# has_stdout, stdout    {{{1
 has 'standard_out' => (
   is            => 'ro',
   isa           => Types::Standard::ArrayRef [Types::Standard::Str],
@@ -47,6 +54,7 @@ has 'standard_out' => (
   documentation => 'Standard output',
 );
 
+# has_stderr, stderr    {{{1
 has 'standard_err' => (
   is            => 'ro',
   isa           => Types::Standard::ArrayRef [Types::Standard::Str],
@@ -54,11 +62,11 @@ has 'standard_err' => (
   handles_via   => $ARRAY,
   handles       => { stderr => $ELEMENTS, has_stderr => $COUNT, },
   documentation => 'Standard error',
-);
+);    # }}}
 
 1;
 
-## no critic (RequirePodSections)
+# POD    {{{1
 
 __END__
 
@@ -76,48 +84,78 @@ Role::Utils::Dn::CommandResult - returned by Role::Utils::Dn->shell_command()
         ...
     }
 
+=head1 VERSION
+
+This documentation refers to Role::Utils::Dn::CommandResult version 0.8.
+
 =head1 DESCRIPTION
 
 Captures results of running a command with the C<Role::Utils::Dn> method
 C<shell_command>.
 
-=head1 METHODS
+=head1 SUBROUTINES/METHODS
 
-=head2 success
+None.
+
+=head1 CONFIGURATION AND ENVIRONMENT
+
+=head2 Properties
+
+=head3 success
 
 Whether command succeeded. Scalar boolean.
 
-=head2 error
+=head3 error
 
 Error message. Scalar string. (Undef if command succeeded.)
 
-=head2 full
+=head3 full
 
 Full output, includes standard output and standard error. List of strings with
 no trailing newlines.
 
-=head2 has_full
+=head3 has_full
 
 Whether there is any output. Scalar boolean (actually the number of output
 lines).
 
-=head2 stdout
+=head3 stdout
 
 Output sent to standard out. List of strings with no trailing newlines.
 
-=head2 has_stdout
+=head3 has_stdout
 
 Whether there was output to standard out. Scalar boolean (actually the number
 of lines).
 
-=head2 stderr
+=head3 stderr
 
 Standard error. List of strings with no trailing newlines.
 
-=head2 has_stderr
+=head3 has_stderr
 
 Whether there was output to standard error. Scalar boolean (actually the number
 of lines).
+
+=head2 Configuration files
+
+None used.
+
+=head2 Environment variables
+
+None used.
+
+=head1 DIAGNOSTICS
+
+This module emits no custom warning or error messages.
+
+=head1 INCOMPATIBILITIES
+
+None known.
+
+=head1 BUGS AND LIMITATIONS
+
+None reported.
 
 =head1 DEPENDENCIES
 
@@ -132,13 +170,17 @@ Please report any bugs to the author.
 
 =head1 AUTHOR
 
-David Nebauer E<lt>davidnebauer@hotkey.net.auE<gt>
+L<David Nebauer|mailto:davidnebauer@hotkey.net.au>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (c) 2021 David Nebauer E<lt>david@nebauer.orgE<gt>
+Copyright (c) 2021 L<David Nebauer|mailto:davidnebauer@hotkey.net.au>
 
 This script is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
 =cut
+
+# }}}1
+
+# vim:fdm=marker

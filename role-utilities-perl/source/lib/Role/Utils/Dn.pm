@@ -4,11 +4,11 @@ use Moo::Role;    # {{{1
 use strictures 2;
 use 5.006;
 use 5.038_001;
-use version; our $VERSION = qv('0.4');
+use version; our $VERSION = qv('0.8');
 use namespace::clean;
 
 use autodie qw(open close);
-use Carp    qw(carp confess croak);
+use Carp    qw(carp confess croak cluck);
 use Const::Fast;
 use Clipboard;
 use Curses;
@@ -23,6 +23,7 @@ use Feature::Compat::Try;
 use File::Basename;
 use File::Compare;
 use File::Copy::Recursive;
+use File::Find::Rule;
 use File::MimeInfo;
 use File::Path;
 use File::Spec;
@@ -40,7 +41,9 @@ use List::Util qw(reduce);
 use Net::Ping::External;
 use Path::Tiny;
 use POSIX ();    # for WIFEXITED, WEXITSTATUS, WIFSIGNALED, WTERMSIG
+use Role::Utils::Dn::ArrayCompare;
 use Role::Utils::Dn::CommandResult;
+use Role::Utils::Dn::ConfigFile;
 use Scalar::Util;
 use Symbol;
 use Term::ANSIColor;
@@ -311,6 +314,95 @@ sub changelog_version_regex ($self)
     }xsm;
 
   return qr{ $pkg $version $release $urgency $maint }xsm;
+}
+
+# compare_arrays($array1, $array2)    {{{1
+#
+# does:   compare two arrays to determine what elements were added to
+#         or removed from one array to produce the other array
+#
+# params: $array1 - first array to compare [required, arrayref]
+#         $array2 - second array to compare [required, arrayref]
+# prints: nil
+# return: Role::Utils::Dn::ArrayCompare object
+sub compare_arrays($self, $array1, $array2) { ## no critic (RequireInterpolationOfMetachars)
+  # process params
+  my $array1_ref = ref $array1;
+  if ($array1_ref ne $REF_TYPE_ARRAY) {
+    if ($array1_ref eq q{}) {
+      croak 'Param 1: expected array reference, got scalar';
+    }
+    else {
+      croak "Param1: expected ARRAY reference, got $array1_ref reference";
+    }
+  }
+  my $array2_ref = ref $array2;
+  if ($array2_ref ne $REF_TYPE_ARRAY) {
+    if ($array2_ref eq q{}) {
+      croak 'Param2: expected array reference, got scalar';
+    }
+    else {
+      croak "Param2: expected ARRAY reference, got $array2_ref reference";
+    }
+  }
+
+  # create and return array comparison object
+  return Role::Utils::Dn::ArrayCompare->new(
+    array1 => $array1,
+    array2 => $array2,
+  );
+}
+
+# config_file($stem[, $silent[, $suffixes]])    {{{1
+#
+# does:   locate and read a configuration file,
+#         and make configuration values available
+#
+# params: $stem     - filename stem [string, required]
+#         $silent   - suppress non-error feedback
+#                     [boolean, optional, default=false]
+#         $suffixes - possible file endings and extensions
+#                     [arrayref, optional, default: see
+#                      Role::Utils::Dn::ConfigFile documentation]
+# prints: feedback and error messages, see Role::Utils::Dn::ConfigFile
+#         documentation for details
+# return: Role::Utils::Dn::ConfigFile object
+sub config_file($self, $stem, $silent = $FALSE, $suffixes = undef)
+{    ## no critic (RequireInterpolationOfMetachars)
+
+  # vars
+  my ($ret_undef, $var_type);
+
+  # process params
+  if (not $stem) {
+    cluck 'No stem provided';
+    return $ret_undef;
+  }
+  if ($suffixes) {
+    $var_type = ref $suffixes;
+    if ($var_type eq q{}) {
+      cluck 'Need arrayref suffixes value, got a scalar';
+      return $ret_undef;
+    }
+    if ($var_type ne $REF_TYPE_ARRAY) {
+      cluck "Need ARRAY reference suffixes value, got a $var_type";
+      return $ret_undef;
+    }
+  }
+
+  # get and return object
+  my %opts = (stem => $stem);
+  if ($silent)   { %opts = (%opts, silent   => $TRUE); }
+  if ($suffixes) { %opts = (%opts, suffixes => $suffixes); }
+  my $conf = Role::Utils::Dn::ConfigFile->new(%opts);
+  $var_type = ref $conf;
+  if ($var_type eq 'Role::Utils::Dn::ConfigFile') {
+    return $conf;
+  }
+
+  # if here then object creation failed
+  cluck 'Failed to create Role::Utils::Dn::ConfigFile object';
+  return $ret_undef;
 }
 
 # configure_ac_version_regex()    {{{1
@@ -3196,6 +3288,27 @@ sub string_underline ($self, $string)
   return $underline_on . $string . $underline_off;
 }
 
+# subdir_list([$dir[, $pattern]])    {{{1
+#
+# does:   list subdirectories which include specific files
+# params: $dir     - directory path [string, optional, default=cwd]
+#         $pattern - file name pattern to match
+#                    [regex (qr//) or glob, optional, default=all files]
+# prints: nil
+# return: list, die if operation failsuse File::Find::Rule;
+sub subdir_list ($self, $dir, $name = q{*}) {## no critic (RequireInterpolationOfMetachars)
+  croak "Not a directory: '$dir'" if not -d $dir;
+
+  # find all matching files
+  my @fps = File::Find::Rule->file()->name($name)->in($dir);
+
+  # extract unique directory names
+  my %all_dirpaths = map { File::Basename::dirname($_) => $TRUE } @fps;
+  my @dirpaths     = sort keys %all_dirpaths;
+
+  return @dirpaths;
+}
+
 # term_connected()    {{{1
 #
 # does:   determine whether connected to terminal, i.e., is interactive
@@ -3255,7 +3368,7 @@ sub time_24h_valid ($self, $time)
 
 # time_now()    {{{1
 #
-# does:   provide current time ('HH::MM::SS')
+# does:   provide current time ('HH:MM:SS')
 # params: nil
 # prints: nil
 # return: scalar string
@@ -3689,7 +3802,7 @@ Role::Utils::Dn - utility methods
 
 =head1 VERSION
 
-This documentation refers to Role::Utils::Dn version 0.3.
+This documentation refers to L<Role::Utils::Dn> version 0.8.
 
 =head1 SYNOPSIS
 
@@ -3725,6 +3838,10 @@ in their original thematic groupings.
 =item array_push($arrayref, @items)
 
 add items to an arrayref
+
+=item compare_arrays($arrayref1, $arrayref2)
+
+compare two arrays
 
 =item list_number(@items)
 
@@ -3780,27 +3897,27 @@ get current debian standards version
 
 =item image_add_border($image, $side, $top_bottom, $fill = 'none')
 
-add border to Image::Magick image
+add border to L<Image::Magick> image
 
 =item image_create($filepath, $attributes = undef)
 
-create Image::Magick object from image file
+create L<Image::Magick> object from image file
 
 =item image_crop($image, $coords)
 
-crop Image::Magick object
+crop L<Image::Magick> object
 
 =item image_files_valid(@filepaths)
 
-ensure all image files can be opened as Image::Magick objects
+ensure all image files can be opened as L<Image::Magick> objects
 
 =item image_height($image)
 
-get height in pixels of Image::Magick object
+get height in pixels of L<Image::Magick> object
 
 =item image_label($image, $text, $opts)
 
-add label to Image::Magick object
+add label to L<Image::Magick> object
 
 =item image_max_dimensions(@filepaths)
 
@@ -3816,23 +3933,23 @@ get maximum pixel y-coordinate for image
 
 =item image_object($object)
 
-check whether variable is an Image::Magick object
+check whether variable is an L<Image::Magick> object
 
 =item image_pixel_color($image, $x, $y, [@color])
 
-get or set the (rgb) color of a pixel in an Image::Magick object
+get or set the (rgb) color of a pixel in an L<Image::Magick> object
 
 =item image_resize($image, $opts)
 
-resize an Image::Magick object
+resize an L<Image::Magick> object
 
 =item image_width($image)
 
-get width in pixels of Image::Magick object
+get width in pixels of L<Image::Magick> object
 
 =item image_write($image, $filemask)
 
-save an Image::Object to file
+save an L<Image::Object> to file
 
 =back
 
@@ -3926,10 +4043,6 @@ determine whether file is a debian package file
 
 determine whether file is a perl executable file
 
-=item file_is_deb($filepath)
-
-determine whether file is a debian package file
-
 =item file_is_mimetype($filepath, $mimetype)
 
 determine whether a given file is a specified mimetype
@@ -4000,11 +4113,19 @@ delete files and recursively delete directories
 
 convert a relative path to an absolute path
 
+=item subdir_list([$directory[, $pattern]])
+
+list subdirectories of directory containing a file (matching a pattern)
+
 =back
 
 =head3 Program interaction
 
 =over
+
+=item config_file($stem[, $silent[, $suffixes]])
+
+locate and access a configuration file
 
 =item copy_to_clipboard($val)
 
@@ -4050,7 +4171,7 @@ determine whether supplied time is valid 24 hour time
 
 =item time_now( )
 
-provide current time ('HH::MM::SS')
+provide current time ('HH:MM:SS')
 
 =item time_zone_from_offset($offset)
 
@@ -4326,6 +4447,73 @@ The named captures can be accessed with code like:
         my $version = "$LAST_PAREN_MATCH{'version'}";
         # ...
     }
+
+=head2 compare_arrays($array1, $array2)
+
+Compare two arrays to determine what elements were added to or removed from the
+first array to produce the the second array.
+
+=head3 Parameters
+
+=over
+
+=item $arrayref1
+
+First array to compare. Required. Array reference.
+
+=item $arrayref2
+
+Second array to compare. Required. Array reference.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+L<Role::Utils::Dn::ArrayCompare> object.
+
+=head3 Note
+
+The returned object informs whether the first array was changed to produce the
+second array and whether elements were added to or removed from the first array
+to produce the second array. It also provides lists of the elements that were
+added to or removed from the first array to produce the second array.
+
+=head2 config_file($stem[, $silent[, $suffixes]])
+
+Locate and read a configuration file, and make the configuration values
+available.
+
+=head3 Parameters
+
+=over
+
+=item $stem
+
+Configuration file stem. Scalar string. Required.
+
+=item $silent
+
+Suppress non-error feedback. Scalar boolean. Optional. Default: false.
+
+=item $suffixes
+
+Possible file endings and extensions for configuration file name. Optional.
+Default: see L<Role::Utils::Dn::ConfigFile> documentation.
+
+=back
+
+=head3 Prints
+
+Feedback and error messages, see L<Role::Utils::Dn::ConfigFile> documentation
+for details.
+
+=head3 Returns
+
+L<Role::Utils::Dn::ConfigFile> object.
 
 =head2 configure_ac_version_regex( )
 
@@ -4736,8 +4924,8 @@ all subdirectories.
 
 =item $dir
 
-Path to directory whose contents are to be deleted. Path::Tiny object or scalar
-string. Required.
+Path to directory whose contents are to be deleted. L<Path::Tiny> object or
+scalar string. Required.
 
 =back
 
@@ -5499,7 +5687,7 @@ to zero.
 
 =item $image
 
-Image::Magick object. Scalar object reference. Required.
+L<Image::Magick> object. Scalar object reference. Required.
 
 =item $side
 
@@ -5531,9 +5719,9 @@ Nil. Edits $image in place.
 
 =head2 image_create($filepath, $attributes)
 
-Create Image::Magick object from image file.
+Create L<Image::Magick> object from image file.
 
-Note that this method relies on Image::Magick reading the underlying image
+Note that this method relies on L<Image::Magick> reading the underlying image
 file. It is possible for this operation to exhaust cache resources and cause a
 fatal error. See L</"Exhausting cache resources"> for further details.
 
@@ -5547,8 +5735,8 @@ Image file path. Scalar string. Required.
 
 =item $attributes
 
-Image::Magick attributes, e.g., 'density' and 'quality'. Further details about
-settings can be found online
+L<Image::Magick> attributes, e.g., 'density' and 'quality'. Further details
+about settings can be found online
 L<here|http://www.imagemagick.org/script/command-line-processing.php#setting>.
 Hash reference. Optional.
 
@@ -5560,11 +5748,11 @@ Error messages.
 
 =head3 Returns
 
-Image::Magick object.
+L<Image::Magick> object.
 
 =head2 image_crop($image, $coords)
 
-Crop Image::Magick object.
+Crop L<Image::Magick> object.
 
 =head3 Parameters
 
@@ -5572,7 +5760,7 @@ Crop Image::Magick object.
 
 =item $image
 
-Image::Magick object. Scalar object reference. Required.
+L<Image::Magick> object. Scalar object reference. Required.
 
 =item $coords
 
@@ -5613,9 +5801,9 @@ Nil. Edits $image in place.
 =head2 image_files_valid(@filepaths)
 
 Determine whether all files can be opened as images, specifically, whether the
-files can be read into Image::Magick objects.
+files can be read into L<Image::Magick> objects.
 
-Note that the Image::Magick module, which is called to read each image file,
+Note that the L<Image::Magick> module, which is called to read each image file,
 will die if it is unable to open the file as an image. Thus, this method will
 die if it encounters an invalid image file.
 
@@ -5648,7 +5836,7 @@ Get image height in pixels.
 
 =item $image
 
-Image::Magick object. Required.
+L<Image::Magick> object. Required.
 
 =back
 
@@ -5670,7 +5858,7 @@ Add text label to image.
 
 =item $image
 
-Image::Magick object. Required.
+L<Image::Magick> object. Required.
 
 =item $text
 
@@ -5686,7 +5874,7 @@ Accepts the keys:
 
 =item $font
 
-Label font name. String. Optional. Default font selected by Image::Magick.
+Label font name. String. Optional. Default font selected by L<Image::Magick>.
 
 Font names known to ImageMagick can be listed using the shell command:
 
@@ -5695,12 +5883,12 @@ Font names known to ImageMagick can be listed using the shell command:
 =item $size
 
 Label font size in points. Integer. Optional. Default font size selected by
-Image::Magick.
+L<Image::Magick>.
 
 =item $color
 
 Label font color. String. Optional. Default cont color selected by
-Image::Magick.
+L<Image::Magick>.
 
 Further details about color names and the imagemagick color specification can
 be found online L<here|http://www.imagemagick.org/script/color.php>.
@@ -5761,7 +5949,7 @@ S<< bottom-right >> pixel in the image.
 
 =item $image
 
-Image::Magick object. Scalar object reference. Required.
+L<Image::Magick> object. Scalar object reference. Required.
 
 =back
 
@@ -5784,7 +5972,7 @@ S<< bottom-right >> pixel in the image.
 
 =item $image
 
-Image::Magick object. Scalar object reference. Required.
+L<Image::Magick> object. Scalar object reference. Required.
 
 =back
 
@@ -5800,7 +5988,7 @@ Scalar integer.
 
 =head3 Purpose
 
-Verify that a variable is an Image::Magick object.
+Verify that a variable is an L<Image::Magick> object.
 
 =head3 Parameters
 
@@ -5835,7 +6023,7 @@ blue), in the range 0-255.
 
 =item $image
 
-Image::Magick object. Scalar object reference. Required.
+L<Image::Magick> object. Scalar object reference. Required.
 
 =item $x
 
@@ -5879,7 +6067,7 @@ width and height; this can cause considerable image distortion.
 
 =item $image
 
-Image::Magick object. Scalar object reference. Required.
+L<Image::Magick> object. Scalar object reference. Required.
 
 =item $opts
 
@@ -5930,7 +6118,7 @@ Get image width in pixels.
 
 =item $image
 
-Image::Magick object. Required.
+L<Image::Magick> object. Required.
 
 =back
 
@@ -5948,7 +6136,7 @@ Write image to file. In some circumstances multiple output files can be
 generated; in these cases the filemask needs to contain printf-like format
 codes enabling assignation of distinguishing numbers.
 
-Note that this method relies on Image::Magick writing the output image files.
+Note that this method relies on L<Image::Magick> writing the output image files.
 It is possible for this operation to exhaust cache resources and cause a fatal
 error. See L</"Exhausting cache resources"> for further details.
 
@@ -5958,7 +6146,7 @@ error. See L</"Exhausting cache resources"> for further details.
 
 =item $image
 
-Image::Magick object. Scalar object reference. Required.
+L<Image::Magick> object. Scalar object reference. Required.
 
 =item $filemask
 
@@ -6512,7 +6700,7 @@ L<Tek-Tips: Pad a String|https://www.tek-tips.com/viewthread.cfm?qid=184815>.
 =head3 Purpose
 
 Display list of lines in terminal using pager. Unless a preferred pager is
-provided the pager used is determined by C<IO::Pager>.
+provided the pager used is determined by L<IO::Pager>.
 
 It does not matter whether or not the lines have terminal newlines or not.
 
@@ -6891,7 +7079,7 @@ Nil.
 
 =head3 Returns
 
-Role::Utils::Dn::CommandResult object.
+L<Role::Utils::Dn::CommandResult> object.
 
 =head3 Note
 
@@ -7038,6 +7226,41 @@ Nil.
 
 String with enclosing formatting commands.
 
+=head2 subdir_list([$directory[, $pattern]])
+
+=head3 Purpose
+
+List all subdirectory paths under directory containing at least one file,
+optionally only subdirectories containing files matching a glob or regex.
+The pattern is matched against the absolute directory path, not just the file.
+This is counterintuitive behaviour and must be carefully considered.
+
+Returns a sorted list of absolute directory paths.
+
+=head3 Parameters
+
+=over
+
+=item $directory
+
+Directory path. Required.
+
+=item $pattern
+
+File name pattern to match. Regular expression (qr//) or glob. Optional.
+Default: all files.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+List of sorted absolute directory paths.
+Dies if operation fails.
+
 =head2 term_connected( )
 
 =head3 Purpose
@@ -7117,7 +7340,7 @@ Scalar boolean.
 
 =head3 Purpose
 
-Get current time ('HH::MM::SS').
+Get current time ('HH:MM:SS').
 
 =head3 Parameters
 
@@ -7576,7 +7799,7 @@ Occurs when the wrong number of parameters is provided to a function.
 These errors occur when an invalid parameter value is provided to an
 image-related method.
 
-=head2 Image::Magick->METHOD failed: ERROR
+=head2 L<Image::Magick>->METHOD failed: ERROR
 
 These errors occur if an L<Image::Magick> method fails.
 
@@ -7704,14 +7927,14 @@ Please report any bugs to the author.
 
 =head2 Exhausting cache resources during image processing
 
-The methods C<image_create> and C<image_write> utilise Image::Magick C<Read>
+The methods C<image_create> and C<image_write> utilise L<Image::Magick> C<Read>
 and C<Write> operations, respectively. Both operations can potentially exhaust
-Image::Magick's cache resources causing fatal errors.
+L<Image::Magick>'s cache resources causing fatal errors.
 
 For example, reading a 30MB pdf file containing 30 pages has caused a fatal
 error on a mid-range desktop computer system, as has attempting to write each
 pdf page as a separate png image file. In each case the error is due to
-inability to read from or write to the pixel cache (Image::Magick error code
+inability to read from or write to the pixel cache (L<Image::Magick> error code
 445). A sample error message is:
 
     Exception 445: cache resources exhausted

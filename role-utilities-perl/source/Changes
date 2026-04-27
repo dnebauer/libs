@@ -1,5 +1,16 @@
 Revision history for Perl module Role-Utils-Dn
 
+0.8  2026-04-27
+  * add config_file method
+  * add Role::Utils::Dn::ConfigFile module
+
+0.7  2026-04-26
+  * add compare_arrays method
+  * add Role::Utils::Dn::ArrayCompare module
+
+0.6  2026-04-26
+  * add subdir_list method
+
 0.5  2026-02-15
   * prevent '()' in pod head2 to avoid coloration
   * remove deprecated flag for English module
