@@ -33,6 +33,7 @@ requires 'IO::Pager';
 requires 'IPC::Cmd', '1.04';
 requires 'IPC::Run';
 requires 'Image::Magick';
+requires 'List::Compare';
 requires 'List::SomeUtils';
 requires 'List::Util';
 requires 'Moo::Role';

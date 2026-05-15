@@ -36,6 +36,7 @@ use IO::Interactive;
 use IO::Pager;
 use IPC::Cmd;
 use IPC::Run;    # required by IPC::Cmd
+use List::Compare;
 use List::SomeUtils;
 use List::Util qw(reduce);
 use Net::Ping::External;
@@ -325,31 +326,27 @@ sub changelog_version_regex ($self)
 #         $array2 - second array to compare [required, arrayref]
 # prints: nil
 # return: Role::Utils::Dn::ArrayCompare object
-sub compare_arrays($self, $array1, $array2) { ## no critic (RequireInterpolationOfMetachars)
+sub compare_arrays($self, $c_array1, $c_array2) { ## no critic (RequireInterpolationOfMetachars)
+
   # process params
-  my $array1_ref = ref $array1;
-  if ($array1_ref ne $REF_TYPE_ARRAY) {
-    if ($array1_ref eq q{}) {
-      croak 'Param 1: expected array reference, got scalar';
-    }
-    else {
-      croak "Param1: expected ARRAY reference, got $array1_ref reference";
-    }
-  }
-  my $array2_ref = ref $array2;
-  if ($array2_ref ne $REF_TYPE_ARRAY) {
-    if ($array2_ref eq q{}) {
-      croak 'Param2: expected array reference, got scalar';
-    }
-    else {
-      croak "Param2: expected ARRAY reference, got $array2_ref reference";
+  my $tokens = [ [ '1', $c_array1 ], [ '2', $c_array2 ] ];
+  for my $param_tokens (@{$tokens}) {
+    my ($num, $param) = @{$param_tokens};
+    my $array_ref = ref $param;
+    if ($array_ref ne $REF_TYPE_ARRAY) {
+      if ($array_ref eq q{}) {
+        croak "Param $num: expected arrayref, got scalar";
+      }
+      else {
+        croak "Param: $num expected arrayref, got $array_ref reference";
+      }
     }
   }
 
   # create and return array comparison object
   return Role::Utils::Dn::ArrayCompare->new(
-    array1 => $array1,
-    array2 => $array2,
+    array1 => $c_array1,
+    array2 => $c_array2,
   );
 }
 
@@ -1372,6 +1369,34 @@ sub file_list ($self, $dir = undef, $pattern = undef)
   # sort for return
   my @sorted_files = sort @files;
   return @sorted_files;
+}
+
+# file_list_recursively([$dir[, $pattern]])    {{{1
+#
+# does:   recursively list files in directory
+# params: $dir     - directory path [string, optional, default=cwd]
+#         $pattern - file name pattern to match
+#                    [regex (qr//), optional, default=all files]
+# prints: nil
+# return: list of absolute filepaths, die if operation fails
+sub file_list_recursively ($self, $dir = undef, $pattern = undef)
+{    ## no critic (RequireInterpolationOfMetachars, ProhibitDuplicateLiteral)
+
+  # process directory
+  if (not $dir) { $dir = $self->cwd(); }
+  $dir = $self->path_true($dir);
+  if (not -d $dir) { confess "Invalid directory: $dir"; }
+
+  # find all matching files
+  my @fps;
+  if ($pattern) {
+    @fps = File::Find::Rule->file()->name($pattern)->in($dir);
+  }
+  else {
+    @fps = File::Find::Rule->file()->in($dir);
+  }
+
+  return @fps;
 }
 
 # file_mime_type($filepath)    {{{1
@@ -2405,7 +2430,7 @@ sub interact_echo_en ($self, $text)
 
 # interact_print(msg)    {{{1
 #
-# does:   print message to stdout if script is interactice,
+# does:   print message to stdout if script is interactive,
 #         i.e., connected to a console, otherwise message is not printed
 # params: msg - text to print [scalar, required]
 # prints: message (if connected to console)
@@ -2442,7 +2467,7 @@ sub interact_prompt ($self, $message = 'Press any key to continue...')
 
 # interact_say(msg)    {{{1
 #
-# does:   print message to stderr (with newline) if script is interactice,
+# does:   print message to stderr (with newline) if script is interactive,
 #         i.e., connected to a console, otherwise message is not printed
 # params: msg - text to print [scalar, required]
 # prints: message with newline (if connected to console)
@@ -2459,7 +2484,7 @@ sub interact_say ($self, $msg)
 
 # interact_warn(msg)    {{{1
 #
-# does:   print message (with newline) to stderr if script is interactice,
+# does:   print message (with newline) to stderr if script is interactive,
 #         i.e., connected to a console, otherwise message is not printed
 # params: msg - text to print [scalar, required]
 # prints: message with newline to stderr (if connected to console)
@@ -3309,6 +3334,42 @@ sub subdir_list ($self, $dir, $name = q{*}) {## no critic (RequireInterpolationO
   return @dirpaths;
 }
 
+# subtract_array($array1, $array2)    {{{1
+#
+# does:   subtracts one array from another
+#
+# params: $array1 - array to subtract from [required, arrayref]
+#         $array2 - array to subtract [required, arrayref]
+# prints: nil
+# return: list
+# note:   returned list is sorted using perl's default 'ASCII-betical' sort
+# note:   all matching items are subtracted so one item in the
+#         subtraction array can result in removal of multiple items
+# note:   undefined list values are pruned
+sub subtract_array($self, $s_array1, $s_array2) {## no critic (RequireInterpolationOfMetachars)
+
+  # process params
+  my $tokens = [ [ '1', $s_array1 ], [ '2', $s_array2 ] ];
+  for my $param_tokens (@{$tokens}) {
+    my ($num, $param) = @{$param_tokens};
+    my $array_ref = ref $param;
+    if ($array_ref ne $REF_TYPE_ARRAY) {
+      if ($array_ref eq q{}) {
+        croak "Param $num: expected arrayref, got scalar";
+      }
+      else {
+        croak "Param: $num expected arrayref, got $array_ref reference";
+      }
+    }
+  }
+
+  # perform subtraction
+  my $compare   = List::Compare->new($s_array1, $s_array2);
+  my @remainder = $compare->get_unique;
+
+  return @remainder;
+}
+
 # term_connected()    {{{1
 #
 # does:   determine whether connected to terminal, i.e., is interactive
@@ -3541,11 +3602,11 @@ sub vim_print ($self, $type, @messages)
   # - attributes (to pass to function 'colored')
   ## no critic (ProhibitDuplicateLiteral)
   my $attributes =
-        $type eq 't' ? [ 'bold', 'magenta' ]
-      : $type eq 'p' ? [ 'bold', 'bright_green' ]
-      : $type eq 'w' ? ['bright_red']
-      : $type eq 'e' ? [ 'bold', 'white', 'on_red' ]
-      :                ['reset'];
+        $type =~ /^t/ixsm ? [ 'bold', 'magenta' ]
+      : $type =~ /^p/ixsm ? [ 'bold', 'bright_green' ]
+      : $type =~ /^w/ixsm ? ['bright_red']
+      : $type =~ /^e/ixsm ? [ 'bold', 'white', 'on_red' ]
+      :                     ['reset'];
   ## use critic
 
   # print messages
@@ -3851,6 +3912,10 @@ prefix each list item with element index (base = 1)
 
 get duplicate list items
 
+=item subtract_array($arrayref1, $arrayref2)
+
+subtract one array from another
+
 =back
 
 =head3 Debian/GNU
@@ -4050,6 +4115,10 @@ determine whether a given file is a specified mimetype
 =item file_list([$directory[, $pattern]])
 
 list files in directory, optionally listing only those matching a pattern
+
+=item file_list_recursively([$directory[, $pattern]])
+
+list files (matching a pattern) of directory recursively
 
 =item file_mime_type($filepath)
 
@@ -4274,7 +4343,7 @@ use shell command 'echo -en' to display text
 
 =item interact_print($msg)
 
-print message to stdout if script is interactice,
+print message to stdout if script is interactive,
 
 =item interact_prompt($message)
 
@@ -5429,6 +5498,39 @@ Nil.
 
 List. Dies if operation fails.
 
+=head2 file_list_recursively([$directory[, $pattern]])
+
+=head3 Purpose
+
+List all files in the directory tree under a directory, optionally restricting
+output to files matching a glob or regex.
+
+Returns a list of absolute directory paths.
+
+=head3 Parameters
+
+=over
+
+=item $directory
+
+Directory path. String. Optional. Default: current directory.
+
+=item $pattern
+
+File name pattern to match. Regular expression (qr//) or glob. Optional.
+Default: all files.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+List of sorted absolute directory paths.
+Dies if operation fails.
+
 =head2 file_mime_type($filepath)
 
 =head3 Purpose
@@ -6440,7 +6542,7 @@ Nil.
 
 =head3 Purpose
 
-Print message to stdout if script is interactice, i.e., connected to a console,
+Print message to stdout if script is interactive, i.e., connected to a console,
 otherwise message is not printed
 
 =head3 Parameters
@@ -6489,7 +6591,7 @@ N/A. Dies on failure.
 
 =head3 Purpose
 
-Print message (with newline) to stdout if script is interactice,
+Print message (with newline) to stdout if script is interactive,
 i.e., connected to a console, otherwise message is not printed
 
 =head3 Parameters
@@ -6514,7 +6616,7 @@ Nil.
 
 =head3 Purpose
 
-Print message (with newline) to stderr if script is interactice,
+Print message (with newline) to stderr if script is interactive,
 i.e., connected to a console, otherwise message is not printed
 
 =head3 Parameters
@@ -7259,6 +7361,42 @@ Nil.
 =head3 Returns
 
 List of sorted absolute directory paths.
+Dies if operation fails.
+
+=head2 subtract_array($array1, $array2)
+
+=head3 Purpose
+
+Subtract one array from another.
+
+The returned list is sorted using perl's default 'ASCII-betical' sort.
+
+Undefined values in the list are pruned from the returned results.
+
+All matching items are subtracted, so one item in the subtraction array can
+result in removal of multiple items.
+
+=head3 Parameters
+
+=over
+
+=item $array1
+
+Array to subtract from. Arrayref. Required.
+
+=item $array2
+
+Array to subtract. Arrayref. Required.
+
+=back
+
+=head3 Prints
+
+Nil.
+
+=head3 Returns
+
+List.
 Dies if operation fails.
 
 =head2 term_connected( )
