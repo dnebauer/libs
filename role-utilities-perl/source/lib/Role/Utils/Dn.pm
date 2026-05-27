@@ -2954,6 +2954,92 @@ sub pluralise ($self, $string, $number)
   return Text::Pluralize::pluralize($string, $number);
 }
 
+# replace_tokens($data, $token_values)    {{{1
+#
+# does:   replace tokens in complex data structure
+# params: $data         - data to edit [required, any]
+#         $token_values - token/replacement value pairs [required, hashref]
+# prints: feedback on error
+# return: boolean, operates on $data by reference
+# note:   recurses through hashrefs and arrayrefs,
+#         replaces values in scalars,
+#         returns other data types unchanged
+sub replace_tokens ($self, $data, $tokens) { ## no critic (RequireInterpolationOfMetachars)
+
+  # process params
+  my $data_ref = ref $data;
+  if (not($data_ref eq $REF_TYPE_HASH or $data_ref eq $REF_TYPE_ARRAY)) {
+    croak "Expected HASH or ARRAY data, got $data_ref";
+  }
+  my $tokens_ref = ref $tokens;
+  if (not($tokens_ref eq $REF_TYPE_HASH)) {
+    croak "Expected HASH tokens, got $tokens_ref";
+  }
+  for my $value (keys %{$tokens}) {
+    my $value_ref = ref $value;
+    if ($value_ref ne q{}) {
+      croak "Expected scalar token values, got: $value_ref";
+    }
+  }
+
+  # cycle through tokens and replace them
+  for my $token (keys %{$tokens}) {
+    my $replace = $tokens->{$token};
+    $self->_search_and_replace($data, $token, $replace);
+  }
+
+  return;
+}
+
+# _search_and_replace($data, $search, $replace)    {{{1
+#
+# does:   replace string throughout complex data structure
+#
+# params: $data    - value to analyse [required, any (due to recursion)]
+#         $search  - search string [required, string]
+#         $replace - replacement string [required, string]
+# prints: feedback on error
+# return: $data, as altered by search and replace
+sub _search_and_replace ($self, $data, $search, $replace) { ## no critic (RequireInterpolationOfMetachars)
+
+  # process params
+  # • cannot check $data - due to recursion it can be anything
+  my $search_ref = ref $search;
+  if ($search_ref ne q{}) {
+    croak "Expected search string, got $search_ref";
+  }
+  my $replace_ref = ref $replace;
+  if ($replace_ref ne q{}) {
+    croak "Expected replace string, got $replace_ref";
+  }
+
+  my $data_ref = ref $data;
+
+  # if hash -> recurse through values
+  if ($data_ref eq $REF_TYPE_HASH) {
+    foreach my $key (keys %{$data}) {
+      $data->{$key} =
+          $self->_search_and_replace($data->{$key}, $search, $replace);
+    }
+  }
+
+  # if array -> recurse through elements
+  elsif ($data_ref eq $REF_TYPE_ARRAY) {
+    foreach my $item (@{$data}) {
+      $item = $self->_search_and_replace($item, $search, $replace);
+    }
+  }
+
+  # if scalar -> perform search and replace
+  else {
+    if (defined $data and $data_ref eq q{}) {
+      $data =~ s/$search/$replace/xsmg;
+    }
+  }
+
+  return $data;
+}
+
 # run_command($err, @cmd)    {{{1
 #
 # does:   run system command and die with custom error message on failure
@@ -4263,6 +4349,10 @@ left- or right-pad a value or list of values with a character
 =item pluralise($string, $numeric)
 
 adjust string based on a provided numerical value
+
+=item replace_tokens($data, $token_values)
+
+replace multiple tokens in complex data structures
 
 =item stringify($val)
 
@@ -7072,6 +7162,67 @@ Nil.
 =head3 Returns
 
 Scalar string.
+
+=head2 replace_tokens($data, $token_values)
+
+=head3 Purpose
+
+Replace multiple tokens in a data structure. While the method accepts any data
+value, it is intended for use with complex data structures of nested arrays
+and/or hashes.
+
+The method accepts a hashref of paired search strings and replacement strings.
+
+The method recurses through array elements and hash values. Recursion in any
+given path stops when it encounters a value/element that is neither an
+arrayref, hashref or scalar.
+
+For each scalar that is encountered, the method cycles through each
+search/replace pair and replaces each occurrence of the search string in the
+scalar.
+
+The supplied data value is edited in place. The method does not return the
+altered data structure, but instead returns a boolean value indicating whether
+the method completed successfully.
+
+=head3 Parameters
+
+=over
+
+=item $data
+
+The data structure to analyse and edit. Can be any data type. Required.
+
+=item $token_values
+
+A set of tokens and their replacement values. Required.
+Hashref (token keys and replacement string values).
+
+=back
+
+=head3 Prints
+
+Feedback on failure.
+
+=head3 Returns
+
+Boolean, indicating success of operation.
+
+Note that the method operates on $data by reference, that is, it is edited in
+place.
+
+=head3 Notes
+
+The method recurses through hashrefs and arrayrefs, replaces values in scalars,
+and returns other data types unchanged.
+
+=head3 Usage
+
+    use Role::Utils::Dn;
+
+    my ($tokens, $data) = (..., ...);
+
+    $self->replace_tokens($data, $tokens);
 
 =head2 run_command($err, @cmd)
 

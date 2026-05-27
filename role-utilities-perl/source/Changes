@@ -1,5 +1,8 @@
 Revision history for Perl module Role-Utils-Dn
 
+0.12 2026-05-27
+  * add replace_tokens method
+
 0.11 2026-05-15
   * add file_list_recursively method
 

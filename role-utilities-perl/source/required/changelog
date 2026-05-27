@@ -1,3 +1,9 @@
+librole-utils-dn-perl (0.12-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- David Nebauer <david@nebauer.org>  Wed, 27 May 2026 20:59:18 +0930
+
 librole-utils-dn-perl (0.11-1) unstable; urgency=low
 
   * New upstream release
