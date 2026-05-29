@@ -1,5 +1,8 @@
 Revision history for Perl module Role-Utils-Dn
 
+0.13 2026-05-30
+  * update Diagnostics section in pod/man
+
 0.12 2026-05-27
   * add replace_tokens method
 

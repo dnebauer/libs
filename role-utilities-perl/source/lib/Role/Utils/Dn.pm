@@ -8025,12 +8025,14 @@ Occurs while attempting to extract the major part of the version number of the
 F<debhelper> debian package to use as the debian compatibility level.
 
 =head2 Unable to extract version information for package PKG
+
 =head2 Unable to extract PKG version from OUTPUT
 
 Occur when attempting to determine a debian packages current version by parsing
 the package's status information as returned by C<dpkg -s>.
 
 =head2 Unable to get 'debian-policy' status with dpkg
+
 =head2 Unable to extract 3-part version from 'VERSION'
 
 These errors occur while attempting to determine the current debian standards
@@ -8042,20 +8044,35 @@ package to the first three parts.
 Occurs when a non-integer is provided to the C<int_pad_width> method.
 
 =head2 Empty color
+
 =head2 No top/bottom border width provided
+
 =head2 No side border width provided
+
 =head2 No bottom-right pixel y-coord provided
+
 =head2 No bottom-right pixel x-coord provided
+
 =head2 No top_left pixel y-coordinate provided
+
 =head2 No top_left pixel x-coordinate provided
+
 =head2 No fill color provided
+
 =head2 No width provided
+
 =head2 No height provided
+
 =head2 No y-coordinate provided
+
 =head2 No x-coordinate provided
+
 =head2 No label text provided
+
 =head2 No file mask provided
+
 =head2 No image provided
+
 =head2 No filepath provided
 
 These errors occur when a required parameter to an image-related method is not
@@ -8066,23 +8083,41 @@ provided.
 Occurs when the wrong number of parameters is provided to a function.
 
 =head2 Non-integer border width 'WIDTH'
+
 =head2 Non-integer border width 'WIDTH'
+
 =head2 Not an image object
+
 =head2 Invalid filepath 'PATH'
+
 =head2 Invalid attributes var type 'TYPE'
+
 =head2 Invalid coordinate 'COORD'
+
 =head2 Not an image object
+
 =head2 Invalid space value 'SPACE'
+
 =head2 Invalid edge 'EDGE'
+
 =head2 Invalid size value 'SIZE'
+
 =head2 Non-integer y-coordinate 'Y'
+
 =head2 Non-integer x-coordinate 'X'
+
 =head2 X-coordinate $x > image's largest x-coord COORD
+
 =head2 Y-coordinate $y > image's largest y-coord COORD
+
 =head2 Incomplete color provided (COLOR)
+
 =head2 Non-integer color value (COLOR)
+
 =head2 Non-integer width 'WIDTH'
+
 =head2 Non-integer height 'HEIGHT'
+
 =head2 Color value out of range (COLOR)
 
 These errors occur when an invalid parameter value is provided to an
@@ -8093,31 +8128,68 @@ image-related method.
 These errors occur if an L<Image::Magick> method fails.
 
 =head2 No source directory provided
+
 =head2 No target provided
+
 =head2 No source file provided
+
 =head2 No filepaths
+
 =head2 No target directory provided
+
 =head2 No filepath provided
+
 =head2 No dirpath provided
+
 =head2 Filepath 1 not provided
+
 =head2 Filepath 2 not provided
+
 Occurs when a path is required by a function but is not provided.
+
 =head2 Source directory 'PATH' does not exist
+
 =head2 Source file 'PATH' does not exist
+
 =head2 Filepath 'PATH' does not exist
+
 =head2 Directory path 'PATH' does not exist
+
 =head2 Invalid directory 'PATH'
+
 =head2 Comparison file 'PATH' does not exist
 
 Occurs when an existing path is required by a function but the provided path:
 
 =over
 
-=item does not exist, or
+=item *
 
-=item the executing script does not have permission to detect the path.
+does not exist, or
+
+=item *
+
+the executing script does not have permission to detect the path.
 
 =back
+
+=head2 Expected TYPE data, got TYPE
+
+=head2 Expected TYPE or TYPE data, got TYPE
+
+=head2 Invalid PARAM: VALUE
+
+=head2 Param NUM: expected TYPE, got TYPE
+
+=head2 Need TYPE, got a TYPE
+
+=head2 Not a PARAM: VALUE
+
+Occurs when a method parameter is invalid or of the wrong type.
+
+=head2 Failed to create CLASS object
+
+Occurs when the module encounters an error while instantiating an object.
 
 =head2 Unable to compare 'PATH' and 'PATH': ERROR
 
@@ -8139,25 +8211,33 @@ When a disk operation, such as a file move or copy, fails, the underlying
 system error is captured and reported to the user.
 
 =head2 Not an array reference
+
 =head2 Input is not a string or array reference
+
 =head2 Invalid option 'OPTION'
 
 These errors occur when an invalid parameter value is provided.
 
 =head2 Values are 'TYPE' instead of 'ARRAY'";
+
 =head2 Invalid width 'WIDTH'
+
 =head2 Want single pad char, got 'STRING'
+
 =head2 Expect side is 'left' or 'right', got 'ARG'
 
 These errors occur when an invalid parameter value is provided.
 
 =head2 No lines provided
+
 =head2 No strings provided
 
 These errors occur when a required function parameter is not provided.
 
 =head2 Not an array reference
+
 =head2 Input is not a string or array reference
+
 =head2 Invalid option 'OPTION'
 
 These errors occur when an invalid parameter value is provided.
@@ -8167,6 +8247,7 @@ These errors occur when an invalid parameter value is provided.
 This error occurs when unable to read from a data store.
 
 =head2 Data structure is not a reference
+
 =head2 Invalid data file path in 'FILE'
 
 These errors occur when attempting to write a data store.
